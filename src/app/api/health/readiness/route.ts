@@ -15,9 +15,7 @@ export async function GET() {
   if (isDatabaseConfigured) {
     try {
       // Lightweight single-row query without heavy operations
-      await (db.orm.public.Setting as any).findFirst({
-        select: { id: true },
-      })
+      await db.orm.public.Setting.first()
       dbStatus = 'connected'
     } catch {
       dbStatus = 'disconnected'
