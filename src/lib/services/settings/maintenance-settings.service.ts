@@ -24,9 +24,9 @@ export async function getMaintenanceModeStatus(): Promise<MaintenanceModeStatus>
 
   if (isDatabaseConfigured) {
     try {
-      const setting = await (db.orm.public.Setting as any).findUnique({
-        where: { key: SETTING_KEY_MAINTENANCE },
-      })
+      const setting = await (db.orm.public.Setting as any)
+        .where({ key: SETTING_KEY_MAINTENANCE })
+        .first()
       if (setting && typeof setting.value === 'string') {
         dbValue = setting.value.trim().toLowerCase()
         if (setting.updatedAt) {
@@ -68,6 +68,8 @@ export async function getMaintenanceModeStatus(): Promise<MaintenanceModeStatus>
  *
  * Persists value to 'system.maintenance_mode' in Setting table and immediately
  * refreshes the in-process cache.
+ *
+ * Uses safe find-then-update/create for Prisma 8 hybrid ORM compatibility.
  */
 export async function setMaintenanceModeStatus(
   enabled: boolean,
@@ -78,20 +80,25 @@ export async function setMaintenanceModeStatus(
 
   if (isDatabaseConfigured) {
     try {
-      await (db.orm.public.Setting as any).upsert({
-        where: { key: SETTING_KEY_MAINTENANCE },
-        create: {
+      const existing = await (db.orm.public.Setting as any)
+        .where({ key: SETTING_KEY_MAINTENANCE })
+        .first()
+
+      if (existing) {
+        await (db.orm.public.Setting as any)
+          .where({ key: SETTING_KEY_MAINTENANCE })
+          .update({
+            value: valueStr,
+          })
+      } else {
+        await (db.orm.public.Setting as any).create({
           key: SETTING_KEY_MAINTENANCE,
           value: valueStr,
           type: 'boolean',
           group: 'system',
           label: 'Site Bakım Modu (Storefront Maintenance)',
-        },
-        update: {
-          value: valueStr,
-          updatedAt: now,
-        },
-      })
+        })
+      }
     } catch (err) {
       console.error('[maintenance-settings] Failed to update maintenance mode in DB:', err)
       throw new Error('Bakım modu veritabanına kaydedilemedi.')

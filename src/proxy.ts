@@ -25,16 +25,45 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const host = request.headers.get('host') || request.nextUrl.host || ''
 
-  // 0. Dashboard Subdomain Support (dashboard.zuulab.com -> /admin)
-  // If request arrives at dashboard.zuulab.com (or dashboard.localhost in dev), rewrite or route to /admin
+  // 0. Canonical Admin Redirect (zuulab.com/admin -> dashboard.zuulab.com)
+  // When an admin navigates to zuulab.com/admin (or www.zuulab.com/admin),
+  // redirect with HTTP 308 Permanent Redirect to dashboard.zuulab.com.
   const isDashboardSubdomain = host.startsWith('dashboard.')
-  if (isDashboardSubdomain && (pathname === '/' || pathname === '')) {
+  const isZuulabRootHost =
+    host === 'zuulab.com' ||
+    host === 'www.zuulab.com' ||
+    host.endsWith('.vercel.app')
+
+  if (!isDashboardSubdomain && isZuulabRootHost && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
+    const dashboardSubPath = pathname.replace(/^\/admin/, '') || '/'
+    const targetUrl = new URL(`https://dashboard.zuulab.com${dashboardSubPath}${request.nextUrl.search}`)
+    return NextResponse.redirect(targetUrl, 308)
+  }
+
+  // 1. Dashboard Subdomain Support (dashboard.zuulab.com/* -> internal /admin/*)
+  // When request arrives at dashboard.zuulab.com (or dashboard.localhost in dev):
+  // /              -> /admin
+  // /orders        -> /admin/orders
+  // /settings      -> /admin/settings
+  // /admin/orders  -> /admin/orders (prevent double /admin)
+  // /api/*         -> /api/* (pass through untouched)
+  if (isDashboardSubdomain) {
+    if (pathname.startsWith('/api') || pathname.startsWith('/_next') || /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|txt|xml|woff|woff2)$/i.test(pathname)) {
+      return NextResponse.next()
+    }
+
     const adminUrl = request.nextUrl.clone()
-    adminUrl.pathname = '/admin'
+    if (pathname === '/' || pathname === '') {
+      adminUrl.pathname = '/admin'
+    } else if (pathname.startsWith('/admin')) {
+      adminUrl.pathname = pathname
+    } else {
+      adminUrl.pathname = `/admin${pathname}`
+    }
     return NextResponse.rewrite(adminUrl)
   }
 
-  // 1. Explicit Route Exclusions (Defense-in-depth)
+  // 2. Explicit Route Exclusions (Defense-in-depth)
   // Ensure that /api, /admin, webhooks, crons, health, and static files NEVER hit maintenance
   if (
     pathname.startsWith('/api') ||

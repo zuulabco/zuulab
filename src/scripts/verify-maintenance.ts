@@ -251,25 +251,89 @@ async function runTests() {
     assert(proxy(reqSitemap).status !== 503, 'sitemap.xml is NEVER blocked')
 
     // ----------------------------------------------------
-    // TEST 8: Dashboard Subdomain Routing (dashboard.zuulab.com -> /admin)
     // ----------------------------------------------------
-    console.log('\n[8/9] Testing Dashboard Subdomain Routing...')
-    const reqDashboardSubdomainRoot = new NextRequest('https://dashboard.zuulab.com/', {
+    // TEST 8: Dashboard Subdomain Routing & Canonical Admin Redirects
+    // ----------------------------------------------------
+    console.log('\n[8/10] Testing Dashboard Subdomain Routing & Canonical Admin Redirects...')
+    
+    // 8.1: dashboard.zuulab.com/ -> rewrites to /admin
+    const reqDashRoot = new NextRequest('https://dashboard.zuulab.com/', {
       headers: { host: 'dashboard.zuulab.com' },
     })
-    const resDashboardSubdomainRoot = proxy(reqDashboardSubdomainRoot)
-    assert(resDashboardSubdomainRoot.status !== 503, 'dashboard.zuulab.com root is NOT blocked by maintenance')
+    const resDashRoot = proxy(reqDashRoot)
+    assert(resDashRoot.status !== 503, 'dashboard.zuulab.com root is NOT blocked by maintenance')
     assert(
-      resDashboardSubdomainRoot.headers.get('x-middleware-rewrite')?.endsWith('/admin') ||
-      resDashboardSubdomainRoot.headers.get('location')?.includes('/admin') ||
-      resDashboardSubdomainRoot.status === 200,
-      'dashboard.zuulab.com routes internally to /admin'
+      resDashRoot.headers.get('x-middleware-rewrite')?.endsWith('/admin') || false,
+      'dashboard.zuulab.com/ rewrites internally to /admin'
+    )
+
+    // 8.2: dashboard.zuulab.com/orders -> rewrites to /admin/orders
+    const reqDashOrders = new NextRequest('https://dashboard.zuulab.com/orders', {
+      headers: { host: 'dashboard.zuulab.com' },
+    })
+    const resDashOrders = proxy(reqDashOrders)
+    assert(
+      resDashOrders.headers.get('x-middleware-rewrite')?.endsWith('/admin/orders') || false,
+      'dashboard.zuulab.com/orders rewrites internally to /admin/orders'
+    )
+
+    // 8.3: dashboard.zuulab.com/settings -> rewrites to /admin/settings
+    const reqDashSettings = new NextRequest('https://dashboard.zuulab.com/settings', {
+      headers: { host: 'dashboard.zuulab.com' },
+    })
+    const resDashSettings = proxy(reqDashSettings)
+    assert(
+      resDashSettings.headers.get('x-middleware-rewrite')?.endsWith('/admin/settings') || false,
+      'dashboard.zuulab.com/settings rewrites internally to /admin/settings'
+    )
+
+    // 8.4: dashboard.zuulab.com/admin/settings -> does not duplicate /admin
+    const reqDashAdminSettings = new NextRequest('https://dashboard.zuulab.com/admin/settings', {
+      headers: { host: 'dashboard.zuulab.com' },
+    })
+    const resDashAdminSettings = proxy(reqDashAdminSettings)
+    assert(
+      resDashAdminSettings.headers.get('x-middleware-rewrite')?.endsWith('/admin/settings') || false,
+      'dashboard.zuulab.com/admin/settings prevents double /admin and rewrites to /admin/settings'
+    )
+
+    // 8.5: zuulab.com/admin -> 308 redirect to https://dashboard.zuulab.com/
+    const reqRootAdmin = new NextRequest('https://zuulab.com/admin', {
+      headers: { host: 'zuulab.com' },
+    })
+    const resRootAdmin = proxy(reqRootAdmin)
+    assert(resRootAdmin.status === 308, 'zuulab.com/admin triggers HTTP 308 permanent redirect')
+    assert(
+      resRootAdmin.headers.get('location') === 'https://dashboard.zuulab.com/',
+      'zuulab.com/admin redirects canonical URL to https://dashboard.zuulab.com/'
+    )
+
+    // 8.6: zuulab.com/admin/orders -> 308 redirect to https://dashboard.zuulab.com/orders
+    const reqRootAdminOrders = new NextRequest('https://zuulab.com/admin/orders', {
+      headers: { host: 'zuulab.com' },
+    })
+    const resRootAdminOrders = proxy(reqRootAdminOrders)
+    assert(resRootAdminOrders.status === 308, 'zuulab.com/admin/orders triggers HTTP 308 redirect')
+    assert(
+      resRootAdminOrders.headers.get('location') === 'https://dashboard.zuulab.com/orders',
+      'zuulab.com/admin/orders redirects canonical URL to https://dashboard.zuulab.com/orders'
+    )
+
+    // 8.7: www.zuulab.com/admin/settings -> 308 redirect to https://dashboard.zuulab.com/settings
+    const reqWwwAdminSettings = new NextRequest('https://www.zuulab.com/admin/settings', {
+      headers: { host: 'www.zuulab.com' },
+    })
+    const resWwwAdminSettings = proxy(reqWwwAdminSettings)
+    assert(resWwwAdminSettings.status === 308, 'www.zuulab.com/admin/settings triggers HTTP 308 redirect')
+    assert(
+      resWwwAdminSettings.headers.get('location') === 'https://dashboard.zuulab.com/settings',
+      'www.zuulab.com/admin/settings redirects canonical URL to https://dashboard.zuulab.com/settings'
     )
 
     // ----------------------------------------------------
-    // TEST 9: In-Memory / Database Runtime Cache Control
+    // TEST 9: In-Memory / Runtime Cache Control
     // ----------------------------------------------------
-    console.log('\n[9/9] Testing Runtime State Synchronization...')
+    console.log('\n[9/10] Testing Runtime State Synchronization...')
     const { setCachedMaintenanceState, getCachedMaintenanceState } = await import('../lib/config/maintenance')
 
     // Simulate Admin Panel clicking "Bakım Modunu Aç" (persisted to DB -> cached in runtime)
@@ -293,8 +357,55 @@ async function runTests() {
     })
     assert(proxy(reqUnderDbDisabled).status !== 503, 'Database/cache false immediately restores storefront access')
 
-    // Reset cache to allow env testing
+    // Reset cache to allow clean testing
     setCachedMaintenanceState(null as any, 'default')
+
+    // ----------------------------------------------------
+    // TEST 10: Live Prisma 8 Database Read / Write / Toggle Verification
+    // ----------------------------------------------------
+    console.log('\n[10/10] Testing Live Prisma 8 Setting Query & Mutation...')
+    const { db, isDatabaseConfigured } = await import('../prisma/db')
+    const {
+      getMaintenanceModeStatus,
+      setMaintenanceModeStatus,
+    } = await import('../lib/services/settings/maintenance-settings.service')
+
+    if (isDatabaseConfigured) {
+      // Step 1: Read initial status
+      const initialStatus = await getMaintenanceModeStatus()
+      console.log(`  Initial DB Maintenance status: enabled=${initialStatus.enabled}, source=${initialStatus.source}`)
+
+      // Step 2: Toggle to TRUE using setMaintenanceModeStatus (find-then-update/create)
+      const turnedOn = await setMaintenanceModeStatus(true, 'audit-test@zuulab.com')
+      assert(turnedOn.enabled === true, 'Test B: setMaintenanceModeStatus(true) returned enabled=true')
+      assert(turnedOn.source === 'database', 'Test B: setMaintenanceModeStatus(true) source is database')
+
+      // Step 3: Verify read from DB returns TRUE
+      const verifyTrue = await getMaintenanceModeStatus()
+      assert(verifyTrue.enabled === true, 'Test C: getMaintenanceModeStatus() verified true from live PostgreSQL')
+      assert(verifyTrue.source === 'database', 'Test C: getMaintenanceModeStatus() source is database')
+
+      // Step 4: Toggle to FALSE using setMaintenanceModeStatus
+      const turnedOff = await setMaintenanceModeStatus(false, 'audit-test@zuulab.com')
+      assert(turnedOff.enabled === false, 'Test D: setMaintenanceModeStatus(false) returned enabled=false')
+      assert(turnedOff.source === 'database', 'Test D: setMaintenanceModeStatus(false) source is database')
+
+      // Step 5: Verify read from DB returns FALSE
+      const verifyFalse = await getMaintenanceModeStatus()
+      assert(verifyFalse.enabled === false, 'Test E: getMaintenanceModeStatus() verified false from live PostgreSQL')
+      assert(verifyFalse.source === 'database', 'Test E: getMaintenanceModeStatus() source is database')
+
+      // Step 6: Verify direct Prisma 8 where().first() and where().update()
+      const directRecord = await (db.orm.public.Setting as any).where({ key: 'system.maintenance_mode' }).first()
+      assert(directRecord !== null, 'Test F: Prisma 8 db.orm.public.Setting.where().first() succeeds')
+      assert(typeof directRecord.value === 'string', 'Test F: directRecord has valid value string')
+
+      // Step 7: Restore initial state so production data is untouched
+      await setMaintenanceModeStatus(initialStatus.enabled, 'audit-test@zuulab.com')
+      console.log(`  Cleanly restored maintenance mode to initial state: ${initialStatus.enabled}`)
+    } else {
+      console.log('  [SKIPPED: DATABASE_URL not configured in local runner environment]')
+    }
 
     console.log('\n====================================================')
     console.log('ALL MAINTENANCE MODE TESTS PASSED SUCCESSFULLY! (100%)')
