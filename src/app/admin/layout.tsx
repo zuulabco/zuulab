@@ -77,7 +77,7 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, token, devLogin, logout, openAuthModal } = useAuthStore()
+  const { user, token, devLogin, logout, openAuthModal, initAuthListener } = useAuthStore()
   const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -86,7 +86,9 @@ export default function AdminLayout({
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    const unsubscribe = initAuthListener()
+    return () => unsubscribe()
+  }, [initAuthListener])
 
   // Auto-close mobile drawer on route change
   useEffect(() => {
@@ -141,6 +143,8 @@ export default function AdminLayout({
       user.role === 'STAFF')
 
   if (!isAdmin) {
+    const isDev = process.env.NODE_ENV !== 'production'
+
     return (
       <div className={styles.gateContainer}>
         <div className={styles.gateCard}>
@@ -153,17 +157,20 @@ export default function AdminLayout({
 
           <button
             className={styles.gateBtn}
-            onClick={() => devLogin('ADMIN')}
-          >
-            Yönetici Olarak Giriş Yap (Admin Dev)
-          </button>
-
-          <button
-            className={styles.gateSecondaryBtn}
             onClick={() => openAuthModal()}
           >
-            Farklı Hesapla Giriş Yap
+            Yönetici Girişi Yap
           </button>
+
+          {isDev && (
+            <button
+              className={styles.gateSecondaryBtn}
+              onClick={() => devLogin('ADMIN')}
+              style={{ marginTop: 8 }}
+            >
+              Geliştirici Girişi (Admin Dev)
+            </button>
+          )}
 
           <div style={{ marginTop: 20 }}>
             <a href="https://zuulab.com" style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>

@@ -36,6 +36,7 @@ interface AuthState {
   clearError: () => void
 
   // Auth actions
+  initAuthListener: () => () => void
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, pass: string) => Promise<void>
   registerWithEmail: (email: string, pass: string, name?: string) => Promise<void>
@@ -55,6 +56,26 @@ export const useAuthStore = create<AuthState>()(
       openAuthModal: () => set({ isAuthModalOpen: true, error: null }),
       closeAuthModal: () => set({ isAuthModalOpen: false, error: null }),
       clearError: () => set({ error: null }),
+
+      // Keeps Firebase ID token fresh across client lifecycle
+      initAuthListener: () => {
+        if (typeof window === 'undefined') return () => {}
+        if (!isFirebaseClientConfigured) return () => {}
+
+        const unsubscribe = auth.onIdTokenChanged(async (firebaseUser) => {
+          if (firebaseUser) {
+            try {
+              const freshToken = await firebaseUser.getIdToken()
+              const currentToken = get().token
+              if (currentToken !== freshToken && !currentToken?.startsWith('dev-token-')) {
+                set({ token: freshToken })
+              }
+            } catch {}
+          }
+        })
+
+        return unsubscribe
+      },
 
       // Sync user with backend database
       syncWithBackend: async (firebaseToken: string, extra?: { name?: string }) => {
@@ -90,6 +111,9 @@ export const useAuthStore = create<AuthState>()(
               }
             } catch {}
           } else {
+            if (res.status === 401) {
+              set({ user: null, token: null })
+            }
             throw new Error(data.error || 'Kullanıcı senkronize edilemedi.')
           }
         } catch (err: any) {
@@ -108,7 +132,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const result = await signInWithPopup(auth, googleProvider)
-          const token = await result.user.getIdToken()
+          // Force fresh token to prevent stale cached token issues
+          const token = await result.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token, { name: result.user.displayName || undefined })
         } catch (err: any) {
@@ -136,7 +161,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const credential = await signInWithEmailAndPassword(auth, email, pass)
-          const token = await credential.user.getIdToken()
+          // Force fresh token directly from Google Auth server
+          const token = await credential.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token)
         } catch (err: any) {
@@ -160,7 +186,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const credential = await createUserWithEmailAndPassword(auth, email, pass)
-          const token = await credential.user.getIdToken()
+          const token = await credential.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token, { name })
         } catch (err: any) {
