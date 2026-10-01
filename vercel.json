@@ -1,21 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/cron/payment-expiration",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/inventory-cleanup",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/shipping-sync",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/notifications-process",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
