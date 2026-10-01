@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { authenticateRequest } from '@/lib/services/auth.service'
+import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.service'
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { createOrder } from '@/lib/services/orders.service'
 import { initiatePayment } from '@/lib/services/payment/payment.service'
@@ -69,7 +69,17 @@ export async function POST(request: Request) {
       }
     }
 
-    const effectiveUserId = user ? user.id : `guest-${Date.now()}`
+    let effectiveUserId: string
+    if (user) {
+      effectiveUserId = user.id
+    } else {
+      const guestCustomer = await getOrCreateGuestUser({
+        email,
+        fullName: effectiveShippingAddress.fullName,
+        phone: effectiveShippingAddress.phone,
+      })
+      effectiveUserId = guestCustomer.id
+    }
 
     // 2. Create Order (calculates prices & shipping authoritatively, reserves inventory)
     const order = await createOrder({

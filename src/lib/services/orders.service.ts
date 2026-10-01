@@ -488,7 +488,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
   // 4. Persist to PostgreSQL if configured
   if (isDatabaseConfigured) {
     try {
-      await db.orm.public.Order.create({
+      const createdDbOrder = await db.orm.public.Order.create({
         orderNumber,
         userId,
         addressId: addressId || null,
@@ -508,6 +508,9 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
         couponCode: verifiedCart.coupon?.code || null,
         customerNote: customerNote || null,
       })
+      if (createdDbOrder?.id) {
+        orderRecord.id = createdDbOrder.id
+      }
     } catch (err) {
       console.warn('[orders.service] DB order create failed, falling back to memory:', err)
     }

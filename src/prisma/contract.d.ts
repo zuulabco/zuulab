@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0904d4dfc135365c92fee01d47b57b24b9a108798924eb99ec4f1d58f8d290cb'>;
+  StorageHashBase<'75115e7b4751c6f8f9ac5046ab9049957cb005f1c83dd911bb78a63e4f66f2f7'>;
 export type ExecutionHash =
   ExecutionHashBase<'e047b7f2775d90d6b8f8b6704e7cbe406d0f5ee12f3346f9fe36a8c6678d7fc9'>;
 export type ProfileHash =
@@ -1219,7 +1219,7 @@ export type FieldOutputTypes = {
       readonly createdAt: CodecTypes['pg/timestamp-temporal@1']['output'];
       readonly email: CodecTypes['pg/text@1']['output'];
       readonly emailVerified: CodecTypes['pg/bool@1']['output'];
-      readonly firebaseUid: CodecTypes['pg/text@1']['output'];
+      readonly firebaseUid: CodecTypes['pg/text@1']['output'] | null;
       readonly firstName: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly isActive: CodecTypes['pg/bool@1']['output'];
@@ -2563,7 +2563,7 @@ export type FieldInputTypes = {
       readonly createdAt: CodecTypes['pg/timestamp-temporal@1']['input'];
       readonly email: CodecTypes['pg/text@1']['input'];
       readonly emailVerified: CodecTypes['pg/bool@1']['input'];
-      readonly firebaseUid: CodecTypes['pg/text@1']['input'];
+      readonly firebaseUid: CodecTypes['pg/text@1']['input'] | null;
       readonly firstName: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly isActive: CodecTypes['pg/bool@1']['input'];
@@ -3907,7 +3907,7 @@ export type StorageColumnTypes = {
       readonly created_at: CodecTypes['pg/timestamp-temporal@1']['output'];
       readonly email: CodecTypes['pg/text@1']['output'];
       readonly email_verified: CodecTypes['pg/bool@1']['output'];
-      readonly firebase_uid: CodecTypes['pg/text@1']['output'];
+      readonly firebase_uid: CodecTypes['pg/text@1']['output'] | null;
       readonly first_name: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly is_active: CodecTypes['pg/bool@1']['output'];
@@ -5251,7 +5251,7 @@ export type StorageColumnInputTypes = {
       readonly created_at: CodecTypes['pg/timestamp-temporal@1']['input'];
       readonly email: CodecTypes['pg/text@1']['input'];
       readonly email_verified: CodecTypes['pg/bool@1']['input'];
-      readonly firebase_uid: CodecTypes['pg/text@1']['input'];
+      readonly firebase_uid: CodecTypes['pg/text@1']['input'] | null;
       readonly first_name: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly is_active: CodecTypes['pg/bool@1']['input'];
@@ -6784,7 +6784,7 @@ export namespace Models {
     createdAt: CodecTypes['pg/timestamp-temporal@1']['output'];
     email: CodecTypes['pg/text@1']['output'];
     emailVerified: CodecTypes['pg/bool@1']['output'];
-    firebaseUid: CodecTypes['pg/text@1']['output'];
+    firebaseUid: CodecTypes['pg/text@1']['output'] | null;
     firstName: CodecTypes['pg/text@1']['output'] | null;
     id: CodecTypes['pg/text@1']['output'];
     isActive: CodecTypes['pg/bool@1']['output'];
@@ -13216,7 +13216,7 @@ type ContractBase = Omit<
                 readonly firebase_uid: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
+                  readonly nullable: true;
                 };
                 readonly first_name: {
                   readonly nativeType: 'text';
@@ -22630,7 +22630,7 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
               readonly firebaseUid: {
-                readonly nullable: false;
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly firstName: {

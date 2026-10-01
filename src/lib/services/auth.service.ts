@@ -4,7 +4,7 @@ import { db, isDatabaseConfigured } from '@/prisma/db'
 
 export interface AuthUser {
   id: string
-  firebaseUid: string
+  firebaseUid: string | null
   email: string
   name: string | null
   avatar: string | null
@@ -81,10 +81,11 @@ export async function syncOrCreateUser(payload: {
   storeId?: string | null
 }): Promise<AuthUser> {
   const { firebaseUid, email, name, avatar, roleOverride, storeId } = payload
+  const normalizedEmail = email.trim().toLowerCase()
 
   // Check if email matches designated admin
   const isAdminEmail =
-    email.toLowerCase() === 'admin@zuulab.com' ||
+    normalizedEmail === 'admin@zuulab.com' ||
     roleOverride === 'ADMIN'
 
   const targetRole: AuthUser['role'] = roleOverride || (isAdminEmail ? 'ADMIN' : 'CUSTOMER')
@@ -92,20 +93,30 @@ export async function syncOrCreateUser(payload: {
   if (isDatabaseConfigured) {
     try {
       // Find existing user by firebaseUid or email
-      const existing = await db.orm.public.User.where({
+      let existing = await db.orm.public.User.where({
         firebaseUid,
       }).first()
 
+      if (!existing && normalizedEmail) {
+        existing = await db.orm.public.User.where({
+          email: normalizedEmail,
+        }).first()
+      }
+
       if (existing) {
-        // Update last login
+        // Update last login and link firebaseUid if it was created as guest
+        const globalTemporal = (globalThis as any).Temporal
+        const nowTemporal = globalTemporal ? globalTemporal.Now.plainDateTimeISO() : (new Date() as any)
         await db.orm.public.User.where({ id: existing.id }).update({
-          lastLoginAt: new Date(),
+          firebaseUid: existing.firebaseUid || firebaseUid,
+          emailVerified: true,
+          lastLoginAt: nowTemporal as any,
           name: name || existing.name,
           avatar: avatar || existing.avatar,
         })
         return {
           id: existing.id,
-          firebaseUid: existing.firebaseUid,
+          firebaseUid: existing.firebaseUid || firebaseUid,
           email: existing.email,
           name: existing.name || name || null,
           avatar: existing.avatar || avatar || null,
@@ -118,7 +129,7 @@ export async function syncOrCreateUser(payload: {
       // Create new user
       const created = await db.orm.public.User.create({
         firebaseUid,
-        email,
+        email: normalizedEmail,
         name: name || null,
         avatar: avatar || null,
         role: targetRole,
@@ -147,7 +158,7 @@ export async function syncOrCreateUser(payload: {
     user = {
       id: `usr-${firebaseUid.slice(0, 10)}`,
       firebaseUid,
-      email,
+      email: normalizedEmail,
       name: name || null,
       avatar: avatar || null,
       role: targetRole,
@@ -157,6 +168,74 @@ export async function syncOrCreateUser(payload: {
     inMemoryUsers.set(firebaseUid, user)
   }
   return user
+}
+
+/**
+ * Retrieves existing user by email or creates a new guest User in PostgreSQL.
+ * Guest users have role: 'CUSTOMER', status: 'ACTIVE', emailVerified: false, and firebaseUid: null.
+ * When they subsequently register/login with Firebase using the same email, syncOrCreateUser will
+ * automatically link their firebaseUid to this record.
+ */
+export async function getOrCreateGuestUser(payload: {
+  email: string
+  fullName?: string | null
+  phone?: string | null
+}): Promise<{ id: string; email: string; isNew: boolean }> {
+  const normalizedEmail = payload.email.trim().toLowerCase()
+
+  if (isDatabaseConfigured) {
+    try {
+      const existing = await db.orm.public.User.where({
+        email: normalizedEmail,
+      }).first()
+
+      if (existing) {
+        return {
+          id: existing.id,
+          email: existing.email,
+          isNew: false,
+        }
+      }
+
+      const created = await db.orm.public.User.create({
+        email: normalizedEmail,
+        name: payload.fullName || null,
+        phone: payload.phone || null,
+        role: 'CUSTOMER',
+        status: 'ACTIVE',
+        isActive: true,
+        emailVerified: false,
+      })
+
+      return {
+        id: created.id,
+        email: created.email,
+        isNew: true,
+      }
+    } catch (err) {
+      console.warn('[auth.service] Database getOrCreateGuestUser failed, using memory fallback:', err)
+    }
+  }
+
+  // Fallback in-memory
+  for (const [, user] of inMemoryUsers) {
+    if (user.email.toLowerCase() === normalizedEmail) {
+      return { id: user.id, email: user.email, isNew: false }
+    }
+  }
+
+  const memoryGuestId = `usr-guest-${Date.now()}`
+  const guestUser: AuthUser = {
+    id: memoryGuestId,
+    firebaseUid: null,
+    email: normalizedEmail,
+    name: payload.fullName || null,
+    avatar: null,
+    role: 'CUSTOMER',
+    status: 'ACTIVE',
+  }
+  inMemoryUsers.set(memoryGuestId, guestUser)
+  return { id: memoryGuestId, email: normalizedEmail, isNew: true }
 }
 
 /**

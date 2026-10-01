@@ -287,7 +287,7 @@ enum StockSyncStatus {
 // ─────────────────────────────────────────────────────────────
 model User {
   id             String          @id @default(cuid())
-  firebaseUid    String          @unique @map("firebase_uid")
+  firebaseUid    String?         @unique @map("firebase_uid")
   email          String          @unique
   emailVerified  Boolean         @default(false) @map("email_verified")
   name           String?
