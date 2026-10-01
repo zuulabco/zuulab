@@ -19,53 +19,53 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Operasyon',
     items: [
-      { label: 'Kontrol Paneli', href: '/admin' },
-      { label: 'Bugünün Özeti', href: '/admin/today', tag: 'Öncelik' },
-      { label: 'Siparişler', href: '/admin/orders', tag: 'Aksiyon' },
-      { label: 'Üretim Kuyruğu', href: '/admin/production', tag: '3D Baskı' },
-      { label: 'Kargo & Sevk', href: '/admin/shipping' },
-      { label: 'Stok Durumu', href: '/admin/inventory', tag: 'Kritik' },
-      { label: 'Hammadde & Sarf', href: '/admin/materials', tag: 'Filament' },
+      { label: 'Kontrol Paneli', href: '/' },
+      { label: 'Bugünün Özeti', href: '/today', tag: 'Öncelik' },
+      { label: 'Siparişler', href: '/orders', tag: 'Aksiyon' },
+      { label: 'Üretim Kuyruğu', href: '/production', tag: '3D Baskı' },
+      { label: 'Kargo & Sevk', href: '/shipping' },
+      { label: 'Stok Durumu', href: '/inventory', tag: 'Kritik' },
+      { label: 'Hammadde & Sarf', href: '/materials', tag: 'Filament' },
     ],
   },
   {
     title: 'Katalog & Ürün',
     items: [
-      { label: 'Ürün Listesi', href: '/admin/products' },
-      { label: 'Kategoriler', href: '/admin/categories' },
-      { label: 'Koleksiyonlar', href: '/admin/collections' },
-      { label: 'Ürün Ekonomisi & Kâr', href: '/admin/economics', tag: 'Maliyet' },
+      { label: 'Ürün Listesi', href: '/products' },
+      { label: 'Kategoriler', href: '/categories' },
+      { label: 'Koleksiyonlar', href: '/collections' },
+      { label: 'Ürün Ekonomisi & Kâr', href: '/economics', tag: 'Maliyet' },
     ],
   },
   {
     title: 'Müşteri & Satış',
     items: [
-      { label: 'Müşteriler', href: '/admin/customers' },
-      { label: 'Kuponlar & İndirim', href: '/admin/coupons' },
-      { label: 'Ödemeler & İşlemler', href: '/admin/payments' },
-      { label: 'İadeler & Talepler', href: '/admin/returns' },
-      { label: 'Müşteri Yorumları', href: '/admin/reviews' },
-      { label: 'Destek Biletleri', href: '/admin/support' },
+      { label: 'Müşteriler', href: '/customers' },
+      { label: 'Kuponlar & İndirim', href: '/coupons' },
+      { label: 'Ödemeler & İşlemler', href: '/payments' },
+      { label: 'İadeler & Talepler', href: '/returns' },
+      { label: 'Müşteri Yorumları', href: '/reviews' },
+      { label: 'Destek Biletleri', href: '/support' },
     ],
   },
   {
     title: 'Vitrin & İçerik',
     items: [
-      { label: 'Ana Sayfa Vitrini', href: '/admin/content/homepage' },
-      { label: 'Duyuru Bandı', href: '/admin/content/announcement' },
-      { label: 'Medya Kütüphanesi', href: '/admin/content/media' },
+      { label: 'Ana Sayfa Vitrini', href: '/content/homepage' },
+      { label: 'Duyuru Bandı', href: '/content/announcement' },
+      { label: 'Medya Kütüphanesi', href: '/content/media' },
     ],
   },
   {
     title: 'Pazaryeri & Sistem',
     items: [
-      { label: 'Pazaryeri Siparişleri', href: '/admin/marketplaces/orders', tag: 'Havuz' },
-      { label: 'Pazaryerleri & Eşleme', href: '/admin/marketplaces' },
-      { label: 'e-Faturalar', href: '/admin/invoices' },
-      { label: 'Depo & Lojistik', href: '/admin/warehouse', tag: 'İleri' },
-      { label: 'Kullanıcılar & Roller', href: '/admin/users', tag: 'RBAC' },
-      { label: 'Bildirimler', href: '/admin/notifications' },
-      { label: 'Mağaza Ayarları', href: '/admin/settings' },
+      { label: 'Pazaryeri Siparişleri', href: '/marketplaces/orders', tag: 'Havuz' },
+      { label: 'Pazaryerleri & Eşleme', href: '/marketplaces' },
+      { label: 'e-Faturalar', href: '/invoices' },
+      { label: 'Depo & Lojistik', href: '/warehouse', tag: 'İleri' },
+      { label: 'Kullanıcılar & Roller', href: '/users', tag: 'RBAC' },
+      { label: 'Bildirimler', href: '/notifications' },
+      { label: 'Mağaza Ayarları', href: '/settings' },
     ],
   },
 ]
@@ -166,14 +166,16 @@ export default function AdminLayout({
           </button>
 
           <div style={{ marginTop: 20 }}>
-            <Link href="/" style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>
+            <a href="https://zuulab.com" style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>
               Mağazaya dön
-            </Link>
+            </a>
           </div>
         </div>
       </div>
     )
   }
+
+  const normalizedCurrentPath = pathname.replace(/^\/admin/, '') || '/'
 
   return (
     <div className={styles.adminContainer}>
@@ -189,10 +191,10 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className={`${styles.sidebar} ${mobileMenuOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarHeader}>
-          <Link href="/admin" className={styles.brandLink}>
+          <Link href="/" className={styles.brandLink}>
             <span className={styles.brandLogo}>zuulab</span>
             <span className={styles.brandDot} aria-hidden />
-            <span className={styles.adminBadge}>admin</span>
+            <span className={styles.adminBadge}>dashboard</span>
           </Link>
           {mobileMenuOpen && (
             <button
@@ -217,7 +219,12 @@ export default function AdminLayout({
             <div key={section.title}>
               <div className={styles.navSectionTitle}>{section.title}</div>
               {section.items.map((item) => {
-                const isActive = pathname === item.href
+                const itemCleanHref = item.href.replace(/^\/admin/, '') || '/'
+                const isActive =
+                  itemCleanHref === '/'
+                    ? normalizedCurrentPath === '/'
+                    : normalizedCurrentPath === itemCleanHref || normalizedCurrentPath.startsWith(`${itemCleanHref}/`)
+
                 return (
                   <Link
                     key={item.href}
@@ -235,10 +242,10 @@ export default function AdminLayout({
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <Link href="/" className={styles.storeBackLink}>
+          <a href="https://zuulab.com" className={styles.storeBackLink} target="_blank" rel="noopener noreferrer">
             <span>↗</span>
             <span>Mağazaya Dön</span>
-          </Link>
+          </a>
         </div>
       </aside>
 
@@ -255,10 +262,10 @@ export default function AdminLayout({
             </button>
 
             <div className={styles.breadcrumb}>
-              <Link href="/admin" style={{ color: 'inherit', textDecoration: 'none' }}>zuulab</Link>
+              <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>zuulab</Link>
               <span>/</span>
               <span className={styles.breadcrumbActive}>
-                {pathname.replace('/admin', '').replace(/^\//, '') || 'özet'}
+                {normalizedCurrentPath.replace(/^\//, '') || 'özet'}
               </span>
             </div>
           </div>
@@ -298,7 +305,7 @@ export default function AdminLayout({
                     {searchResults.orders.map((o: any) => (
                       <Link
                         key={o.orderNumber}
-                        href={`/admin/orders/${o.orderNumber}`}
+                        href={`/orders/${o.orderNumber}`}
                         onClick={() => setSearchResults(null)}
                         style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
                       >
@@ -313,7 +320,7 @@ export default function AdminLayout({
                     {searchResults.products.map((p: any) => (
                       <Link
                         key={p.id}
-                        href={`/admin/products/${p.id}`}
+                        href={`/products/${p.id}`}
                         onClick={() => setSearchResults(null)}
                         style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
                       >

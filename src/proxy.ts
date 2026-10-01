@@ -6,68 +6,110 @@ import {
   getClientIp,
   isIpAllowed,
   getMaintenanceHtml,
+  getCachedMaintenanceState,
+  setCachedMaintenanceState,
 } from '@/lib/config/maintenance'
+
+/**
+ * In-memory edge cache with 5-second TTL to avoid repeated subrequests
+ * while keeping edge isolates closely synchronized with database updates.
+ */
+interface EdgeMaintenanceCache {
+  enabled: boolean
+  expiresAt: number
+}
+
+let _edgeMaintenanceCache: EdgeMaintenanceCache | null = null
+
+export function resetProxyCache(): void {
+  _edgeMaintenanceCache = null
+}
+
+/**
+ * Resolves maintenance mode status for Edge / Serverless requests.
+ *
+ * 1. Checks in-memory edge cache (5s TTL).
+ * 2. If same-process cache is already populated, uses it.
+ * 3. Otherwise, queries the internal /api/maintenance/status endpoint.
+ * 4. Falls back to environment variable if fetch fails or times out.
+ */
+async function resolveMaintenanceStatus(request: NextRequest): Promise<boolean> {
+  const now = Date.now()
+
+  // 1. Same-process memory cache check (for unit tests / local dev / same lambda)
+  const inMemory = getCachedMaintenanceState()
+  if (inMemory.enabled !== null) {
+    return inMemory.enabled
+  }
+
+  // 2. Fast in-memory edge cache hit
+  if (_edgeMaintenanceCache && now < _edgeMaintenanceCache.expiresAt) {
+    return _edgeMaintenanceCache.enabled
+  }
+
+  // 3. Query internal lightweight status endpoint (edge-compatible)
+  try {
+    const origin = request.nextUrl.origin
+    const res = await fetch(`${origin}/api/maintenance/status`, {
+      signal: AbortSignal.timeout(1500),
+      headers: { 'x-proxy-check': '1' },
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (typeof data.enabled === 'boolean') {
+        _edgeMaintenanceCache = {
+          enabled: data.enabled,
+          expiresAt: now + 5000, // 5 seconds TTL
+        }
+        return data.enabled
+      }
+    }
+  } catch {
+    // Network / timeout / offline test runner fallback
+  }
+
+  // 4. Stale-while-error fallback
+  if (_edgeMaintenanceCache) {
+    return _edgeMaintenanceCache.enabled
+  }
+
+  // 5. Ultimate fallback to environment variable
+  return isMaintenanceModeEnabled()
+}
 
 /**
  * ZUULAB Global Edge / Serverless Proxy (Next.js 16 file convention)
  *
  * Responsibilities:
- * 1. Checks Maintenance Mode for public storefront routes.
- * 2. Whitelists:
- *    - All API endpoints (/api/* including PayTR webhook, checkout, orders, health, crons)
- *    - Admin dashboard (/admin and /admin/*)
+ * 1. Dashboard Subdomain Routing (dashboard.zuulab.com):
+ *    - Canonical 308 redirect from /admin and /admin/* to clean paths (e.g. /admin/orders -> /orders).
+ *    - Internal Next.js rewrite from clean paths to /admin/* (e.g. /orders -> /admin/orders).
+ *    - Guarantees browser URL NEVER exposes /admin.
+ *    - Excluded from maintenance mode (always accessible).
+ *
+ * 2. Storefront Canonical Admin Redirect (zuulab.com/admin -> dashboard.zuulab.com):
+ *    - Canonical 308 redirect to dashboard.zuulab.com (e.g. zuulab.com/admin/orders -> dashboard.zuulab.com/orders).
+ *
+ * 3. Storefront Maintenance Mode Enforcement:
+ *    - Evaluates PostgreSQL database state as Single Source of Truth via /api/maintenance/status.
+ *    - Respects DB = false overriding ENV = true.
+ *    - Whitelists developer/admin preview via MAINTENANCE_ALLOWED_IPS.
+ *    - Returns HTTP 503 Service Unavailable with Retry-After for SEO protection.
+ *
+ * 4. Defense-in-Depth Exemptions:
+ *    - /api/* (including PayTR webhook, checkout, orders, health, crons)
  *    - Next.js internal static assets (/_next/*)
- *    - Metadata and static files (favicon.ico, robots.txt, sitemap.xml, images)
- * 3. Enforces IP-based allowlist (MAINTENANCE_ALLOWED_IPS) for developer/admin preview.
- * 4. Responds with HTTP 503 Service Unavailable (with no-cache and Retry-After) to protect SEO.
+ *    - Metadata and static files (favicon.ico, robots.txt, sitemap.xml, images, fonts)
  */
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  const host = request.headers.get('host') || request.nextUrl.host || ''
+export async function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl
+  const rawHost = request.headers.get('host') || request.nextUrl.host || ''
+  const hostname = rawHost.split(':')[0].toLowerCase()
 
-  // 0. Canonical Admin Redirect (zuulab.com/admin -> dashboard.zuulab.com)
-  // When an admin navigates to zuulab.com/admin (or www.zuulab.com/admin),
-  // redirect with HTTP 308 Permanent Redirect to dashboard.zuulab.com.
-  const isDashboardSubdomain = host.startsWith('dashboard.')
-  const isZuulabRootHost =
-    host === 'zuulab.com' ||
-    host === 'www.zuulab.com' ||
-    host.endsWith('.vercel.app')
-
-  if (!isDashboardSubdomain && isZuulabRootHost && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
-    const dashboardSubPath = pathname.replace(/^\/admin/, '') || '/'
-    const targetUrl = new URL(`https://dashboard.zuulab.com${dashboardSubPath}${request.nextUrl.search}`)
-    return NextResponse.redirect(targetUrl, 308)
-  }
-
-  // 1. Dashboard Subdomain Support (dashboard.zuulab.com/* -> internal /admin/*)
-  // When request arrives at dashboard.zuulab.com (or dashboard.localhost in dev):
-  // /              -> /admin
-  // /orders        -> /admin/orders
-  // /settings      -> /admin/settings
-  // /admin/orders  -> /admin/orders (prevent double /admin)
-  // /api/*         -> /api/* (pass through untouched)
-  if (isDashboardSubdomain) {
-    if (pathname.startsWith('/api') || pathname.startsWith('/_next') || /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|txt|xml|woff|woff2)$/i.test(pathname)) {
-      return NextResponse.next()
-    }
-
-    const adminUrl = request.nextUrl.clone()
-    if (pathname === '/' || pathname === '') {
-      adminUrl.pathname = '/admin'
-    } else if (pathname.startsWith('/admin')) {
-      adminUrl.pathname = pathname
-    } else {
-      adminUrl.pathname = `/admin${pathname}`
-    }
-    return NextResponse.rewrite(adminUrl)
-  }
-
-  // 2. Explicit Route Exclusions (Defense-in-depth)
-  // Ensure that /api, /admin, webhooks, crons, health, and static files NEVER hit maintenance
+  // 0. Defense-in-depth: Immediately pass through all API routes and Next.js internal assets
   if (
     pathname.startsWith('/api') ||
-    pathname.startsWith('/admin') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||
     pathname === '/robots.txt' ||
@@ -77,23 +119,63 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 2. Check Maintenance Mode status
-  if (!isMaintenanceModeEnabled()) {
+  const isDashboardSubdomain = hostname === 'dashboard.zuulab.com' || hostname.startsWith('dashboard.')
+
+  // 1. CANONICAL ADMIN REDIRECTS:
+  // Case A: User arrives at dashboard subdomain with /admin prefix
+  // https://dashboard.zuulab.com/admin -> https://dashboard.zuulab.com/
+  // https://dashboard.zuulab.com/admin/orders -> https://dashboard.zuulab.com/orders
+  if (isDashboardSubdomain && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
+    const cleanPath = pathname.replace(/^\/admin/, '') || '/'
+    const targetUrl = new URL(`https://dashboard.zuulab.com${cleanPath}${search}`)
+    return NextResponse.redirect(targetUrl, 308)
+  }
+
+  // Case B: User arrives at storefront domain with /admin prefix
+  // https://zuulab.com/admin -> https://dashboard.zuulab.com/
+  // https://zuulab.com/admin/orders -> https://dashboard.zuulab.com/orders
+  // https://www.zuulab.com/admin -> https://dashboard.zuulab.com/
+  // https://www.zuulab.com/admin/orders -> https://dashboard.zuulab.com/orders
+  if (!isDashboardSubdomain && (pathname === '/admin' || pathname.startsWith('/admin/'))) {
+    const cleanPath = pathname.replace(/^\/admin/, '') || '/'
+    const targetUrl = new URL(`https://dashboard.zuulab.com${cleanPath}${search}`)
+    return NextResponse.redirect(targetUrl, 308)
+  }
+
+  // 2. DASHBOARD SUBDOMAIN INTERNAL REWRITE:
+  // dashboard.zuulab.com/          -> internal Next.js /admin
+  // dashboard.zuulab.com/orders    -> internal Next.js /admin/orders
+  // dashboard.zuulab.com/products  -> internal Next.js /admin/products
+  // dashboard.zuulab.com/settings  -> internal Next.js /admin/settings
+  // (Browser URL remains https://dashboard.zuulab.com/orders without /admin)
+  // Dashboard is ALWAYS EXEMPT from storefront maintenance mode.
+  if (isDashboardSubdomain) {
+    const adminUrl = request.nextUrl.clone()
+    if (pathname === '/' || pathname === '') {
+      adminUrl.pathname = '/admin'
+    } else {
+      adminUrl.pathname = `/admin${pathname}`
+    }
+    return NextResponse.rewrite(adminUrl)
+  }
+
+  // 3. STOREFRONT MAINTENANCE MODE EVALUATION:
+  const isMaintenanceActive = await resolveMaintenanceStatus(request)
+  if (!isMaintenanceActive) {
     return NextResponse.next()
   }
 
-  // 3. Inspect Client IP for allowlist bypass
+  // 4. Inspect Client IP for Allowlist Bypass
   const clientIp = getClientIp(request.headers)
   const allowedIps = getMaintenanceAllowedIps()
 
   if (isIpAllowed(clientIp, allowedIps)) {
-    // Authorized developer/tester: pass through and tag header for visibility
     const response = NextResponse.next()
     response.headers.set('x-maintenance-bypass', 'allowed-ip')
     return response
   }
 
-  // 4. Block Public Storefront with 503 Service Unavailable
+  // 5. Block Public Storefront with HTTP 503 Service Unavailable
   return new Response(getMaintenanceHtml(), {
     status: 503,
     headers: {
@@ -113,12 +195,10 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for:
-     * - api (API routes, webhooks, health, crons)
-     * - admin (Admin dashboard)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt
+     * - favicon.ico, sitemap.xml, robots.txt, and image/font extensions
      */
-    '/((?!api|admin|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)',
   ],
 }
