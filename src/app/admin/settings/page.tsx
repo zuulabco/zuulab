@@ -11,7 +11,21 @@ export default function AdminSettingsPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'COMMERCE' | 'ORDERS' | 'INTEGRATIONS'>('GENERAL')
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'COMMERCE' | 'ORDERS' | 'INTEGRATIONS' | 'MAINTENANCE'>('GENERAL')
+
+  // Maintenance mode state
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false)
+  const [maintenanceToggling, setMaintenanceToggling] = useState(false)
+  const [maintenanceStatus, setMaintenanceStatus] = useState<{
+    enabled: boolean
+    source: 'database' | 'env' | 'default'
+    allowedIps: string[]
+    updatedAt?: string
+  }>({
+    enabled: false,
+    source: 'default',
+    allowedIps: [],
+  })
 
   // Store settings
   const [storeName, setStoreName] = useState('')
@@ -28,28 +42,83 @@ export default function AdminSettingsPage() {
   const [orderPrefix, setOrderPrefix] = useState('ZUU-2026')
   const [allowCustomerCancellation, setAllowCustomerCancellation] = useState(true)
 
+  const fetchMaintenanceStatus = async () => {
+    if (!token) return
+    try {
+      setMaintenanceLoading(true)
+      const res = await fetch('/api/admin/settings/maintenance', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setMaintenanceStatus(json.data)
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setMaintenanceLoading(false)
+    }
+  }
+
+  const handleToggleMaintenance = async () => {
+    if (!token || maintenanceToggling) return
+    const nextState = !maintenanceStatus.enabled
+    setMaintenanceToggling(true)
+
+    try {
+      const res = await fetch('/api/admin/settings/maintenance', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ enabled: nextState }),
+      })
+
+      const json = await res.json()
+      if (json.success && json.data) {
+        setMaintenanceStatus(json.data)
+        addToast(
+          nextState
+            ? 'Bakım modu aktif edildi. Mağaza bakım ekranına alındı.'
+            : 'Site yayına alındı. Mağaza vitrini tüm kullanıcılara açıldı.',
+          'success'
+        )
+      } else {
+        addToast(json.error || 'Bakım modu güncellenemedi.', 'error')
+      }
+    } catch {
+      addToast('Sunucu ile iletişim kurulamadı.', 'error')
+    } finally {
+      setMaintenanceToggling(false)
+    }
+  }
+
   useEffect(() => {
     if (!token) return
     setLoading(true)
 
-    fetch('/api/admin/settings', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.settings) {
-          const s = data.settings
-          setStoreName(s.storeName || '')
-          setStoreEmail(s.storeEmail || '')
-          setStorePhone(s.storePhone || '')
-          setStoreAddress(s.storeAddress || '')
-          setCurrency(s.currency || 'TRY')
-          setTaxRate(s.taxRate ?? 20)
-          setFreeShippingThreshold(s.freeShippingThreshold ?? 750)
-          setOrderPrefix(s.orderPrefix || 'ZUU-2026')
-          setAllowCustomerCancellation(!!s.allowCustomerCancellation)
-        }
+    Promise.all([
+      fetch('/api/admin/settings', {
+        headers: { Authorization: `Bearer ${token}` },
       })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.settings) {
+            const s = data.settings
+            setStoreName(s.storeName || '')
+            setStoreEmail(s.storeEmail || '')
+            setStorePhone(s.storePhone || '')
+            setStoreAddress(s.storeAddress || '')
+            setCurrency(s.currency || 'TRY')
+            setTaxRate(s.taxRate ?? 20)
+            setFreeShippingThreshold(s.freeShippingThreshold ?? 750)
+            setOrderPrefix(s.orderPrefix || 'ZUU-2026')
+            setAllowCustomerCancellation(!!s.allowCustomerCancellation)
+          }
+        }),
+      fetchMaintenanceStatus(),
+    ])
       .catch(() => addToast('Sistem ayarları yüklenemedi.', 'error'))
       .finally(() => setLoading(false))
   }, [token])
@@ -129,6 +198,7 @@ export default function AdminSettingsPage() {
           { id: 'GENERAL', label: 'Genel Bilgiler' },
           { id: 'COMMERCE', label: 'Ticaret & Vergi' },
           { id: 'ORDERS', label: 'Sipariş Kuralları' },
+          { id: 'MAINTENANCE', label: 'Site Durumu (Bakım)' },
           { id: 'INTEGRATIONS', label: 'Entegrasyonlar & Güvenlik' },
         ].map((tab) => (
           <button
@@ -286,6 +356,126 @@ export default function AdminSettingsPage() {
                   />
                   <span>Müşteri siparişi baskı/hazırlık öncesinde doğrudan iptal edebilir</span>
                 </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: SITE STATUS (MAINTENANCE MODE) ─────────────────────────── */}
+        {activeTab === 'MAINTENANCE' && (
+          <div className={styles.card}>
+            <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Site Durumu
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: maintenanceStatus.enabled ? '#ef4444' : '#10b981',
+                      display: 'inline-block',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {maintenanceStatus.enabled ? 'Bakım Modu Aktif' : 'Site Yayında'}
+                  </span>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.35rem 0 0' }}>
+                Mağaza vitrininin genel ziyaretçilere açık veya planlı bakım modunda olduğunu yönetin.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Status explanation */}
+              <div
+                style={{
+                  padding: '1rem 1.25rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm, 4px)',
+                  backgroundColor: maintenanceStatus.enabled ? '#fffbeb' : 'var(--surface-1)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '260px' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                      {maintenanceStatus.enabled ? '● Bakım Modu Aktif' : '● Site Yayında'}
+                    </div>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                      {maintenanceStatus.enabled
+                        ? 'Ziyaretçiler şu anda bakım sayfasını görüyor. İzin verilen IP adreslerinden site normal şekilde görüntülenebilir.'
+                        : 'Site şu anda ziyaretçilere açık.'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleToggleMaintenance}
+                      disabled={maintenanceToggling || maintenanceLoading}
+                      style={{
+                        padding: '8px 18px',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        cursor: maintenanceToggling ? 'not-allowed' : 'pointer',
+                        borderRadius: 'var(--radius-sm, 4px)',
+                        border: maintenanceStatus.enabled ? '1px solid #10b981' : '1px solid var(--border-strong)',
+                        backgroundColor: maintenanceStatus.enabled ? '#10b981' : 'var(--text-primary)',
+                        color: '#ffffff',
+                        transition: 'opacity 0.15s ease',
+                      }}
+                    >
+                      {maintenanceToggling
+                        ? 'İşleniyor...'
+                        : maintenanceStatus.enabled
+                        ? 'Siteyi Yayına Al'
+                        : 'Bakım Modunu Aç'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Technical context: Allowed IPs & Source */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm, 4px)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    Yapılandırma Kaynağı
+                  </div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                    {maintenanceStatus.source === 'database'
+                      ? 'PostgreSQL Veritabanı (Setting Tablosu)'
+                      : maintenanceStatus.source === 'env'
+                      ? 'Ortam Değişkeni (MAINTENANCE_MODE Env Fallback)'
+                      : 'Varsayılan Sistem Değeri'}
+                  </div>
+                  {maintenanceStatus.updatedAt && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      Son güncelleme: {new Date(maintenanceStatus.updatedAt).toLocaleString('tr-TR')}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm, 4px)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                    İzin Verilen IP Adresleri (Allowlist)
+                  </div>
+                  <div style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-primary)' }}>
+                    {maintenanceStatus.allowedIps && maintenanceStatus.allowedIps.length > 0
+                      ? maintenanceStatus.allowedIps.join(', ')
+                      : 'Tanımlı allowlist bulunmuyor (MAINTENANCE_ALLOWED_IPS)'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    Allowlist adresleri bakım modunda dahi siteye kesintisiz erişebilir.
+                  </div>
+                </div>
+              </div>
+
+              {/* Exemptions summary */}
+              <div style={{ padding: '0.75rem 1rem', background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm, 4px)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <strong>Güvenli Bypass Koruması:</strong> /admin yönetim paneli, /api/payments/webhook, /api/health, cron ve checkout API servisleri bakım modundan etkilenmez ve kesintisiz çalışmaya devam eder.
               </div>
             </div>
           </div>

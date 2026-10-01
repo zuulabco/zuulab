@@ -8,7 +8,33 @@
  * 4. High-performance, self-contained editorial maintenance page matching ZUULAB design tokens
  */
 
+export interface MaintenanceModeStatus {
+  enabled: boolean
+  source: 'database' | 'env' | 'default'
+  allowedIps: string[]
+  updatedAt?: string
+}
+
+// In-process cache for fast proxy evaluation without DB overhead on every request
+let _cachedMaintenanceEnabled: boolean | null = null
+let _cachedSource: 'database' | 'env' | 'default' = 'default'
+
+export function setCachedMaintenanceState(enabled: boolean, source: 'database' | 'env' | 'default' = 'database'): void {
+  _cachedMaintenanceEnabled = enabled
+  _cachedSource = source
+}
+
+export function getCachedMaintenanceState(): { enabled: boolean | null; source: 'database' | 'env' | 'default' } {
+  return { enabled: _cachedMaintenanceEnabled, source: _cachedSource }
+}
+
 export function isMaintenanceModeEnabled(): boolean {
+  // If explicitly set in runtime cache (from DB or admin action), respect it
+  if (_cachedMaintenanceEnabled !== null) {
+    return _cachedMaintenanceEnabled
+  }
+
+  // Fallback to process.env.MAINTENANCE_MODE
   const val = process.env.MAINTENANCE_MODE?.trim().toLowerCase()
   return val === 'true' || val === '1' || val === 'yes'
 }

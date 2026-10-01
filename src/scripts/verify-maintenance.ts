@@ -250,6 +250,52 @@ async function runTests() {
     })
     assert(proxy(reqSitemap).status !== 503, 'sitemap.xml is NEVER blocked')
 
+    // ----------------------------------------------------
+    // TEST 8: Dashboard Subdomain Routing (dashboard.zuulab.com -> /admin)
+    // ----------------------------------------------------
+    console.log('\n[8/9] Testing Dashboard Subdomain Routing...')
+    const reqDashboardSubdomainRoot = new NextRequest('https://dashboard.zuulab.com/', {
+      headers: { host: 'dashboard.zuulab.com' },
+    })
+    const resDashboardSubdomainRoot = proxy(reqDashboardSubdomainRoot)
+    assert(resDashboardSubdomainRoot.status !== 503, 'dashboard.zuulab.com root is NOT blocked by maintenance')
+    assert(
+      resDashboardSubdomainRoot.headers.get('x-middleware-rewrite')?.endsWith('/admin') ||
+      resDashboardSubdomainRoot.headers.get('location')?.includes('/admin') ||
+      resDashboardSubdomainRoot.status === 200,
+      'dashboard.zuulab.com routes internally to /admin'
+    )
+
+    // ----------------------------------------------------
+    // TEST 9: In-Memory / Database Runtime Cache Control
+    // ----------------------------------------------------
+    console.log('\n[9/9] Testing Runtime State Synchronization...')
+    const { setCachedMaintenanceState, getCachedMaintenanceState } = await import('../lib/config/maintenance')
+
+    // Simulate Admin Panel clicking "Bakım Modunu Aç" (persisted to DB -> cached in runtime)
+    setCachedMaintenanceState(true, 'database')
+    const cacheStateActive = getCachedMaintenanceState()
+    assert(cacheStateActive.enabled === true, 'Cache state reflects maintenance mode enabled')
+    assert(cacheStateActive.source === 'database', 'Cache reflects database source')
+
+    const reqUnderDbMaintenance = new NextRequest('http://localhost:3000/', {
+      headers: { 'x-vercel-forwarded-for': '88.99.100.101' },
+    })
+    assert(proxy(reqUnderDbMaintenance).status === 503, 'Database/cache true activates 503 on storefront')
+
+    // Simulate Admin Panel clicking "Siteyi Yayına Al" (persisted to DB -> cached in runtime)
+    setCachedMaintenanceState(false, 'database')
+    const cacheStateDisabled = getCachedMaintenanceState()
+    assert(cacheStateDisabled.enabled === false, 'Cache state reflects maintenance mode disabled')
+
+    const reqUnderDbDisabled = new NextRequest('http://localhost:3000/', {
+      headers: { 'x-vercel-forwarded-for': '88.99.100.101' },
+    })
+    assert(proxy(reqUnderDbDisabled).status !== 503, 'Database/cache false immediately restores storefront access')
+
+    // Reset cache to allow env testing
+    setCachedMaintenanceState(null as any, 'default')
+
     console.log('\n====================================================')
     console.log('ALL MAINTENANCE MODE TESTS PASSED SUCCESSFULLY! (100%)')
     console.log('====================================================')

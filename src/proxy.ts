@@ -23,6 +23,16 @@ import {
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host = request.headers.get('host') || request.nextUrl.host || ''
+
+  // 0. Dashboard Subdomain Support (dashboard.zuulab.com -> /admin)
+  // If request arrives at dashboard.zuulab.com (or dashboard.localhost in dev), rewrite or route to /admin
+  const isDashboardSubdomain = host.startsWith('dashboard.')
+  if (isDashboardSubdomain && (pathname === '/' || pathname === '')) {
+    const adminUrl = request.nextUrl.clone()
+    adminUrl.pathname = '/admin'
+    return NextResponse.rewrite(adminUrl)
+  }
 
   // 1. Explicit Route Exclusions (Defense-in-depth)
   // Ensure that /api, /admin, webhooks, crons, health, and static files NEVER hit maintenance
