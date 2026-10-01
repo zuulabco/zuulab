@@ -51,11 +51,7 @@ export default function CheckoutClient() {
   // Shipping Method
   const [shippingMethod, setShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD')
 
-  // Payment Form (Simulated Card with Card Brand Detection)
-  const [cardNumber, setCardNumber] = useState('5555 5555 5555 0000')
-  const [cardHolder, setCardHolder] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('12/28')
-  const [cardCvv, setCardCvv] = useState('123')
+
 
   // Legal Consent Checkbox
   const [agreementAccepted, setAgreementAccepted] = useState(true)
@@ -93,10 +89,9 @@ export default function CheckoutClient() {
       if (user.email && !email) setEmail(user.email)
       if (user.name && !fullName) {
         setFullName(user.name)
-        if (!cardHolder) setCardHolder(user.name)
       }
     }
-  }, [user, email, fullName, cardHolder])
+  }, [user, email, fullName])
 
   // Fetch saved addresses if logged in
   const fetchSavedAddresses = async () => {
@@ -130,7 +125,6 @@ export default function CheckoutClient() {
     setDistrict(addr.district)
     setAddressLine(addr.addressLine1 + (addr.addressLine2 ? ` ${addr.addressLine2}` : ''))
     setPostalCode(addr.postalCode || '34000')
-    if (!cardHolder) setCardHolder(`${addr.firstName} ${addr.lastName}`)
     // Clear any inline field errors for address
     setFieldErrors((prev) => ({
       ...prev,
@@ -246,46 +240,7 @@ export default function CheckoutClient() {
   const remainingForFree = shippingCalc.remainingForFreeShipping
   const freeShippingProgress = Math.min(100, Math.round((sub / FREE_SHIPPING_THRESHOLD) * 100))
 
-  // Card brand detection
-  const cleanCardNumber = cardNumber.replace(/\s+/g, '')
-  let cardBrand: 'visa' | 'mastercard' | 'troy' | null = null
-  if (cleanCardNumber.startsWith('4')) {
-    cardBrand = 'visa'
-  } else if (/^(5[1-5]|2[2-7])/.test(cleanCardNumber)) {
-    cardBrand = 'mastercard'
-  } else if (cleanCardNumber.startsWith('9792')) {
-    cardBrand = 'troy'
-  }
 
-  // Card formatting helpers
-  const handleCardNumberChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 16)
-    const formatted = raw.replace(/(.{4})/g, '$1 ').trim()
-    setCardNumber(formatted)
-    if (fieldErrors.cardNumber) {
-      setFieldErrors((prev) => ({ ...prev, cardNumber: '' }))
-    }
-  }
-
-  const handleExpiryChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 4)
-    if (raw.length >= 3) {
-      setCardExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`)
-    } else {
-      setCardExpiry(raw)
-    }
-    if (fieldErrors.cardExpiry) {
-      setFieldErrors((prev) => ({ ...prev, cardExpiry: '' }))
-    }
-  }
-
-  const handleCvvChange = (val: string) => {
-    const raw = val.replace(/\D/g, '').slice(0, 4)
-    setCardCvv(raw)
-    if (fieldErrors.cardCvv) {
-      setFieldErrors((prev) => ({ ...prev, cardCvv: '' }))
-    }
-  }
 
   // Authoritative Coupon handling via backend
   const handleApplyCoupon = async (e: React.FormEvent) => {
@@ -346,19 +301,6 @@ export default function CheckoutClient() {
       errors.addressLine = 'Lütfen cadde, sokak ve bina içeren açık adresinizi giriniz.'
     }
 
-    if (!cardHolder.trim()) {
-      errors.cardHolder = 'Kart üzerindeki isim zorunludur.'
-    }
-    if (cleanCardNumber.length < 16) {
-      errors.cardNumber = '16 haneli kart numaranızı eksiksiz giriniz.'
-    }
-    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-      errors.cardExpiry = 'AA/YY formatında giriniz.'
-    }
-    if (cardCvv.length < 3) {
-      errors.cardCvv = 'En az 3 haneli güvenlik kodunu giriniz.'
-    }
-
     if (!agreementAccepted) {
       errors.agreement = 'Devam edebilmek için mesafeli satış sözleşmesini onaylamanız gerekmektedir.'
     }
@@ -385,7 +327,7 @@ export default function CheckoutClient() {
     setLoading(true)
 
     try {
-      // 1. Initiate checkout and create pending order
+      // 1. Initiate checkout and create pending order with PayTR session
       const res = await fetch('/api/checkout/initiate', {
         method: 'POST',
         headers: {
@@ -434,36 +376,18 @@ export default function CheckoutClient() {
         throw new Error(data.error || 'Ödeme oturumu başlatılamadı.')
       }
 
-      const { orderNumber, paymentId } = data
-
-      // 2. Process Sandbox Payment
-      // Test Card Rule: Card ending with 9999 simulates failure, others simulate success
-      const isSimulatedFailure = cleanCardNumber.endsWith('9999')
-
-      const payRes = await fetch('/api/payments/process-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderNumber,
-          paymentId,
-          simulateStatus: isSimulatedFailure ? 'FAILED' : 'SUCCESS',
-          failureReason: isSimulatedFailure
-            ? 'Banka kart limiti yetersiz veya işlem onaylanmadı.'
-            : undefined,
-        }),
-      })
-
-      const payData = await payRes.json()
-
-      if (isSimulatedFailure || !payData.success) {
-        router.push(
-          `/odeme/basarisiz?order=${encodeURIComponent(orderNumber)}&reason=${encodeURIComponent(
-            payData.message || 'Ödeme tamamlanamadı.'
-          )}`
-        )
-      } else {
-        router.push(`/odeme/basarili?order=${encodeURIComponent(orderNumber)}`)
+      // 2. Redirect to PayTR iframe checkout page
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
       }
+
+      if (data.sessionToken) {
+        window.location.href = `/odeme/paytr?token=${encodeURIComponent(data.sessionToken)}&order=${encodeURIComponent(data.orderNumber)}`
+        return
+      }
+
+      router.push(`/odeme/basarili?order=${encodeURIComponent(data.orderNumber)}`)
     } catch (err: any) {
       console.error('[checkout] Submit error:', err)
       const msg = err.message || 'İşlem sırasında beklenmeyen bir hata oluştu. Lütfen bilgilerinizi kontrol ediniz.'
@@ -479,9 +403,7 @@ export default function CheckoutClient() {
     email && fullName && phone && city && district && addressLine
   )
   const isShippingComplete = Boolean(shippingMethod)
-  const isPaymentFilled = Boolean(
-    cardHolder && cleanCardNumber.length === 16 && cardExpiry.length === 5 && cardCvv.length >= 3
-  )
+  const isPaymentFilled = Boolean(agreementAccepted)
 
   return (
     <div className={styles.checkoutContainer}>
@@ -671,7 +593,6 @@ export default function CheckoutClient() {
                     value={fullName}
                     onChange={(e) => {
                       setFullName(e.target.value)
-                      if (!cardHolder) setCardHolder(e.target.value)
                       if (fieldErrors.fullName) setFieldErrors((p) => ({ ...p, fullName: '' }))
                     }}
                     aria-invalid={Boolean(fieldErrors.fullName)}
@@ -972,145 +893,41 @@ export default function CheckoutClient() {
               <span className={styles.paymentMethodLabel}>kredi / banka kartı</span>
             </div>
 
-            {/* Sandbox Card Selector for Development Testing */}
-            <div className={styles.sandboxHelper}>
-              <div className={styles.sandboxInfo}>
-                <span className={styles.sandboxBadge}>paytr / 3d secure test ortamı</span>
-                <span className={styles.sandboxDesc}>hızlı test kartı seçebilirsiniz:</span>
-              </div>
-              <div className={styles.sandboxButtons}>
-                <button
-                  type="button"
-                  className={styles.sandboxBtn}
-                  onClick={() => {
-                    setCardNumber('5555 5555 5555 0000')
-                    setCardExpiry('12/28')
-                    setCardCvv('123')
-                    toast.info('Başarılı test kartı yüklendi')
-                  }}
-                >
-                  ✓ başarılı test kartı (...0000)
-                </button>
-                <button
-                  type="button"
-                  className={styles.sandboxBtn}
-                  onClick={() => {
-                    setCardNumber('5555 5555 5555 9999')
-                    setCardExpiry('12/28')
-                    setCardCvv('999')
-                    toast.info('Bakiye yetersiz test kartı yüklendi')
-                  }}
-                >
-                  ✗ bakiye yetersiz test kartı (...9999)
-                </button>
+            {/* PayTR Payment Method Selector */}
+            <div className={styles.shippingOptions} role="radiogroup" aria-label="Ödeme Yöntemi">
+              <div
+                className={`${styles.shippingCard} ${styles.shippingCardActive}`}
+                role="radio"
+                aria-checked="true"
+                tabIndex={0}
+              >
+                <div className={styles.shippingCardLeft}>
+                  <span className={`${styles.radioCircle} ${styles.radioCircleActive}`} aria-hidden="true" />
+                  <div className={styles.shippingInfo}>
+                    <span className={styles.shippingName}>PayTR ile Güvenli Ödeme (Kredi / Banka Kartı)</span>
+                    <span className={styles.shippingDesc}>256-bit SSL · 3D Secure Doğrulaması · BDDK Lisanslı</span>
+                  </div>
+                </div>
+                <div className={styles.shippingPrice}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Visa / Mastercard / Troy</span>
+                </div>
               </div>
             </div>
 
-            {/* Card Inputs */}
-            <fieldset className={styles.paymentFieldset}>
-              <legend className={styles.visuallyHidden}>Kart Bilgileri</legend>
-              <div className={styles.formGrid}>
-                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
-                  <label className={styles.label} htmlFor="checkout-cardHolder">
-                    kart üzerindeki isim <span className={styles.reqMark}>*</span>
-                  </label>
-                  <input
-                    id="checkout-cardHolder"
-                    type="text"
-                    required
-                    autoComplete="cc-name"
-                    placeholder="Ad Soyad"
-                    className={`${styles.input} ${fieldErrors.cardHolder ? styles.inputErrorBorder : ''}`}
-                    value={cardHolder}
-                    onChange={(e) => {
-                      setCardHolder(e.target.value)
-                      if (fieldErrors.cardHolder) setFieldErrors((p) => ({ ...p, cardHolder: '' }))
-                    }}
-                    aria-invalid={Boolean(fieldErrors.cardHolder)}
-                    aria-describedby={fieldErrors.cardHolder ? 'checkout-cardholder-error' : undefined}
-                  />
-                  {fieldErrors.cardHolder && (
-                    <span id="checkout-cardholder-error" className={styles.fieldErrorText} role="alert">
-                      {fieldErrors.cardHolder}
-                    </span>
-                  )}
-                </div>
-
-                <div className={`${styles.formGroup} ${styles.colSpan2}`}>
-                  <div className={styles.cardNumberLabelRow}>
-                    <label className={styles.label} htmlFor="checkout-cardNumber">
-                      kart numarası <span className={styles.reqMark}>*</span>
-                    </label>
-                    {cardBrand && (
-                      <span className={styles.cardBrandBadge}>{cardBrand}</span>
-                    )}
-                  </div>
-                  <input
-                    id="checkout-cardNumber"
-                    type="text"
-                    required
-                    autoComplete="cc-number"
-                    placeholder="5555 5555 5555 0000"
-                    className={`${styles.input} ${fieldErrors.cardNumber ? styles.inputErrorBorder : ''}`}
-                    value={cardNumber}
-                    onChange={(e) => handleCardNumberChange(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.cardNumber)}
-                    aria-describedby={fieldErrors.cardNumber ? 'checkout-cardnumber-error' : undefined}
-                  />
-                  {fieldErrors.cardNumber && (
-                    <span id="checkout-cardnumber-error" className={styles.fieldErrorText} role="alert">
-                      {fieldErrors.cardNumber}
-                    </span>
-                  )}
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label} htmlFor="checkout-cardExpiry">
-                    son kullanma tarihi <span className={styles.reqMark}>*</span>
-                  </label>
-                  <input
-                    id="checkout-cardExpiry"
-                    type="text"
-                    required
-                    autoComplete="cc-exp"
-                    placeholder="AA/YY"
-                    className={`${styles.input} ${fieldErrors.cardExpiry ? styles.inputErrorBorder : ''}`}
-                    value={cardExpiry}
-                    onChange={(e) => handleExpiryChange(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.cardExpiry)}
-                    aria-describedby={fieldErrors.cardExpiry ? 'checkout-cardexpiry-error' : undefined}
-                  />
-                  {fieldErrors.cardExpiry && (
-                    <span id="checkout-cardexpiry-error" className={styles.fieldErrorText} role="alert">
-                      {fieldErrors.cardExpiry}
-                    </span>
-                  )}
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label} htmlFor="checkout-cardCvv">
-                    güvenlik kodu (cvv) <span className={styles.reqMark}>*</span>
-                  </label>
-                  <input
-                    id="checkout-cardCvv"
-                    type="text"
-                    required
-                    autoComplete="cc-csc"
-                    placeholder="123"
-                    className={`${styles.input} ${fieldErrors.cardCvv ? styles.inputErrorBorder : ''}`}
-                    value={cardCvv}
-                    onChange={(e) => handleCvvChange(e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.cardCvv)}
-                    aria-describedby={fieldErrors.cardCvv ? 'checkout-cardcvv-error' : undefined}
-                  />
-                  {fieldErrors.cardCvv && (
-                    <span id="checkout-cardcvv-error" className={styles.fieldErrorText} role="alert">
-                      {fieldErrors.cardCvv}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </fieldset>
+            <div style={{
+              marginTop: 'var(--sp-3)',
+              padding: 'var(--sp-4)',
+              background: 'var(--surface-1)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-xs)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.6
+            }}>
+              <p style={{ margin: 0 }}>
+                🔒 <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
+              </p>
+            </div>
 
             {/* Legal Agreements Checkbox */}
             <div className={styles.agreementWrap}>

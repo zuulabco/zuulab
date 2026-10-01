@@ -117,6 +117,8 @@ export async function POST(request: Request) {
       paymentId: paymentSession.paymentId,
       sessionToken: paymentSession.sessionToken,
       checkoutUrl: paymentSession.checkoutUrl,
+      iframeUrl: paymentSession.iframeUrl,
+      provider: paymentSession.provider,
     })
   } catch (error: any) {
     console.error('[checkout/initiate] Error:', error)

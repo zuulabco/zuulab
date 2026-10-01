@@ -141,8 +141,8 @@ export class PayTRPaymentProvider implements PaymentProvider {
       sessionToken,
       paymentId,
       provider: 'PAYTR',
-      checkoutUrl: `/odeme/sandbox?token=${sessionToken}&order=${request.orderNumber}&amount=${request.amount}&attempt=${attemptNumber}`,
-      iframeUrl: `/odeme/sandbox?token=${sessionToken}&order=${request.orderNumber}&amount=${request.amount}&attempt=${attemptNumber}`,
+      checkoutUrl: `/odeme/paytr?token=${sessionToken}&order=${request.orderNumber}&amount=${request.amount}&attempt=${attemptNumber}&simulated=true`,
+      iframeUrl: `https://www.paytr.com/odeme/guvenli/${sessionToken}`,
       expiresAt,
       attemptNumber,
     }
