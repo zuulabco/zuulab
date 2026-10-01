@@ -1,0 +1,156 @@
+import 'server-only'
+import crypto from 'crypto'
+
+export interface MediaUploadOptions {
+  fileName: string
+  fileType: string
+  fileSize: number // bytes
+  fileBuffer?: Buffer
+  folder?: string
+}
+
+export interface MediaUploadResult {
+  success: boolean
+  url?: string
+  publicId?: string
+  width?: number
+  height?: number
+  format?: string
+  sizeBytes?: number
+  error?: string
+  isSimulated?: boolean
+}
+
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
+
+export class CloudinaryService {
+  private cloudName: string
+  private apiKey: string
+  private apiSecret: string
+  private isConfigured: boolean
+
+  constructor() {
+    this.cloudName = process.env.CLOUDINARY_CLOUD_NAME || ''
+    this.apiKey = process.env.CLOUDINARY_API_KEY || ''
+    this.apiSecret = process.env.CLOUDINARY_API_SECRET || ''
+
+    this.isConfigured = Boolean(
+      this.cloudName &&
+      this.apiKey &&
+      this.apiSecret &&
+      !this.apiKey.includes('12345')
+    )
+  }
+
+  get isLiveConfigured(): boolean {
+    return this.isConfigured
+  }
+
+  /**
+   * Validates file upload parameters (MIME type and size limit)
+   */
+  validateFile(fileType: string, sizeBytes: number): { valid: boolean; error?: string } {
+    if (!fileType || !ALLOWED_MIME_TYPES.includes(fileType.toLowerCase())) {
+      return {
+        valid: false,
+        error: `INVALID_FILE_TYPE: Desteklenmeyen dosya türü (${fileType}). Yalnızca JPEG, PNG, WebP, GIF veya SVG kabul edilir.`,
+      }
+    }
+
+    if (sizeBytes > MAX_FILE_SIZE_BYTES) {
+      return {
+        valid: false,
+        error: `FILE_SIZE_EXCEEDED: Dosya boyutu sınırı aşıldı (Azami 5 MB, Yüklenen: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB).`,
+      }
+    }
+
+    return { valid: true }
+  }
+
+  /**
+   * Uploads an image to Cloudinary (or returns simulated CDN asset if credentials not set)
+   */
+  async uploadImage(options: MediaUploadOptions): Promise<MediaUploadResult> {
+    const validation = this.validateFile(options.fileType, options.fileSize)
+    if (!validation.valid) {
+      return {
+        success: false,
+        error: validation.error,
+      }
+    }
+
+    // If live Cloudinary credentials are set and fileBuffer exists, call real Cloudinary API
+    if (this.isConfigured && options.fileBuffer) {
+      try {
+        const timestamp = Math.round(Date.now() / 1000)
+        const folder = options.folder || 'zuulab-products'
+        const signaturePayload = `folder=${folder}&timestamp=${timestamp}${this.apiSecret}`
+        const signature = crypto.createHash('sha1').update(signaturePayload).digest('hex')
+
+        const formData = new FormData()
+        const blob = new Blob([new Uint8Array(options.fileBuffer)], { type: options.fileType })
+        formData.append('file', blob, options.fileName)
+        formData.append('api_key', this.apiKey)
+        formData.append('timestamp', String(timestamp))
+        formData.append('folder', folder)
+        formData.append('signature', signature)
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${this.cloudName}/image/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data = (await res.json()) as any
+        if (res.ok && data.secure_url) {
+          return {
+            success: true,
+            url: data.secure_url,
+            publicId: data.public_id,
+            width: data.width,
+            height: data.height,
+            format: data.format,
+            sizeBytes: data.bytes,
+            isSimulated: false,
+          }
+        } else {
+          return {
+            success: false,
+            error: data.error?.message || 'Cloudinary API yükleme hatası.',
+          }
+        }
+      } catch (err: any) {
+        return {
+          success: false,
+          error: `Cloudinary bağlantı hatası: ${err.message}`,
+        }
+      }
+    }
+
+    // High-fidelity sandbox/mock simulation
+    const hash = crypto.createHash('md5').update(`${options.fileName}-${Date.now()}`).digest('hex').slice(0, 10)
+    const simulatedPublicId = `zuulab_upload_${hash}`
+    const extension = options.fileType.split('/')[1] || 'webp'
+    const simulatedUrl = `https://res.cloudinary.com/zuulab/image/upload/v1711234567/products/${simulatedPublicId}.${extension}`
+
+    return {
+      success: true,
+      url: simulatedUrl,
+      publicId: simulatedPublicId,
+      width: 1200,
+      height: 800,
+      format: extension,
+      sizeBytes: options.fileSize,
+      isSimulated: true,
+    }
+  }
+}
+
+export const cloudinaryService = new CloudinaryService()

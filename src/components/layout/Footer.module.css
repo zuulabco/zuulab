@@ -1,0 +1,229 @@
+/* ============================================================
+   ZUULAB FOOTER — Editorial, minimal, information-dense
+   ============================================================ */
+
+.footer {
+  background-color: var(--surface-inv);
+  color: var(--text-inv-muted);
+  padding-top: var(--sp-16);
+  padding-bottom: var(--sp-8);
+  margin-top: auto;
+}
+
+/* ── Main grid ───────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr;
+  gap: var(--sp-10);
+  align-items: start;
+}
+
+/* ── Brand column ────────────────────────────────────────── */
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.logo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--text-inv);
+  text-decoration: none;
+  width: fit-content;
+  transition: opacity var(--dur-fast) ease;
+}
+
+.logo:hover { opacity: 0.7; }
+
+.logoText {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text-inv);
+  text-transform: lowercase;
+}
+
+.logoDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--zuu-blue);
+  display: inline-block;
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+.tagline {
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--text-inv-muted);
+}
+
+.socials {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.socials a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-inv-muted);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.socials a:hover {
+  color: var(--text-inv);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.socials a:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+/* ── Link columns ────────────────────────────────────────── */
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.colTitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wider);
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.links a {
+  font-size: var(--text-xs);
+  color: var(--text-inv-muted);
+  text-decoration: none;
+  transition: color var(--dur-fast) ease;
+}
+
+.links a:hover {
+  color: var(--text-inv);
+}
+
+.links a:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+/* ── Divider ─────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.07);
+  margin-block: var(--sp-10);
+}
+
+/* ── Bottom bar ──────────────────────────────────────────── */
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.bottomLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.mascotMark {
+  color: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.copyright {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.paymentBadges {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.payBadge {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 2px var(--sp-2);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--sp-8);
+  }
+
+  .brand {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--sp-8);
+    align-items: flex-start;
+    padding-bottom: var(--sp-6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .tagline { max-width: 280px; }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-6);
+  }
+
+  .brand {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-6);
+  }
+
+  .bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .socials a,
+  .links a,
+  .logo {
+    transition: none;
+  }
+}

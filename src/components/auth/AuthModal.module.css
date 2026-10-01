@@ -1,0 +1,369 @@
+/* AuthModal.module.css — UI-02 */
+
+/* ── Modal panel ────────────────────────────────────────── */
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-8);
+  max-height: calc(100vh - var(--sp-8));
+  overflow-y: auto;
+}
+
+/* ── Close button ───────────────────────────────────────── */
+.closeBtn {
+  position: absolute;
+  top: var(--sp-4);
+  right: var(--sp-4);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-default),
+    color var(--dur-fast) var(--ease-default),
+    border-color var(--dur-fast) var(--ease-default);
+}
+
+.closeBtn:hover {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  margin-bottom: var(--sp-5);
+  padding-right: var(--sp-8);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.title {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: lowercase;
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+  line-height: var(--leading-snug);
+}
+
+.subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-5);
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 9px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: lowercase;
+  transition:
+    color var(--dur-fast) var(--ease-default),
+    border-bottom-color var(--dur-fast) var(--ease-default);
+  margin-bottom: -1px;
+}
+
+.tabBtnActive {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+
+/* ── Error state ────────────────────────────────────────── */
+.errorAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 10px 12px;
+  background: var(--error-bg);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-xs);
+  color: var(--error);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--sp-4);
+}
+
+.errorAlert svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Google button ──────────────────────────────────────── */
+.googleBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: 10px var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-default),
+    border-color var(--dur-fast) var(--ease-default);
+}
+
+.googleBtn:hover {
+  background: var(--surface-0);
+  border-color: var(--border-strong);
+}
+
+.googleBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Divider ────────────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: var(--sp-4) 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.divider span {
+  padding: 0 var(--sp-3);
+}
+
+/* ── Form ───────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+
+.field input {
+  width: 100%;
+  padding: 9px var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-0);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: border-color var(--dur-fast) var(--ease-default);
+}
+
+.field input:hover {
+  border-color: var(--border-strong);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--zuu-blue);
+  box-shadow: 0 0 0 2px var(--zuu-blue-light);
+}
+
+/* ── Password with toggle ───────────────────────────────── */
+.passwordWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordInput {
+  width: 100%;
+  padding: 9px var(--sp-3);
+  padding-right: 40px; /* space for toggle */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-0);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transition: border-color var(--dur-fast) var(--ease-default);
+}
+
+.passwordInput:hover {
+  border-color: var(--border-strong);
+}
+
+.passwordInput:focus {
+  outline: none;
+  border-color: var(--zuu-blue);
+  box-shadow: 0 0 0 2px var(--zuu-blue-light);
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  transition: color var(--dur-fast);
+}
+
+.passwordToggle:hover {
+  color: var(--text-primary);
+}
+
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: -2px;
+}
+
+/* ── Submit button ──────────────────────────────────────── */
+.submitBtn {
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: 11px;
+  background: var(--surface-inv);
+  color: var(--text-inv);
+  border: 1px solid var(--surface-inv);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-default);
+}
+
+.submitBtn:hover {
+  opacity: 0.88;
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submitLoading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* spinner color override for dark bg */
+.submitLoading .spinner {
+  border-color: rgba(255,255,255,0.25);
+  border-top-color: #fff;
+}
+
+/* ── Dev shortcuts ──────────────────────────────────────── */
+.devShortcuts {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.devLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-disabled);
+  text-transform: lowercase;
+}
+
+.devBtnsRow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.devBtn {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: lowercase;
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+}
+
+.devBtn:hover {
+  background: var(--surface-0);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* ── Mobile ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .modal {
+    padding: var(--sp-6);
+    border-radius: var(--radius-sm);
+  }
+}

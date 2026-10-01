@@ -1,0 +1,118 @@
+import { NextResponse } from 'next/server'
+import { authenticateRequest } from '@/lib/services/auth.service'
+import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
+import { createOrder } from '@/lib/services/orders.service'
+import { initiatePayment } from '@/lib/services/payment/payment.service'
+
+export async function POST(request: Request) {
+  try {
+    const user = await authenticateRequest(request)
+    const body = await request.json().catch(() => ({}))
+
+    // 1. Zod validation
+    const parsed = checkoutInitiateSchema.safeParse(body)
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || 'Geçersiz ödeme bilgileri.'
+      return NextResponse.json(
+        { success: false, error: firstError, issues: parsed.error.issues },
+        { status: 400 }
+      )
+    }
+
+    const {
+      shippingAddress,
+      billingSameAsShipping,
+      billingAddress,
+      shippingMethod,
+      couponCode,
+      customerNote,
+      expectedTotal,
+      savedAddressId,
+      items,
+      email,
+    } = parsed.data
+
+    let effectiveShippingAddress = {
+      ...shippingAddress,
+      email,
+    }
+    let verifiedAddressId: string | null = null
+
+    // If client supplied savedAddressId, strictly verify ownership
+    if (savedAddressId) {
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Kayıtlı adres kullanmak için giriş yapmalısınız.' },
+          { status: 401 }
+        )
+      }
+
+      const { getAddressById } = await import('@/lib/services/address.service')
+      const saved = await getAddressById(user.id, savedAddressId)
+      if (!saved) {
+        return NextResponse.json(
+          { success: false, error: 'Seçilen kayıtlı adres bulunamadı veya bu hesaba ait değil.' },
+          { status: 403 }
+        )
+      }
+
+      verifiedAddressId = saved.id
+      effectiveShippingAddress = {
+        fullName: `${saved.firstName} ${saved.lastName}`,
+        phone: saved.phone,
+        addressLine: saved.addressLine1 + (saved.addressLine2 ? ` ${saved.addressLine2}` : ''),
+        city: saved.city,
+        district: saved.district,
+        postalCode: saved.postalCode,
+        country: saved.country || 'TR',
+        email,
+      }
+    }
+
+    const effectiveUserId = user ? user.id : `guest-${Date.now()}`
+
+    // 2. Create Order (calculates prices & shipping authoritatively, reserves inventory)
+    const order = await createOrder({
+      userId: effectiveUserId,
+      items,
+      couponCode,
+      shippingMethod,
+      shippingAddress: effectiveShippingAddress,
+      billingSameAsShipping,
+      billingAddress,
+      addressId: verifiedAddressId,
+      customerNote: customerNote || undefined,
+    })
+
+    // 3. Initiate Payment session with provider
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1'
+    const paymentSession = await initiatePayment({
+      orderNumber: order.orderNumber,
+      customer: {
+        fullName: shippingAddress.fullName,
+        email,
+        phone: shippingAddress.phone,
+      },
+      ipAddress: clientIp,
+      clientExpectedTotal: expectedTotal,
+    })
+
+    return NextResponse.json({
+      success: true,
+      orderNumber: order.orderNumber,
+      totalAmount: order.totalAmount,
+      subtotal: order.subtotal,
+      discountAmount: order.discountAmount,
+      shippingAmount: order.shippingAmount,
+      paymentId: paymentSession.paymentId,
+      sessionToken: paymentSession.sessionToken,
+      checkoutUrl: paymentSession.checkoutUrl,
+    })
+  } catch (error: any) {
+    console.error('[checkout/initiate] Error:', error)
+    return NextResponse.json(
+      { success: false, error: error.message || 'Ödeme oturumu başlatılamadı.' },
+      { status: 400 }
+    )
+  }
+}

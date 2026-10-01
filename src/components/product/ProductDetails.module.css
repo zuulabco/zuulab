@@ -1,0 +1,631 @@
+/* ProductDetails.module.css */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+}
+
+/* ── Top Meta ────────────────────────────────────────────── */
+.topMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2-5);
+  flex-wrap: wrap;
+}
+
+.collectionCategoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1-5);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.collectionPart {
+  color: var(--text-primary);
+}
+
+.metaDivider {
+  color: var(--border-strong);
+  font-weight: 400;
+}
+
+.categoryPart {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-default);
+}
+
+.categoryPart:hover {
+  color: var(--text-primary);
+}
+
+.newBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 2px 7px;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+.discountBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  padding: 2px 7px;
+  letter-spacing: 0.04em;
+}
+
+/* ── Product Title ───────────────────────────────────────── */
+.title {
+  font-family: var(--font-sans);
+  font-size: clamp(1.65rem, 2.3vw, 2.2rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+/* ── Rating & SKU Row ────────────────────────────────────── */
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.stars {
+  color: var(--zuu-yellow-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ratingScore {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+.dot {
+  color: var(--border-strong);
+  font-size: 10px;
+}
+
+.reviewCount {
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color var(--dur-fast) var(--ease-default);
+}
+
+.reviewCount:hover {
+  color: var(--text-primary);
+}
+
+.skuText {
+  color: var(--text-disabled);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* ── Price Row ───────────────────────────────────────────── */
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.currentPrice {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.oldPrice {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* ── 3D Production Notice ────────────────────────────────── */
+.productionNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2-5);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3) var(--sp-3-5);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--sp-2);
+}
+
+.productionIcon {
+  color: var(--zuu-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.productionContent strong {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.productionContent span {
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.shortDesc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Variant Section ─────────────────────────────────────── */
+.variantSection {
+  margin-top: var(--sp-1);
+}
+
+.variantLabel {
+  display: block;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: lowercase;
+  margin-bottom: var(--sp-2);
+}
+
+.selectedVariantValue {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-left: 4px;
+}
+
+.variantOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.variantBtn {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  transition: all var(--dur-fast) var(--ease-default);
+}
+
+.variantBtn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.variantBtnActive {
+  border-color: var(--surface-inv);
+  background: var(--surface-inv);
+  color: var(--text-inv);
+  font-weight: 600;
+}
+
+.variantBtnDisabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.variantPriceDiff {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Stock Status ────────────────────────────────────────── */
+.stockStatus {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.statusDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.inStock {
+  color: var(--success);
+}
+
+.inStock .statusDot {
+  background: var(--success);
+}
+
+.lowStock {
+  color: var(--warning);
+}
+
+.lowStock .statusDot {
+  background: var(--warning);
+}
+
+.outOfStock {
+  color: var(--error);
+}
+
+.outOfStock .statusDot {
+  background: var(--error);
+}
+
+/* ── Purchase Action Row ─────────────────────────────────── */
+.actionRow {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  margin-top: var(--sp-2);
+}
+
+.quantityBox {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  flex-shrink: 0;
+}
+
+.qtyBtn {
+  width: 38px;
+  height: 100%;
+  background: none;
+  border: none;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dur-fast) var(--ease-default);
+}
+
+.qtyBtn:hover:not(:disabled) {
+  background: var(--surface-1);
+}
+
+.qtyBtn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.qtyValue {
+  width: 34px;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+/* Add to Cart CTA uses --zuu-blue */
+.addToCartBtn {
+  flex: 1;
+  height: 48px;
+  background: var(--zuu-blue);
+  color: #ffffff;
+  border: 1px solid var(--zuu-blue);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  text-transform: lowercase;
+  transition: background-color var(--dur-fast) var(--ease-default),
+              border-color var(--dur-fast) var(--ease-default),
+              transform var(--dur-fast) var(--ease-spring);
+}
+
+.addToCartBtn:hover:not(:disabled) {
+  background: var(--zuu-blue-dark);
+  border-color: var(--zuu-blue-dark);
+}
+
+.addToCartBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.addToCartBtn:disabled {
+  background: var(--surface-2);
+  color: var(--text-disabled);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.addToCartBtn.added {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.favoriteContainer {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Buy Now secondary button */
+.buyNowBtn {
+  width: 100%;
+  height: 44px;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: lowercase;
+  transition: background-color var(--dur-fast) var(--ease-default),
+              border-color var(--dur-fast) var(--ease-default);
+}
+
+.buyNowBtn:hover {
+  background: var(--surface-1);
+  border-color: var(--text-primary);
+}
+
+/* ── Delivery & Craftsmanship Summary ───────────────────── */
+.deliveryCraftSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2-5);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3-5) var(--sp-4);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.summaryItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+
+.summaryIcon {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.summaryText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.summaryTitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+
+.summaryDesc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ── Accordion Disclosure Section ────────────────────────── */
+.accordionSection {
+  margin-top: var(--sp-6);
+  border-top: 1px solid var(--border);
+}
+
+.accordionItem {
+  border-bottom: 1px solid var(--border);
+}
+
+.accordionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) 0;
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: lowercase;
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-default);
+}
+
+.accordionHeader:hover {
+  color: var(--zuu-blue);
+}
+
+.accordionHeader:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+.accordionBody {
+  padding-bottom: var(--sp-5);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.descParagraph {
+  margin-bottom: var(--sp-3);
+}
+
+.subHeading {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  margin-top: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+.featureList {
+  padding-left: var(--sp-5);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+
+.specsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.specsTable td {
+  padding: var(--sp-2-5) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+}
+
+.specsTable tr td:first-child {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+  width: 35%;
+  background: var(--surface-1);
+}
+
+.specsTable tr td:last-child {
+  color: var(--text-primary);
+}
+
+/* ── Mobile Sticky Purchase Bar ──────────────────────────── */
+.mobileStickyBar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileStickyBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    z-index: var(--z-sticky);
+  }
+
+  .stickyPriceInfo {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stickyPrice {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .stickyStock {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .stickyAddBtn {
+    padding: 10px var(--sp-5);
+    background: var(--zuu-blue);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: lowercase;
+    transition: background-color var(--dur-fast) var(--ease-default);
+  }
+
+  .stickyAddSuccess {
+    background: var(--success) !important;
+  }
+}
+
+/* ── Reduced Motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .addToCartBtn,
+  .buyNowBtn,
+  .variantBtn,
+  .accordionHeader {
+    transition: none !important;
+    transform: none !important;
+  }
+}

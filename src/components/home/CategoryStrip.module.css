@@ -1,0 +1,197 @@
+/* ============================================================
+   CategoryStrip.module.css — UI-08D
+   Infinite Category Marquee with Edge Fades & Editorial Rhythm
+   ============================================================ */
+
+.section {
+  position: relative;
+  width: 100%;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  padding-block: var(--sp-4);
+  /* Strip height sits around 64px - 72px */
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Edge Fade Mask ─────────────────────────────────────── */
+/* Graceful linear gradient mask at both edges prevents harsh clipping */
+.marqueeContainer {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+
+  /* Modern standard mask-image */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 70px,
+    black calc(100% - 70px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 70px,
+    black calc(100% - 70px),
+    transparent 100%
+  );
+}
+
+/* ── Seamless Moving Track ──────────────────────────────── */
+.marqueeTrack {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  will-change: transform;
+  animation: marqueeScroll 40s linear infinite;
+}
+
+/* Pause on hover on desktop so user can comfortably click links */
+@media (hover: hover) and (pointer: fine) {
+  .section:hover .marqueeTrack {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ── Category Item Styling ──────────────────────────────── */
+.categoryItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-5);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-tight);
+  text-transform: lowercase;
+  white-space: nowrap;
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+  border-radius: var(--radius-xs);
+}
+
+.categoryItem:hover {
+  color: var(--brand-blue);
+  background-color: var(--surface-1);
+}
+
+.categoryItem:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+
+/* Small tag/micro-label for brand worlds */
+.worldTag {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+
+.categoryItem:hover .worldTag {
+  color: var(--brand-blue);
+  background: var(--zuu-blue-light);
+}
+
+/* Elegant directional arrow */
+.arrow {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: transform var(--dur-fast), color var(--dur-fast);
+}
+
+.categoryItem:hover .arrow {
+  color: var(--brand-blue);
+  transform: translateX(3px);
+}
+
+/* Item separator */
+.separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--border-strong);
+  font-size: var(--text-xs);
+  opacity: 0.7;
+  user-select: none;
+  padding-inline: var(--sp-1);
+}
+
+/* ── Responsive Behavior ────────────────────────────────── */
+@media (max-width: 768px) {
+  .section {
+    min-height: 56px;
+    padding-block: var(--sp-3);
+  }
+
+  .marqueeContainer {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 40px,
+      black calc(100% - 40px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 40px,
+      black calc(100% - 40px),
+      transparent 100%
+    );
+  }
+
+  .categoryItem {
+    padding: var(--sp-1) var(--sp-3);
+    font-size: var(--text-xs);
+    gap: var(--sp-2);
+  }
+
+  .worldTag {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  /* Slightly faster animation on small mobile screens to keep motion natural */
+  .marqueeTrack {
+    animation-duration: 32s;
+  }
+}
+
+/* ── Accessibility: Reduced Motion ──────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .marqueeContainer {
+    mask-image: none;
+    -webkit-mask-image: none;
+    overflow-x: auto;
+  }
+
+  .marqueeTrack {
+    animation: none !important;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    padding-inline: var(--sp-4);
+  }
+}

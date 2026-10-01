@@ -1,0 +1,242 @@
+/* ============================================================
+   CategoryBanners.module.css — UI-08E
+   3 Editorial Collection Banners directly below Best Sellers
+   Clean, product-focused, image-led tiles with subtle motion
+   ============================================================ */
+
+.section {
+  padding-block: var(--sp-20);
+  background-color: var(--surface-0);
+  border-bottom: 1px solid var(--border);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-inline: auto;
+  padding-inline: var(--sp-6);
+}
+
+/* ── Section Header ─────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--sp-8);
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  text-transform: lowercase;
+  line-height: var(--leading-tight);
+  margin: 0;
+}
+
+.allLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  text-decoration: none;
+  text-transform: lowercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 2px;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.allLink:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+/* ── 3-Column Banner Grid ───────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-6);
+}
+
+/* ── Individual Banner Tile ─────────────────────────────── */
+.banner {
+  position: relative;
+  min-height: 460px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--sp-8) var(--sp-6);
+  text-decoration: none;
+  background-color: var(--surface-inv);
+  transition: box-shadow var(--dur-base);
+}
+
+.banner:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 3px;
+}
+
+/* ── Background Image & Hover Scale ─────────────────────── */
+.imageFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.bannerImg {
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1);
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.banner:hover .bannerImg {
+  transform: scale(1.03);
+}
+
+/* ── Editorial Scrim ────────────────────────────────────── */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    rgba(17, 17, 16, 0.08) 0%,
+    rgba(17, 17, 16, 0.32) 48%,
+    rgba(17, 17, 16, 0.88) 100%
+  );
+  transition: background var(--dur-base);
+}
+
+.banner:hover .scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(17, 17, 16, 0.12) 0%,
+    rgba(17, 17, 16, 0.38) 46%,
+    rgba(17, 17, 16, 0.92) 100%
+  );
+}
+
+/* ── Content Layer ──────────────────────────────────────── */
+.content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.8rem, 2.4vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  text-transform: lowercase;
+  margin: 0;
+}
+
+.desc {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
+  max-width: 320px;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: #ffffff;
+  text-transform: lowercase;
+}
+
+.ctaArrow {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  transition: transform var(--dur-fast);
+}
+
+.banner:hover .ctaArrow {
+  transform: translateX(4px);
+}
+
+/* ── Responsive Behavior ────────────────────────────────── */
+@media (max-width: 1024px) {
+  .section {
+    padding-block: var(--sp-16);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-6);
+  }
+
+  .banner {
+    min-height: 380px;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding-block: var(--sp-12);
+  }
+
+  .container {
+    padding-inline: var(--sp-4);
+  }
+
+  .header {
+    margin-bottom: var(--sp-6);
+  }
+
+  .banner {
+    min-height: 320px;
+    padding: var(--sp-6) var(--sp-4);
+  }
+
+  .title {
+    font-size: 1.7rem;
+  }
+
+  .desc {
+    font-size: var(--text-xs);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bannerImg {
+    transform: none !important;
+    transition: none !important;
+  }
+  .ctaArrow {
+    transform: none !important;
+  }
+}

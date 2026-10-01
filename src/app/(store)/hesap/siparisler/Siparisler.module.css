@@ -1,0 +1,268 @@
+/* ============================================================
+   ZUULAB ORDER HISTORY MODULE (/hesap/siparisler)
+   Refined archive, clean editorial rows, design system tokens
+   ============================================================ */
+
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.pageHeader {
+  margin-bottom: var(--sp-6);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--sp-5);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+
+.pageTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: var(--tracking-tight);
+  text-transform: lowercase;
+}
+
+/* ── Layout Grid ─────────────────────────────────────────── */
+.accountGrid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--sp-8);
+  align-items: start;
+}
+
+.mainContent {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Orders Archive List ─────────────────────────────────── */
+.ordersList {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.orderRow {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--sp-3);
+  transition: background-color var(--dur-fast) ease;
+}
+
+.orderRowHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.orderNumberGroup {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.orderNumber {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.orderDate {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+/* ── Status Badges ───────────────────────────────────────── */
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+  text-transform: lowercase;
+}
+
+.statusPaymentPending {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: rgba(146, 64, 14, 0.2);
+}
+
+.statusConfirmed {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: rgba(26, 107, 60, 0.2);
+}
+
+.statusShipped {
+  background: var(--info-bg);
+  color: var(--info);
+  border-color: rgba(30, 64, 175, 0.2);
+}
+
+.statusDelivered {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.statusCancelled {
+  background: var(--error-bg);
+  color: var(--error);
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+/* ── Items Preview ───────────────────────────────────────── */
+.orderItemsPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previewItemText {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.previewItemQty {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  margin-left: var(--sp-1);
+}
+
+/* ── Bottom Row: Total & Action ──────────────────────────── */
+.orderRowFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--sp-2);
+}
+
+.orderTotal {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.viewDetailsLink {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--zuu-blue);
+  text-decoration: none;
+  text-transform: lowercase;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  transition: color var(--dur-fast) ease;
+}
+
+.viewDetailsLink:hover {
+  color: var(--zuu-blue-dark);
+}
+
+/* ── Empty State ─────────────────────────────────────────── */
+.emptyState {
+  text-align: center;
+  padding: var(--sp-16) var(--sp-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-1);
+  max-width: 440px;
+  margin: var(--sp-4) auto;
+}
+
+.emptyMascotWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+
+.emptyTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+  text-transform: lowercase;
+}
+
+.emptyDesc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--sp-5);
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.discoverBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 var(--sp-5);
+  background: var(--zuu-blue);
+  color: #ffffff;
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: lowercase;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.discoverBtn:hover {
+  background: var(--zuu-blue-dark);
+}
+
+.loadingText {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  padding: var(--sp-8) 0;
+  text-align: center;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .accountGrid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-6);
+  }
+}

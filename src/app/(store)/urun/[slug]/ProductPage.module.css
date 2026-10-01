@@ -1,0 +1,36 @@
+/* ProductPage.module.css */
+.pageContainer {
+  padding-top: var(--sp-8);
+  padding-bottom: var(--sp-20);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: var(--sp-12);
+  margin-top: var(--sp-4);
+  align-items: flex-start;
+}
+
+.relatedWrap {
+  margin-top: var(--sp-16);
+}
+
+@media (max-width: 960px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-8);
+  }
+}
+
+@media (max-width: 640px) {
+  .pageContainer {
+    padding-top: var(--sp-4);
+    padding-bottom: var(--sp-24); /* extra padding for mobile sticky bar */
+  }
+
+  .mainGrid {
+    margin-top: var(--sp-2);
+    gap: var(--sp-6);
+  }
+}

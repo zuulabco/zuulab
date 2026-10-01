@@ -1,0 +1,117 @@
+/* Modal.module.css — Global Modal Animation System */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal, 500);
+  padding: var(--sp-4);
+  animation: overlayEntrance 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity;
+}
+
+.overlayExiting {
+  animation: overlayExit 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes overlayEntrance {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlayExit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.content {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 20px 48px -12px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.04);
+  padding: var(--sp-8);
+  max-height: calc(100vh - var(--sp-8));
+  overflow-y: auto;
+  animation: modalEntrance 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity, transform;
+}
+
+.contentExiting {
+  animation: modalExit 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalExit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.closeBtn {
+  position: absolute;
+  top: var(--sp-4);
+  right: var(--sp-4);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: color var(--dur-fast), border-color var(--dur-fast), background-color var(--dur-fast);
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background-color: var(--surface-1);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .overlayExiting,
+  .content,
+  .contentExiting {
+    animation: none !important;
+    transition: none !important;
+  }
+}

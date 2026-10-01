@@ -1,0 +1,128 @@
+/* ============================================================
+   AnnouncementBar.module.css — UI-08E
+   Continuous Streaming Announcement Marquee
+   Deep black surface (#000000) with crisp white typography
+   ============================================================ */
+
+.bar {
+  background-color: #000000;
+  color: #ffffff;
+  height: 36px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 100;
+}
+
+/* ── Edge Fade Mask ─────────────────────────────────────── */
+.marqueeContainer {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 32px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 32px,
+    black calc(100% - 32px),
+    transparent 100%
+  );
+}
+
+/* ── Marquee Track ──────────────────────────────────────── */
+.marqueeTrack {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  will-change: transform;
+  animation: announceScroll 28s linear infinite;
+}
+
+@keyframes announceScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Pause on hover on desktop so user can read or click */
+@media (hover: hover) and (pointer: fine) {
+  .bar:hover .marqueeTrack {
+    animation-play-state: paused;
+  }
+}
+
+/* ── Announcement Item ──────────────────────────────────── */
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-inline: var(--sp-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.text {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.ctaLink {
+  color: var(--zuu-yellow);
+  text-decoration: none;
+  font-weight: var(--weight-semibold);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-bottom: 1px solid rgba(254, 200, 15, 0.4);
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.ctaLink:hover {
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+.separator {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: var(--text-2xs);
+  user-select: none;
+  padding-inline: var(--sp-2);
+}
+
+/* ── Accessibility & Reduced Motion ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .marqueeContainer {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .marqueeTrack {
+    animation: none !important;
+    transform: none !important;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .item:not(:first-child) {
+    display: none;
+  }
+}

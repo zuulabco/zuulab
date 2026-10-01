@@ -1,0 +1,54 @@
+/* Breadcrumbs.module.css */
+.nav {
+  margin-bottom: var(--sp-6);
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.link {
+  color: var(--text-muted);
+  text-decoration: none;
+  text-transform: lowercase;
+  transition: color var(--dur-fast) var(--ease-default);
+}
+
+.link:hover {
+  color: var(--text-primary);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+.separator {
+  color: var(--border-strong);
+  user-select: none;
+}
+
+.current {
+  color: var(--text-primary);
+  font-weight: 500;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: lowercase;
+}

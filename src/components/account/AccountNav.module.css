@@ -1,0 +1,122 @@
+/* ============================================================
+   ZUULAB ACCOUNT NAVIGATION MODULE
+   Sleek vertical sidebar on desktop, horizontal scroll on mobile
+   Strict adherence to ZuuLab design system tokens
+   ============================================================ */
+
+.navContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-transform: lowercase;
+  border-radius: var(--radius-xs);
+  border-left: 2px solid transparent;
+  transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.navItem:hover {
+  color: var(--text-primary);
+  background-color: var(--surface-1);
+}
+
+.navItemActive {
+  color: var(--text-primary);
+  background-color: var(--surface-1);
+  font-weight: var(--weight-medium);
+  border-left-color: var(--zuu-blue);
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  background-color: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  margin-left: var(--sp-2);
+}
+
+.navDivider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: var(--sp-2) 0;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  text-transform: lowercase;
+  transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.logoutBtn:hover {
+  color: var(--error);
+  background-color: var(--error-bg);
+}
+
+/* ── Mobile Horizontal Scrollable Tabs ───────────────────── */
+@media (max-width: 768px) {
+  .navContainer {
+    flex-direction: row;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: var(--sp-2);
+    margin-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--border-subtle);
+    gap: var(--sp-1);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .navContainer::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navItem {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 6px 10px;
+    flex-shrink: 0;
+  }
+
+  .navItemActive {
+    border-bottom-color: var(--zuu-blue);
+    background-color: transparent;
+  }
+
+  .navDivider {
+    display: none;
+  }
+
+  .logoutBtn {
+    border-radius: 0;
+    padding: 6px 10px;
+    flex-shrink: 0;
+    width: auto;
+    white-space: nowrap;
+  }
+}

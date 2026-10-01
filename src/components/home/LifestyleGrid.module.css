@@ -1,0 +1,135 @@
+/* LifestyleGrid.module.css */
+
+.section {
+  padding-block: var(--sp-20);
+  background-color: var(--surface-0);
+  border-bottom: 1px solid var(--border);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-inline: auto;
+  padding-inline: var(--sp-6);
+}
+
+/* 12-column asymmetric grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--sp-5);
+  align-items: stretch;
+}
+
+/* Typographic text tile */
+.textTile {
+  grid-column: span 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--sp-8);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+
+/* No eyebrow — heading is the anchor */
+.heading {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text-primary);
+  text-transform: lowercase;
+  margin-bottom: var(--sp-4);
+}
+
+.desc {
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  margin-bottom: var(--sp-6);
+}
+
+.instaLink {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+  text-transform: lowercase;
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: 2px;
+  width: fit-content;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+
+.instaLink:hover {
+  color: var(--zuu-blue);
+  border-color: var(--zuu-blue);
+}
+
+/* Image Tiles */
+.imageTile {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface-2);
+}
+
+.img {
+  object-fit: cover;
+  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.imageTile:hover .img {
+  transform: scale(1.03);
+}
+
+/* No glassmorphism label */
+.imageLabel {
+  position: absolute;
+  bottom: var(--sp-3);
+  left: var(--sp-3);
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.55);
+  padding: 3px 8px;
+  text-transform: lowercase;
+}
+
+/* Spans */
+.tall {
+  grid-column: span 7;
+  min-height: 480px;
+}
+
+.landscape {
+  grid-column: span 8;
+  min-height: 360px;
+}
+
+.square {
+  grid-column: span 4;
+  min-height: 360px;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .textTile { grid-column: span 12; }
+  .tall { grid-column: span 12; min-height: 360px; }
+  .landscape { grid-column: span 7; min-height: 280px; }
+  .square { grid-column: span 5; min-height: 280px; }
+}
+
+@media (max-width: 600px) {
+  .landscape,
+  .square {
+    grid-column: span 12;
+    min-height: 240px;
+  }
+  .textTile {
+    padding: var(--sp-6) var(--sp-4);
+  }
+}

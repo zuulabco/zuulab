@@ -1,0 +1,171 @@
+/* ============================================================
+   ZUULAB ORDER SUCCESS MODULE (/odeme/basarili)
+   Calm confirmation, minimal editorial layout, design tokens
+   ============================================================ */
+
+.container {
+  max-width: 520px;
+  margin: var(--sp-10) auto;
+  text-align: center;
+  padding: 0 var(--sp-4);
+}
+
+.statusIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--sp-4);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.title {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  margin-bottom: var(--sp-2);
+  text-transform: lowercase;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--sp-6);
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Order Details Receipt Card ──────────────────────────── */
+.receiptCard {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-6);
+  text-align: left;
+}
+
+.receiptRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-3);
+  font-size: var(--text-xs);
+}
+
+.receiptLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.receiptOrderNumber {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.statusPaid {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--success);
+  text-transform: uppercase;
+  background: var(--success-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(26, 107, 60, 0.2);
+}
+
+.deliveryEstimate {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.receiptTotalRow {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+  margin-top: var(--sp-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.receiptTotalLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+
+.receiptTotalVal {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+/* ── Actions ─────────────────────────────────────────────── */
+.actionsRow {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 var(--sp-6);
+  background: var(--zuu-blue);
+  color: #ffffff;
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: lowercase;
+  transition: background-color var(--dur-fast) ease;
+}
+
+.primaryBtn:hover {
+  background: var(--zuu-blue-dark);
+}
+
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 var(--sp-6);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: lowercase;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.secondaryBtn:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+}

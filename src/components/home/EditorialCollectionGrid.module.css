@@ -1,0 +1,301 @@
+/* ============================================================
+   ZUULAB EDITORIAL COLLECTION GRID MODULE
+   Asymmetric, editorial, photography-led, typography-focused
+   ============================================================ */
+
+.section {
+  padding-block: var(--sp-20);
+  background-color: var(--surface-0);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-inline: auto;
+  padding-inline: var(--sp-6);
+}
+
+/* ── Section Header ──────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--sp-10);
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--sp-5);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+
+.title {
+  font-family: var(--font-sans);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: lowercase;
+  line-height: var(--leading-tight);
+}
+
+.viewAllLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-transform: lowercase;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.viewAllLink:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+/* ── Asymmetric Layout ───────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-6);
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  transition: border-color var(--dur-fast) ease;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+/* Image background layer */
+.imageFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.cardImg {
+  object-fit: cover;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover .cardImg {
+  transform: scale(1.025);
+}
+
+/* Subtle gradient scrim for legibility */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(10, 10, 10, 0.88) 0%,
+    rgba(10, 10, 10, 0.45) 50%,
+    rgba(10, 10, 10, 0.1) 100%
+  );
+  transition: opacity var(--dur-fast) ease;
+}
+
+.card:hover .scrim {
+  opacity: 0.95;
+}
+
+/* Card Content Overlay */
+.content {
+  position: relative;
+  z-index: 1;
+  padding: var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  color: #ffffff;
+}
+
+.tagRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+
+.tagDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tagText {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cardTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-tight);
+  color: #ffffff;
+  margin: 0;
+  text-transform: lowercase;
+}
+
+.cardTagline {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  line-height: var(--leading-snug);
+  max-width: 44ch;
+}
+
+.cardCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: #ffffff;
+  text-transform: lowercase;
+  opacity: 0.9;
+  transition: opacity var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+
+.card:hover .cardCta {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+/* ── Primary Lead Card (Tall) ────────────────────────────── */
+.primaryCard {
+  min-height: 520px;
+}
+
+.primaryCard .cardTitle {
+  font-size: var(--text-3xl);
+}
+
+/* ── Stacked Column ──────────────────────────────────────── */
+.stackedCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.stackedCard {
+  min-height: 247px;
+  flex: 1;
+}
+
+.stackedCard .content {
+  padding: var(--sp-6);
+}
+
+/* ── Wide Anchor Card (zuutoptan) ────────────────────────── */
+.wideCard {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.wideCard .content {
+  padding: var(--sp-6) var(--sp-8);
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+
+.wideLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--sp-5);
+  }
+
+  .primaryCard {
+    min-height: 380px;
+  }
+
+  .stackedCard {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding-block: var(--sp-12);
+  }
+
+  .header {
+    margin-bottom: var(--sp-6);
+  }
+
+  .content {
+    padding: var(--sp-5);
+  }
+
+  .primaryCard {
+    min-height: 340px;
+  }
+
+  .primaryCard .cardTitle {
+    font-size: var(--text-2xl);
+  }
+
+  .wideCard .content {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--sp-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardImg {
+    transition: none !important;
+  }
+  .card:hover .cardImg {
+    transform: none !important;
+  }
+}

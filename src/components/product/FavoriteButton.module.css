@@ -1,0 +1,42 @@
+/* FavoriteButton.module.css */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-default),
+              border-color var(--dur-fast) var(--ease-default),
+              background var(--dur-fast) var(--ease-default),
+              transform var(--dur-fast) var(--ease-spring);
+  padding: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--surface-0);
+  transform: scale(1.08);
+}
+
+.btn:active {
+  transform: scale(0.92);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+.liked {
+  color: var(--like) !important;
+  border-color: var(--like-border) !important;
+  background: var(--like-bg) !important;
+}

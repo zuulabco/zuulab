@@ -1,0 +1,214 @@
+/* HomeNewsletter.module.css */
+
+.section {
+  padding-block: var(--sp-20);
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--border);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--container-xl);
+  margin-inline: auto;
+  padding-inline: var(--sp-6);
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: var(--sp-16);
+  align-items: center;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No eyebrow — title does the work */
+.title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text-primary);
+  text-transform: lowercase;
+  margin-bottom: var(--sp-4);
+}
+
+.titleItalic {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.desc {
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  max-width: 46ch;
+  margin-bottom: var(--sp-6);
+}
+
+/* Perks — plain text list, no numbered markers */
+.perks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.perk {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-transform: lowercase;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.perk::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--zuu-blue);
+  flex-shrink: 0;
+}
+
+/* Right Form — clean, no warm bg */
+.right {
+  display: flex;
+  flex-direction: column;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-0);
+  padding: var(--sp-8);
+  border: 1px solid var(--border);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  text-transform: lowercase;
+}
+
+.inputRow {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.input {
+  flex: 1;
+  height: 44px;
+  padding-inline: var(--sp-4);
+  background-color: var(--surface-0);
+  border: 1px solid var(--border-strong);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--dur-fast);
+  border-radius: 0;
+}
+
+.input:focus {
+  border-color: var(--border-focus);
+}
+
+.input::placeholder {
+  color: var(--text-disabled);
+}
+
+.submit {
+  height: 44px;
+  padding-inline: var(--sp-5);
+  background-color: var(--text-primary);
+  color: var(--text-inv);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: lowercase;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast);
+}
+
+.submit:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.privacy {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+  text-transform: lowercase;
+}
+
+.privacyLink {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  margin-left: var(--sp-1);
+  transition: color var(--dur-fast);
+}
+
+.privacyLink:hover {
+  color: var(--text-primary);
+}
+
+/* Success */
+.successMsg {
+  background: var(--surface-0);
+  padding: var(--sp-8);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.successIcon {
+  color: var(--success);
+  font-size: 18px;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.successTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  text-transform: lowercase;
+}
+
+.successSub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-transform: lowercase;
+  line-height: var(--leading-relaxed);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+    gap: var(--sp-8);
+  }
+}
+
+@media (max-width: 500px) {
+  .inputRow {
+    flex-direction: column;
+  }
+  .submit {
+    width: 100%;
+  }
+}

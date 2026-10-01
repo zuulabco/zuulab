@@ -1,0 +1,45 @@
+/* CartButton.module.css — UI-02 */
+.btn {
+  position: relative;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--dur-fast) var(--ease-default),
+    color var(--dur-fast) var(--ease-default),
+    transform var(--dur-fast) var(--ease-default);
+}
+
+.btn:hover {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Badge — small, quiet, brand-consistent */
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  /* Use the brand blue instead of harsh black — still legible, warmer */
+  background-color: var(--zuu-blue);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  line-height: 15px;
+  border-radius: var(--radius-full);
+  text-align: center;
+  letter-spacing: 0;
+  /* Subtle pop when count changes */
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
