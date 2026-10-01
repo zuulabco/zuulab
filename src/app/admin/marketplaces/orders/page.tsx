@@ -45,7 +45,7 @@ interface MarketplaceStore {
 }
 
 export default function AdminMarketplaceOrdersPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [orders, setOrders] = useState<MarketplaceOrder[]>([])
   const [stores, setStores] = useState<MarketplaceStore[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,7 +65,7 @@ export default function AdminMarketplaceOrdersPage() {
   } | null>(null)
 
   const loadData = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const params = new URLSearchParams()
@@ -96,7 +96,7 @@ export default function AdminMarketplaceOrdersPage() {
 
   useEffect(() => {
     loadData()
-  }, [token, selectedProvider, selectedStoreId, reconciliationFilter])
+  }, [token, canFetch, selectedProvider, selectedStoreId, reconciliationFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,7 +104,7 @@ export default function AdminMarketplaceOrdersPage() {
   }
 
   const handleManualSync = async (storeId: string) => {
-    if (!token) return
+    if (!canFetch) return
     setSyncingStoreId(storeId)
     setNotification(null)
 
@@ -139,7 +139,7 @@ export default function AdminMarketplaceOrdersPage() {
   }
 
   const handleReconcileUnmatched = async () => {
-    if (!token) return
+    if (!canFetch) return
     setReconciling(true)
     setNotification(null)
 

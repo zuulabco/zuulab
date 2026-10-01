@@ -22,7 +22,7 @@ interface Customer {
 }
 
 export default function AdminCustomersPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -31,7 +31,7 @@ export default function AdminCustomersPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL')
 
   const loadCustomers = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -56,7 +56,7 @@ export default function AdminCustomersPage() {
 
   useEffect(() => {
     loadCustomers()
-  }, [token, statusFilter])
+  }, [token, canFetch, statusFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()

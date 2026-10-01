@@ -17,7 +17,7 @@ interface Category {
 }
 
 export default function AdminCategoriesPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [categories, setCategories] = useState<Category[]>([])
@@ -39,7 +39,7 @@ export default function AdminCategoriesPage() {
   const [deleting, setDeleting] = useState(false)
 
   const loadCategories = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const res = await fetch('/api/admin/categories', {
@@ -60,7 +60,7 @@ export default function AdminCategoriesPage() {
 
   useEffect(() => {
     loadCategories()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const openCreateModal = () => {
     setEditingCategory(null)
@@ -100,7 +100,7 @@ export default function AdminCategoriesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !name.trim()) return
+    if (!canFetch || !name.trim()) return
 
     setSubmitting(true)
     try {
@@ -146,7 +146,7 @@ export default function AdminCategoriesPage() {
   }
 
   const executeDelete = async () => {
-    if (!deleteModalCat || !token) return
+    if (!deleteModalCat || !canFetch) return
 
     setDeleting(true)
     try {

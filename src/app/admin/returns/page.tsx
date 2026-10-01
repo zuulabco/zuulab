@@ -36,7 +36,7 @@ interface ReturnItem {
 }
 
 export default function AdminReturnsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [returns, setReturns] = useState<ReturnItem[]>([])
@@ -45,7 +45,7 @@ export default function AdminReturnsPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const fetchReturns = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -70,7 +70,7 @@ export default function AdminReturnsPage() {
 
   useEffect(() => {
     fetchReturns()
-  }, [token, statusFilter])
+  }, [token, canFetch, statusFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()

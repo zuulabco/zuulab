@@ -12,7 +12,7 @@ import styles from '../../admin.module.css'
 export default function AdminReturnDetailPage() {
   const params = useParams()
   const returnNumber = params.returnNumber as string
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [returnReq, setReturnReq] = useState<any>(null)
@@ -41,7 +41,7 @@ export default function AdminReturnDetailPage() {
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false)
 
   const fetchDetail = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -74,10 +74,10 @@ export default function AdminReturnDetailPage() {
 
   useEffect(() => {
     fetchDetail()
-  }, [returnNumber, token])
+  }, [returnNumber, token, canFetch])
 
   const handleAction = async (endpoint: string, bodyData: any = {}) => {
-    if (!token) return
+    if (!canFetch) return
     setActionLoading(true)
     setError(null)
     try {

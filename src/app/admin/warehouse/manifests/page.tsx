@@ -26,7 +26,7 @@ interface ManifestRecord {
 }
 
 export default function WarehouseManifestsPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
 
   const [manifests, setManifests] = useState<ManifestRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,7 +50,7 @@ export default function WarehouseManifestsPage() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchManifests = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -80,11 +80,11 @@ export default function WarehouseManifestsPage() {
 
   useEffect(() => {
     fetchManifests()
-  }, [token, providerFilter, statusFilter])
+  }, [token, canFetch, providerFilter, statusFilter])
 
   const handleCreateManifest = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setCreating(true)
     setError(null)
     setMessage(null)
@@ -119,7 +119,7 @@ export default function WarehouseManifestsPage() {
   }
 
   const handleCloseManifest = async (id: string) => {
-    if (!token) return
+    if (!canFetch) return
     setError(null)
     setMessage(null)
     try {
@@ -140,7 +140,7 @@ export default function WarehouseManifestsPage() {
   }
 
   const handleConfirmHandover = async () => {
-    if (!activeManifest || !token) return
+    if (!activeManifest || !canFetch) return
     setHandingOver(true)
     setError(null)
     setMessage(null)

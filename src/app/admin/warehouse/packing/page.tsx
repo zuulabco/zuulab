@@ -28,7 +28,7 @@ interface FulfillmentItem {
 
 export default function WarehousePackingPage() {
   const router = useRouter()
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [orderQuery, setOrderQuery] = useState('')
   const [activeFulfillment, setActiveFulfillment] = useState<FulfillmentItem | null>(null)
@@ -53,7 +53,7 @@ export default function WarehousePackingPage() {
   const handleLookupOrder = async (e: React.FormEvent) => {
     e.preventDefault()
     const q = orderQuery.trim()
-    if (!q || !token) return
+    if (!q || !canFetch) return
     setError(null)
     setMessage(null)
     setShipmentResult(null)
@@ -93,7 +93,7 @@ export default function WarehousePackingPage() {
   const handlePackScan = async (e: React.FormEvent) => {
     e.preventDefault()
     const barcode = barcodeInput.trim()
-    if (!barcode || !activeFulfillment || !token) return
+    if (!barcode || !activeFulfillment || !canFetch) return
 
     setScanning(true)
     setError(null)
@@ -144,7 +144,7 @@ export default function WarehousePackingPage() {
   }
 
   const handleCompletePacking = async () => {
-    if (!activeFulfillment || !token) return
+    if (!activeFulfillment || !canFetch) return
     setCompleting(true)
     setMessage(null)
     setError(null)

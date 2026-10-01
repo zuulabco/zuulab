@@ -55,7 +55,7 @@ interface AdminOrder {
 }
 
 export default function AdminOrdersPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [orders, setOrders] = useState<AdminOrder[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -96,7 +96,7 @@ export default function AdminOrdersPage() {
   })
 
   const loadOrders = useCallback(() => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const params = new URLSearchParams()
@@ -124,7 +124,7 @@ export default function AdminOrdersPage() {
         toast.error('Bağlantı hatası: Siparişler alınamadı.')
       })
       .finally(() => setLoading(false))
-  }, [token, statusFilter, paymentFilter, channelFilter, search, currentPage, pageSize])
+  }, [token, canFetch, statusFilter, paymentFilter, channelFilter, search, currentPage, pageSize])
 
   useEffect(() => {
     loadOrders()
@@ -146,7 +146,7 @@ export default function AdminOrdersPage() {
 
   // Single Order Status Change via Modal
   const confirmStatusChange = async () => {
-    if (!statusChangeModal.order || !token) return
+    if (!statusChangeModal.order || !canFetch) return
     const orderNumber = statusChangeModal.order.orderNumber
     const targetStatus = statusChangeModal.targetStatus
     const note = statusChangeModal.note.trim() || `Yönetici panelinden '${targetStatus}' durumuna güncellendi.`
@@ -179,7 +179,7 @@ export default function AdminOrdersPage() {
 
   // Bulk Status Change via Modal
   const confirmBulkStatusChange = async () => {
-    if (selectedIds.length === 0 || !token) return
+    if (selectedIds.length === 0 || !canFetch) return
     const targetStatus = bulkStatusModal.targetStatus
     const note = bulkStatusModal.note.trim() || `Toplu yönetici güncellemesi: ${targetStatus}`
 

@@ -31,7 +31,7 @@ interface TestItem {
 }
 
 export default function AdminWarehouseCartonsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [cartons, setCartons] = useState<Carton[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,7 +81,7 @@ export default function AdminWarehouseCartonsPage() {
   const [testing, setTesting] = useState(false)
 
   const fetchCartons = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -103,7 +103,7 @@ export default function AdminWarehouseCartonsPage() {
 
   useEffect(() => {
     fetchCartons()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const openCreateModal = () => {
     setEditingCarton(null)
@@ -135,7 +135,7 @@ export default function AdminWarehouseCartonsPage() {
 
   const handleSaveCarton = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setSaving(true)
     setError(null)
     setMessage(null)
@@ -190,7 +190,7 @@ export default function AdminWarehouseCartonsPage() {
   }
 
   const handleConfirmDelete = async () => {
-    if (!token || !deleteTargetCarton) return
+    if (!canFetch || !deleteTargetCarton) return
     setDeleteLoading(true)
 
     try {
@@ -215,7 +215,7 @@ export default function AdminWarehouseCartonsPage() {
 
   // 3D Cartonization Test Run
   const handleRunCartonizationTest = async () => {
-    if (!token) return
+    if (!canFetch) return
     setTesting(true)
     setTestResult(null)
     setError(null)

@@ -22,7 +22,7 @@ interface WarehousePrinter {
 }
 
 export default function AdminWarehousePrintersPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
 
   const [printers, setPrinters] = useState<WarehousePrinter[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +43,7 @@ export default function AdminWarehousePrintersPage() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchPrinters = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -65,10 +65,10 @@ export default function AdminWarehousePrintersPage() {
 
   useEffect(() => {
     fetchPrinters()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleTestPrint = async (printerId: string) => {
-    if (!token) return
+    if (!canFetch) return
     setTestingId(printerId)
     setMessage(null)
     setError(null)
@@ -92,7 +92,7 @@ export default function AdminWarehousePrintersPage() {
 
   const handleCreatePrinter = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setCreating(true)
     setError(null)
     setMessage(null)
@@ -129,7 +129,7 @@ export default function AdminWarehousePrintersPage() {
   }
 
   const handleGenerateAgentToken = async (printerId: string) => {
-    if (!token) return
+    if (!canFetch) return
     setError(null)
     try {
       const res = await fetch('/api/print-agent/register', {

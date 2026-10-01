@@ -35,7 +35,7 @@ interface FulfillmentItem {
 
 export default function AdminWarehouseWavesPage() {
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [waves, setWaves] = useState<WarehouseWave[]>([])
@@ -56,7 +56,7 @@ export default function AdminWarehouseWavesPage() {
   const [cancelling, setCancelling] = useState(false)
 
   const fetchWaves = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const res = await fetch('/api/admin/warehouse/waves', {
@@ -87,10 +87,10 @@ export default function AdminWarehouseWavesPage() {
 
   useEffect(() => {
     fetchWaves()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleCreateWave = async () => {
-    if (selectedOrderIds.length === 0 || !token) return
+    if (selectedOrderIds.length === 0 || !canFetch) return
     setCreating(true)
 
     try {
@@ -127,7 +127,7 @@ export default function AdminWarehouseWavesPage() {
   }
 
   const handleStartWave = async (waveId: string) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch(`/api/admin/warehouse/waves/${waveId}/start`, {
         method: 'POST',
@@ -146,7 +146,7 @@ export default function AdminWarehouseWavesPage() {
   }
 
   const handleCompleteWave = async (waveId: string) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch(`/api/admin/warehouse/waves/${waveId}/complete`, {
         method: 'POST',
@@ -165,7 +165,7 @@ export default function AdminWarehouseWavesPage() {
   }
 
   const handleConfirmCancelWave = async () => {
-    if (!waveToCancel || !token) return
+    if (!waveToCancel || !canFetch) return
     setCancelling(true)
 
     try {

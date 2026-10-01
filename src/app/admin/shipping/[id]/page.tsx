@@ -90,7 +90,7 @@ export default function ShippingDetailPage({
 }) {
   const resolvedParams = use(params)
   const { id } = resolvedParams
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [shipment, setShipment] = useState<ShipmentDetail | null>(null)
@@ -104,7 +104,7 @@ export default function ShippingDetailPage({
   const [showCancelModal, setShowCancelModal] = useState(false)
 
   const fetchDetail = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -129,10 +129,10 @@ export default function ShippingDetailPage({
 
   useEffect(() => {
     fetchDetail()
-  }, [id, token])
+  }, [id, token, canFetch])
 
   const handleCreateLabel = async (regenerate = false) => {
-    if (!token) return
+    if (!canFetch) return
     setActionLoading(true)
     try {
       const res = await fetch(`/api/admin/shipping/${id}/label`, {
@@ -158,7 +158,7 @@ export default function ShippingDetailPage({
   }
 
   const handleSyncTracking = async () => {
-    if (!token) return
+    if (!canFetch) return
     setActionLoading(true)
     try {
       const res = await fetch(`/api/admin/shipping/${id}/tracking`, {
@@ -180,7 +180,7 @@ export default function ShippingDetailPage({
   }
 
   const executeCancelShipment = async () => {
-    if (!token) return
+    if (!canFetch) return
     setShowCancelModal(false)
     setActionLoading(true)
     try {
@@ -207,7 +207,7 @@ export default function ShippingDetailPage({
   }
 
   const handleRetry = async () => {
-    if (!token) return
+    if (!canFetch) return
     setActionLoading(true)
     try {
       const res = await fetch(`/api/admin/shipping/${id}/retry`, {

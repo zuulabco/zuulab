@@ -6,7 +6,7 @@ import { useToastStore } from '@/store/toastStore'
 import styles from '../admin.module.css'
 
 export default function AdminSettingsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [loading, setLoading] = useState(true)
@@ -43,7 +43,7 @@ export default function AdminSettingsPage() {
   const [allowCustomerCancellation, setAllowCustomerCancellation] = useState(true)
 
   const fetchMaintenanceStatus = async () => {
-    if (!token) return
+    if (!canFetch) return
     try {
       setMaintenanceLoading(true)
       const res = await fetch('/api/admin/settings/maintenance', {
@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
   }
 
   const handleToggleMaintenance = async () => {
-    if (!token || maintenanceToggling) return
+    if (!canFetch || maintenanceToggling) return
     const nextState = !maintenanceStatus.enabled
     setMaintenanceToggling(true)
 
@@ -95,7 +95,7 @@ export default function AdminSettingsPage() {
   }
 
   useEffect(() => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     Promise.all([
@@ -121,11 +121,11 @@ export default function AdminSettingsPage() {
     ])
       .catch(() => addToast('Sistem ayarları yüklenemedi.', 'error'))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, canFetch])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
 
     setSaving(true)
     try {

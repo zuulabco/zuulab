@@ -23,7 +23,7 @@ interface WarehouseLocation {
 }
 
 export default function AdminWarehouseLocationsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [locations, setLocations] = useState<WarehouseLocation[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,7 +46,7 @@ export default function AdminWarehouseLocationsPage() {
   const [creating, setCreating] = useState(false)
 
   const fetchLocations = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -72,11 +72,11 @@ export default function AdminWarehouseLocationsPage() {
 
   useEffect(() => {
     fetchLocations()
-  }, [token, zoneFilter, typeFilter])
+  }, [token, canFetch, zoneFilter, typeFilter])
 
   const handleCreateLocation = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setCreating(true)
     setError(null)
     setMessage(null)

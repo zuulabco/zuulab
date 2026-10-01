@@ -57,7 +57,7 @@ interface SessionData {
 export default function AdminWarehouseCountDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
   const sessionId = params.id as string
 
   const [session, setSession] = useState<SessionData | null>(null)
@@ -75,7 +75,7 @@ export default function AdminWarehouseCountDetailPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const fetchSession = async () => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setLoading(true)
     setError(null)
     try {
@@ -97,10 +97,10 @@ export default function AdminWarehouseCountDetailPage() {
 
   useEffect(() => {
     fetchSession()
-  }, [token, sessionId])
+  }, [token, canFetch, sessionId])
 
   const handleStartSession = async () => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setError(null)
     setMessage(null)
     try {
@@ -125,7 +125,7 @@ export default function AdminWarehouseCountDetailPage() {
 
   const handleScanSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     if (!scanBarcode.trim()) {
       setError('Lütfen ürün barkodu veya SKU okutunuz.')
       return
@@ -166,7 +166,7 @@ export default function AdminWarehouseCountDetailPage() {
   }
 
   const handleRequestRecount = async (lineId: string) => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setActionLoading(`recount_${lineId}`)
     setError(null)
     setMessage(null)
@@ -194,7 +194,7 @@ export default function AdminWarehouseCountDetailPage() {
   }
 
   const handleApproveTicket = async (ticketId: string) => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setActionLoading(`approve_${ticketId}`)
     setError(null)
     setMessage(null)
@@ -222,7 +222,7 @@ export default function AdminWarehouseCountDetailPage() {
   }
 
   const handleRejectTicket = async (ticketId: string) => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setActionLoading(`reject_${ticketId}`)
     setError(null)
     setMessage(null)
@@ -250,7 +250,7 @@ export default function AdminWarehouseCountDetailPage() {
   }
 
   const handleReconcileTicket = async (ticketId: string) => {
-    if (!token || !sessionId) return
+    if (!canFetch || !sessionId) return
     setActionLoading(`reconcile_${ticketId}`)
     setError(null)
     setMessage(null)

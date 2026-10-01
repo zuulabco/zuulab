@@ -16,7 +16,7 @@ export default function AdminEditProductPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -82,7 +82,7 @@ export default function AdminEditProductPage() {
 
   // Load product & economics
   const loadEconomics = async () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     try {
       const res = await fetch(`/api/admin/products/${id}/economics`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -103,7 +103,7 @@ export default function AdminEditProductPage() {
   }
 
   const loadProduction = async () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     try {
       const res = await fetch('/api/admin/production', { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
@@ -124,7 +124,7 @@ export default function AdminEditProductPage() {
   }
 
   useEffect(() => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     setLoading(true)
 
     fetch(`/api/admin/products/${id}`, {
@@ -167,11 +167,11 @@ export default function AdminEditProductPage() {
 
     loadEconomics()
     loadProduction()
-  }, [token, id])
+  }, [token, canFetch, id])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !token) return
+    if (!file || !canFetch) return
 
     setUploadingImage(true)
     const formData = new FormData()
@@ -200,7 +200,7 @@ export default function AdminEditProductPage() {
 
   const handleSaveCost = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setSavingCost(true)
 
     try {
@@ -237,7 +237,7 @@ export default function AdminEditProductPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setSaving(true)
 
     try {
@@ -283,7 +283,7 @@ export default function AdminEditProductPage() {
   }
 
   const confirmDuplicate = async () => {
-    if (!token) return
+    if (!canFetch) return
     setModalActionLoading(true)
     try {
       const res = await fetch(`/api/admin/products/${id}/duplicate`, {
@@ -306,7 +306,7 @@ export default function AdminEditProductPage() {
   }
 
   const confirmArchiveToggle = async () => {
-    if (!token) return
+    if (!canFetch) return
     const newStatus = status === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED'
     setModalActionLoading(true)
 

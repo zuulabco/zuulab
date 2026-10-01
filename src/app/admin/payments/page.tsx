@@ -28,7 +28,7 @@ interface PaymentItem {
 }
 
 export default function AdminPaymentsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [payments, setPayments] = useState<PaymentItem[]>([])
@@ -40,7 +40,7 @@ export default function AdminPaymentsPage() {
   const [cleanupLoading, setCleanupLoading] = useState(false)
 
   const loadPayments = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -66,7 +66,7 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => {
     loadPayments()
-  }, [token, quickFilter, providerFilter])
+  }, [token, canFetch, quickFilter, providerFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,7 +74,7 @@ export default function AdminPaymentsPage() {
   }
 
   const handleCleanupExpired = async () => {
-    if (!token) return
+    if (!canFetch) return
     setCleanupLoading(true)
     try {
       const res = await fetch('/api/admin/inventory/cleanup-expired', {

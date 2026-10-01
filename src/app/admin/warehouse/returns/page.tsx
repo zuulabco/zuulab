@@ -26,7 +26,7 @@ interface ReturnInspectionItem {
 }
 
 export default function AdminWarehouseReturnsPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
 
   const [packageBarcodeInput, setPackageBarcodeInput] = useState('')
   const [productBarcodeInput, setProductBarcodeInput] = useState('')
@@ -53,7 +53,7 @@ export default function AdminWarehouseReturnsPage() {
   const handleScanPackage = async (e: React.FormEvent) => {
     e.preventDefault()
     const barcode = packageBarcodeInput.trim()
-    if (!barcode || !token) return
+    if (!barcode || !canFetch) return
 
     setScanningPackage(true)
     setError(null)
@@ -87,7 +87,7 @@ export default function AdminWarehouseReturnsPage() {
   const handleInspectItem = async (e: React.FormEvent) => {
     e.preventDefault()
     const barcode = productBarcodeInput.trim()
-    if (!barcode || !activeInspection || !token) return
+    if (!barcode || !activeInspection || !canFetch) return
 
     setInspectingItem(true)
     setError(null)
@@ -131,7 +131,7 @@ export default function AdminWarehouseReturnsPage() {
   }
 
   const handleCompleteInspection = async () => {
-    if (!activeInspection || !token) return
+    if (!activeInspection || !canFetch) return
     setCompleting(true)
     setError(null)
     setMessage(null)

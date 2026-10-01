@@ -26,7 +26,7 @@ interface FulfillmentItem {
 
 export default function WarehousePickingPage() {
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
 
   const [fulfillments, setFulfillments] = useState<FulfillmentItem[]>([])
   const [activeFulfillment, setActiveFulfillment] = useState<FulfillmentItem | null>(null)
@@ -47,7 +47,7 @@ export default function WarehousePickingPage() {
   }
 
   const fetchFulfillments = async () => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/warehouse?status=READY_TO_PICK', {
         headers: { Authorization: `Bearer ${token}` },
@@ -72,7 +72,7 @@ export default function WarehousePickingPage() {
 
   useEffect(() => {
     fetchFulfillments()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   useEffect(() => {
     focusScanner()
@@ -81,7 +81,7 @@ export default function WarehousePickingPage() {
   const handleScanSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const barcode = barcodeInput.trim()
-    if (!barcode || !activeFulfillment || !token) return
+    if (!barcode || !activeFulfillment || !canFetch) return
 
     setScanning(true)
     setError(null)
@@ -133,7 +133,7 @@ export default function WarehousePickingPage() {
   }
 
   const handleCompletePicking = async () => {
-    if (!activeFulfillment || !token) return
+    if (!activeFulfillment || !canFetch) return
     setCompleting(true)
     setMessage(null)
     setError(null)

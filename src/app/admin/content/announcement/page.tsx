@@ -16,7 +16,7 @@ interface AnnouncementItem {
 }
 
 export default function AdminAnnouncementPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [items, setItems] = useState<AnnouncementItem[]>([])
@@ -37,7 +37,7 @@ export default function AdminAnnouncementPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadAnnouncements = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     fetch('/api/admin/cms/announcements', {
@@ -55,7 +55,7 @@ export default function AdminAnnouncementPage() {
 
   useEffect(() => {
     loadAnnouncements()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const openCreate = () => {
     setEditingItem(null)
@@ -78,7 +78,7 @@ export default function AdminAnnouncementPage() {
   }
 
   const handleToggle = async (item: AnnouncementItem) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/cms/announcements', {
         method: 'PUT',
@@ -101,7 +101,7 @@ export default function AdminAnnouncementPage() {
   }
 
   const handleDeleteConfirm = async () => {
-    if (!deleteTargetId || !token) return
+    if (!deleteTargetId || !canFetch) return
     setIsDeleting(true)
 
     try {
@@ -126,7 +126,7 @@ export default function AdminAnnouncementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !text.trim()) return
+    if (!canFetch || !text.trim()) return
 
     setSubmitting(true)
     try {

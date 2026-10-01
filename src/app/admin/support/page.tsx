@@ -43,7 +43,7 @@ const CATEGORIES: Record<string, string> = {
 }
 
 export default function AdminSupportPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [tickets, setTickets] = useState<TicketItem[]>([])
@@ -61,7 +61,7 @@ export default function AdminSupportPage() {
   const [statusToChange, setStatusToChange] = useState<string | null>(null)
 
   const loadTickets = (selectIdAfterLoad?: string) => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const url = statusFilter === 'ALL'
@@ -92,10 +92,10 @@ export default function AdminSupportPage() {
 
   useEffect(() => {
     loadTickets()
-  }, [token, statusFilter])
+  }, [token, canFetch, statusFilter])
 
   const selectTicket = (id: string) => {
-    if (!token) return
+    if (!canFetch) return
     setTicketDetailsLoading(true)
     fetch(`/api/admin/support/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -115,7 +115,7 @@ export default function AdminSupportPage() {
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !selectedTicket || !replyBody.trim()) return
+    if (!canFetch || !selectedTicket || !replyBody.trim()) return
     setSendingReply(true)
 
     try {
@@ -151,7 +151,7 @@ export default function AdminSupportPage() {
   }
 
   const handleUpdateStatus = async (status: string) => {
-    if (!token || !selectedTicket) return
+    if (!canFetch || !selectedTicket) return
     try {
       const res = await fetch(`/api/admin/support/${selectedTicket.id}`, {
         method: 'PATCH',

@@ -162,14 +162,14 @@ interface TodayData {
 }
 
 export default function TodayOperationsPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
   const [data, setData] = useState<TodayData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const loadTodayOperations = useCallback(async () => {
-    if (!token) return
+    if (!canFetch) return
     setRefreshing(true)
     try {
       const res = await fetch('/api/admin/today', {
@@ -188,7 +188,7 @@ export default function TodayOperationsPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   useEffect(() => {
     loadTodayOperations()

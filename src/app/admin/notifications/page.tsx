@@ -25,7 +25,7 @@ interface NotificationItem {
 }
 
 export default function AdminNotificationsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
@@ -36,7 +36,7 @@ export default function AdminNotificationsPage() {
   const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null)
 
   const fetchNotifications = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -62,7 +62,7 @@ export default function AdminNotificationsPage() {
 
   useEffect(() => {
     fetchNotifications()
-  }, [token, statusFilter, typeFilter])
+  }, [token, canFetch, statusFilter, typeFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,7 +70,7 @@ export default function AdminNotificationsPage() {
   }
 
   const handleProcessQueue = async () => {
-    if (!token) return
+    if (!canFetch) return
     setProcessing(true)
     try {
       const res = await fetch('/api/admin/notifications/process', {
@@ -92,7 +92,7 @@ export default function AdminNotificationsPage() {
   }
 
   const handleRetryNotification = async (id: string) => {
-    if (!token) return
+    if (!canFetch) return
     setRetryingId(id)
     try {
       const res = await fetch(`/api/admin/notifications/${id}/retry`, {

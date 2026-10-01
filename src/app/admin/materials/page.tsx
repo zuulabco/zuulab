@@ -65,7 +65,7 @@ interface MaterialReadinessSummary {
 }
 
 export default function MaterialsPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [stocks, setStocks] = useState<MaterialStockItem[]>([])
@@ -95,7 +95,7 @@ export default function MaterialsPage() {
   const canManage = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
 
   const loadData = useCallback(async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const [stocksRes, readinessRes] = await Promise.all([
@@ -120,7 +120,7 @@ export default function MaterialsPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, addToast])
+  }, [token, canFetch, addToast])
 
   useEffect(() => {
     loadData()

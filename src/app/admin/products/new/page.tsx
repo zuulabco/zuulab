@@ -12,7 +12,7 @@ import styles from '../../admin.module.css'
 
 export default function AdminNewProductPage() {
   const router = useRouter()
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [loading, setLoading] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -75,7 +75,7 @@ export default function AdminNewProductPage() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !token) return
+    if (!file || !canFetch) return
 
     setUploadingImage(true)
     const formData = new FormData()
@@ -104,7 +104,7 @@ export default function AdminNewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) {
+    if (!canFetch) {
       toast.error('Oturum açmanız gerekmektedir.')
       return
     }

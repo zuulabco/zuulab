@@ -20,7 +20,7 @@ interface Collection {
 }
 
 export default function AdminCollectionsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [collections, setCollections] = useState<Collection[]>([])
@@ -39,7 +39,7 @@ export default function AdminCollectionsPage() {
   const [saving, setSaving] = useState(false)
 
   const loadCollections = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const res = await fetch('/api/admin/collections', {
@@ -60,7 +60,7 @@ export default function AdminCollectionsPage() {
 
   useEffect(() => {
     loadCollections()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const openCreateModal = () => {
     setEditingCollection(null)
@@ -104,7 +104,7 @@ export default function AdminCollectionsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !name.trim()) return
+    if (!canFetch || !name.trim()) return
 
     setSaving(true)
     try {
@@ -152,7 +152,7 @@ export default function AdminCollectionsPage() {
   }
 
   const handleQuickSort = async (col: Collection, newOrder: number) => {
-    if (!token || newOrder < 1) return
+    if (!canFetch || newOrder < 1) return
     try {
       const res = await fetch('/api/admin/collections', {
         method: 'PUT',

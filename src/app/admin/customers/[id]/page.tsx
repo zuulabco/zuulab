@@ -16,7 +16,7 @@ export default function AdminCustomerDetailPage({
 }) {
   const resolvedParams = use(params)
   const { id } = resolvedParams
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [customer, setCustomer] = useState<any>(null)
@@ -29,7 +29,7 @@ export default function AdminCustomerDetailPage({
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
   const loadCustomer = async () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     setLoading(true)
     setError(null)
     try {
@@ -51,10 +51,10 @@ export default function AdminCustomerDetailPage({
 
   useEffect(() => {
     loadCustomer()
-  }, [token, id])
+  }, [token, canFetch, id])
 
   const handleStatusChange = async (targetStatus: 'ACTIVE' | 'SUSPENDED') => {
-    if (!token) return
+    if (!canFetch) return
     setUpdatingStatus(true)
     try {
       const res = await fetch(`/api/admin/customers/${id}/status`, {

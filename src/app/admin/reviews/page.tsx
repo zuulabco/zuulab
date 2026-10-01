@@ -26,7 +26,7 @@ interface ReviewItem {
 }
 
 export default function AdminReviewsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
   const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +42,7 @@ export default function AdminReviewsPage() {
   const [moderationNote, setModerationNote] = useState('')
 
   const loadReviews = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const url = statusFilter === 'ALL'
@@ -67,7 +67,7 @@ export default function AdminReviewsPage() {
 
   useEffect(() => {
     loadReviews()
-  }, [token, statusFilter])
+  }, [token, canFetch, statusFilter])
 
   // Filtered reviews by search term
   const filteredReviews = useMemo(() => {
@@ -96,7 +96,7 @@ export default function AdminReviewsPage() {
   }, [reviews])
 
   const handleConfirmModerate = async () => {
-    if (!token || !modalAction) return
+    if (!canFetch || !modalAction) return
     const { review, action } = modalAction
     setActionLoading(review.id)
 

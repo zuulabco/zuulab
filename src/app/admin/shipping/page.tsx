@@ -64,7 +64,7 @@ interface OperationReport {
 }
 
 export default function AdminShippingPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -107,7 +107,7 @@ export default function AdminShippingPage() {
 
   // Fetch shipments & stats
   const fetchShipments = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -140,7 +140,7 @@ export default function AdminShippingPage() {
 
   // Fetch carrier settings
   const fetchCarrierSettings = async () => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/shipping/settings', {
         headers: { Authorization: `Bearer ${token}` },
@@ -156,11 +156,11 @@ export default function AdminShippingPage() {
 
   useEffect(() => {
     fetchShipments()
-  }, [token, quickFilter, channelFilter, providerFilter])
+  }, [token, canFetch, quickFilter, channelFilter, providerFilter])
 
   useEffect(() => {
     fetchCarrierSettings()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,7 +199,7 @@ export default function AdminShippingPage() {
 
   // Action: Bulk Generate Labels
   const handleBulkGenerateLabels = async () => {
-    if (selectedIds.length === 0 || !token) return
+    if (selectedIds.length === 0 || !canFetch) return
     setBulkProcessing(true)
     setBulkActionType('LABEL')
     setOperationReport(null)
@@ -257,7 +257,7 @@ export default function AdminShippingPage() {
 
   // Action: Bulk Download PDF (existing labels)
   const handleBulkDownloadPdf = async () => {
-    if (selectedIds.length === 0 || !token) return
+    if (selectedIds.length === 0 || !canFetch) return
     setBulkProcessing(true)
     setBulkActionType('PDF')
 
@@ -293,7 +293,7 @@ export default function AdminShippingPage() {
 
   // Action: Bulk Mark as Shipped (Kargoya Verildi)
   const executeBulkMarkAsShipped = async () => {
-    if (selectedIds.length === 0 || !token) return
+    if (selectedIds.length === 0 || !canFetch) return
     setShowBulkShipModal(false)
     setBulkProcessing(true)
     setBulkActionType('SHIP')
@@ -342,7 +342,7 @@ export default function AdminShippingPage() {
 
   // Single Item Label Download
   const handleDownloadSingleLabel = async (shipmentId: string) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/shipping/bulk-labels', {
         method: 'POST',
@@ -373,7 +373,7 @@ export default function AdminShippingPage() {
 
   // Save Carrier Settings
   const handleSaveCarrierSettings = async () => {
-    if (!token) return
+    if (!canFetch) return
     setSavingSettings(true)
     try {
       const res = await fetch('/api/admin/shipping/settings', {

@@ -37,7 +37,7 @@ interface InvoiceItem {
 }
 
 export default function AdminInvoicesPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [invoices, setInvoices] = useState<InvoiceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('ALL')
@@ -46,7 +46,7 @@ export default function AdminInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceItem | null>(null)
 
   const loadInvoices = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const params = new URLSearchParams()
@@ -69,7 +69,7 @@ export default function AdminInvoicesPage() {
 
   useEffect(() => {
     loadInvoices()
-  }, [token, statusFilter, typeFilter])
+  }, [token, canFetch, statusFilter, typeFilter])
 
   // Real KPI metrics calculated directly from fetched backend data
   const metrics = useMemo(() => {

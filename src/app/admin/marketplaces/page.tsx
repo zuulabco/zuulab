@@ -22,7 +22,7 @@ interface MarketplaceStore {
 }
 
 export default function AdminMarketplacesPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [stores, setStores] = useState<MarketplaceStore[]>([])
   const [loading, setLoading] = useState(true)
   const [filterProvider, setFilterProvider] = useState<string>('ALL')
@@ -59,7 +59,7 @@ export default function AdminMarketplacesPage() {
   } | null>(null)
 
   const loadStores = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     fetch('/api/admin/marketplaces/stores', {
       headers: { Authorization: `Bearer ${token}` },
@@ -76,10 +76,10 @@ export default function AdminMarketplacesPage() {
 
   useEffect(() => {
     loadStores()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleTestConnection = async (storeId: string) => {
-    if (!token) return
+    if (!canFetch) return
     setTestingId(storeId)
     setTestResult(null)
     setNotification(null)
@@ -122,7 +122,7 @@ export default function AdminMarketplacesPage() {
 
   const handleRotateCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !rotateStore) return
+    if (!canFetch || !rotateStore) return
 
     setRotateLoading(true)
     setNotification(null)
@@ -171,7 +171,7 @@ export default function AdminMarketplacesPage() {
 
   const handleAddStore = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
 
     setAddLoading(true)
     setNotification(null)

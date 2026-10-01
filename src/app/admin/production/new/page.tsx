@@ -8,7 +8,7 @@ import { useToastStore } from '@/store/toastStore'
 import styles from '../../admin.module.css'
 
 function NewProductionForm() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,14 +30,14 @@ function NewProductionForm() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!token) return
+    if (!canFetch) return
     fetch('/api/products?limit=100', { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((d) => {
         if (d.products) setProducts(d.products)
       })
       .catch(() => {})
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   useEffect(() => {
     if (initialProductId && !form.productId) {

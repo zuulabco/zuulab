@@ -30,7 +30,7 @@ interface MarketplaceStore {
 }
 
 export default function AdminMarketplaceMappingsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [mappings, setMappings] = useState<MarketplaceProductMapping[]>([])
   const [stores, setStores] = useState<MarketplaceStore[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +51,7 @@ export default function AdminMarketplaceMappingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const loadData = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     Promise.all([
@@ -93,11 +93,11 @@ export default function AdminMarketplaceMappingsPage() {
 
   useEffect(() => {
     loadData()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleCreateMapping = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
 
     setAddLoading(true)
     try {
@@ -133,7 +133,7 @@ export default function AdminMarketplaceMappingsPage() {
   }
 
   const handleDeleteConfirmed = async () => {
-    if (!token || !deleteConfirmMapping) return
+    if (!canFetch || !deleteConfirmMapping) return
     setDeleteLoading(true)
 
     try {

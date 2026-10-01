@@ -35,7 +35,7 @@ interface HomepageSectionConfig {
 }
 
 export default function AdminHomepageCmsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [loading, setLoading] = useState(true)
@@ -67,7 +67,7 @@ export default function AdminHomepageCmsPage() {
   const [sections, setSections] = useState<HomepageSectionConfig[]>([])
 
   const loadCms = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     fetch('/api/admin/cms/homepage?mode=DRAFT', {
@@ -89,7 +89,7 @@ export default function AdminHomepageCmsPage() {
 
   useEffect(() => {
     loadCms()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleHeroChange = (field: keyof HeroContent, value: any) => {
     setHero((prev) => ({ ...prev, [field]: value }))
@@ -116,7 +116,7 @@ export default function AdminHomepageCmsPage() {
   }
 
   const handleSaveDraft = async () => {
-    if (!token) return
+    if (!canFetch) return
     setSaving(true)
 
     try {
@@ -147,7 +147,7 @@ export default function AdminHomepageCmsPage() {
   }
 
   const handlePublishConfirm = async () => {
-    if (!token) return
+    if (!canFetch) return
     setPublishing(true)
 
     try {

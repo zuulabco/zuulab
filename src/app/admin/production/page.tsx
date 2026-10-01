@@ -9,7 +9,7 @@ import { getProductionStatusConfig, getMaterialReadinessStatusConfig } from '@/l
 import styles from '../admin.module.css'
 
 export default function ProductionPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [orders, setOrders] = useState<any[]>([])
@@ -23,7 +23,7 @@ export default function ProductionPage() {
   const [submittingComplete, setSubmittingComplete] = useState(false)
 
   async function loadOrders() {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const res = await fetch('/api/admin/production', { headers: { Authorization: `Bearer ${token}` } })
@@ -42,7 +42,7 @@ export default function ProductionPage() {
 
   useEffect(() => {
     loadOrders()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   async function handleAction(orderId: string, action: 'start' | 'stock', body?: any) {
     setActionLoading(orderId + action)

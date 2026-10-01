@@ -19,7 +19,7 @@ interface MediaAsset {
 }
 
 export default function AdminMediaPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [media, setMedia] = useState<MediaAsset[]>([])
@@ -44,7 +44,7 @@ export default function AdminMediaPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadMedia = () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     fetch('/api/admin/cms/media', {
@@ -62,7 +62,7 @@ export default function AdminMediaPage() {
 
   useEffect(() => {
     loadMedia()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleCopyUrl = (urlStr: string) => {
     navigator.clipboard.writeText(urlStr)
@@ -70,7 +70,7 @@ export default function AdminMediaPage() {
   }
 
   const handleDeleteConfirm = async () => {
-    if (!deleteTarget || !token) return
+    if (!deleteTarget || !canFetch) return
 
     if (deleteTarget.references > 0) {
       addToast(`Bu görsel ${deleteTarget.references} aktif vitrin içeriğinde kullanıldığı için silinemez.`, 'warning')
@@ -101,7 +101,7 @@ export default function AdminMediaPage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
 
     setSubmitting(true)
     try {

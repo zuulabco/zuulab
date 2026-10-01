@@ -22,7 +22,7 @@ interface CountSession {
 }
 
 export default function AdminWarehouseCountsPage() {
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
 
   const [sessions, setSessions] = useState<CountSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,7 +39,7 @@ export default function AdminWarehouseCountsPage() {
   const [creating, setCreating] = useState(false)
 
   const fetchSessions = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -64,11 +64,11 @@ export default function AdminWarehouseCountsPage() {
 
   useEffect(() => {
     fetchSessions()
-  }, [token, statusFilter])
+  }, [token, canFetch, statusFilter])
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!canFetch) return
     setCreating(true)
     setError(null)
     setMessage(null)

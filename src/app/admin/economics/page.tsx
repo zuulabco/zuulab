@@ -65,7 +65,7 @@ interface FeeConfigItem {
 }
 
 export default function AdminEconomicsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [activeTab, setActiveTab] = useState<'sales' | 'materials' | 'fees'>('sales')
   const [period, setPeriod] = useState('this_month')
@@ -87,7 +87,7 @@ export default function AdminEconomicsPage() {
   const [savingFee, setSavingFee] = useState(false)
 
   const loadData = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const [sumRes, salesRes, matRes, feeRes] = await Promise.all([
@@ -126,11 +126,11 @@ export default function AdminEconomicsPage() {
 
   useEffect(() => {
     loadData()
-  }, [token, period, channel])
+  }, [token, canFetch, period, channel])
 
   const handleSaveMaterial = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !editingMaterial) return
+    if (!canFetch || !editingMaterial) return
     setSavingMaterial(true)
     try {
       const res = await fetch('/api/admin/economics/materials', {
@@ -162,7 +162,7 @@ export default function AdminEconomicsPage() {
 
   const handleSaveFee = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !editingFee) return
+    if (!canFetch || !editingFee) return
     setSavingFee(true)
     try {
       const res = await fetch('/api/admin/economics/fees', {

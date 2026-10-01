@@ -37,7 +37,7 @@ interface ProductItem {
 }
 
 export default function AdminProductsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [products, setProducts] = useState<ProductItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -70,7 +70,7 @@ export default function AdminProductsPage() {
   })
 
   const loadProducts = useCallback(() => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
 
     const params = new URLSearchParams()
@@ -99,7 +99,7 @@ export default function AdminProductsPage() {
         toast.error('Bağlantı hatası: Ürün listesi alınamadı.')
       })
       .finally(() => setLoading(false))
-  }, [token, search, collection, category, status, stockLevel, currentPage, pageSize])
+  }, [token, canFetch, search, collection, category, status, stockLevel, currentPage, pageSize])
 
   useEffect(() => {
     loadProducts()
@@ -122,7 +122,7 @@ export default function AdminProductsPage() {
 
   // Duplicate product via Modal
   const confirmDuplicate = async () => {
-    if (!duplicateModal.product || !token) return
+    if (!duplicateModal.product || !canFetch) return
     const prod = duplicateModal.product
     setActionLoading(true)
     try {
@@ -147,7 +147,7 @@ export default function AdminProductsPage() {
 
   // Archive / Restore product via Modal
   const confirmArchive = async () => {
-    if (!archiveModal.product || !token) return
+    if (!archiveModal.product || !canFetch) return
     const prod = archiveModal.product
     const isCurrentlyArchived = ((prod as any).status === 'ARCHIVED') || (!prod.isActive && (prod as any).status !== 'DRAFT')
     const targetStatus = isCurrentlyArchived ? 'ACTIVE' : 'ARCHIVED'
@@ -193,7 +193,7 @@ export default function AdminProductsPage() {
 
   // Bulk actions via Modal
   const confirmBulkAction = async () => {
-    if (!bulkModal.action || selectedIds.length === 0 || !token) return
+    if (!bulkModal.action || selectedIds.length === 0 || !canFetch) return
     setActionLoading(true)
     try {
       const res = await fetch('/api/admin/products/bulk', {

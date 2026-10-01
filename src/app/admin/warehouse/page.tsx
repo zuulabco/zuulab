@@ -41,7 +41,7 @@ interface WarehouseKPIs {
 
 export default function AdminWarehousePage() {
   const router = useRouter()
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [fulfillments, setFulfillments] = useState<FulfillmentItem[]>([])
   const [kpis, setKpis] = useState<WarehouseKPIs>({
@@ -66,7 +66,7 @@ export default function AdminWarehousePage() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchFulfillments = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     setError(null)
     try {
@@ -94,7 +94,7 @@ export default function AdminWarehousePage() {
 
   useEffect(() => {
     fetchFulfillments()
-  }, [token, channelFilter, statusFilter])
+  }, [token, canFetch, channelFilter, statusFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,7 +116,7 @@ export default function AdminWarehousePage() {
   }
 
   const handleCreateBulkPickList = async () => {
-    if (selectedIds.length === 0 || !token) return
+    if (selectedIds.length === 0 || !canFetch) return
     setCreatingPickList(true)
     setMessage(null)
     setError(null)

@@ -20,7 +20,7 @@ interface AdminUser {
 }
 
 export default function AdminUsersPage() {
-  const { token, user: currentAuthUser } = useAuthStore()
+  const { token, user: currentAuthUser, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -39,7 +39,7 @@ export default function AdminUsersPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
   const loadUsers = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -65,7 +65,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadUsers()
-  }, [token, roleFilter, statusFilter])
+  }, [token, canFetch, roleFilter, statusFilter])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +78,7 @@ export default function AdminUsersPage() {
   }
 
   const handleSaveRole = async () => {
-    if (!targetUser || !token || selectedRole === targetUser.role) {
+    if (!targetUser || !canFetch || selectedRole === targetUser.role) {
       setTargetUser(null)
       return
     }
@@ -110,7 +110,7 @@ export default function AdminUsersPage() {
   }
 
   const handleToggleStatus = async () => {
-    if (!statusTargetUser || !token) return
+    if (!statusTargetUser || !canFetch) return
     const nextStatus = statusTargetUser.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
 
     setUpdatingStatus(true)

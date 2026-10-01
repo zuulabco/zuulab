@@ -26,6 +26,8 @@ export interface UserProfile {
 interface AuthState {
   user: UserProfile | null
   token: string | null
+  isAuthenticated: boolean
+  canFetch: boolean
   isLoading: boolean
   isAuthModalOpen: boolean
   error: string | null
@@ -50,6 +52,8 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
+      isAuthenticated: false,
+      canFetch: false,
       isLoading: false,
       isAuthModalOpen: false,
       error: null,
@@ -69,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
               const freshToken = await firebaseUser.getIdToken()
               const currentToken = get().token
               if (currentToken !== freshToken && !currentToken?.startsWith('dev-token-')) {
-                set({ token: freshToken })
+                set({ token: freshToken, isAuthenticated: true, canFetch: true })
               }
             } catch {}
           }
@@ -89,13 +93,18 @@ export const useAuthStore = create<AuthState>()(
           if (res.ok) {
             const data = await res.json()
             if (data.success && data.user) {
-              set({ user: data.user, isLoading: false })
+              set({
+                user: data.user,
+                isAuthenticated: true,
+                canFetch: true,
+                isLoading: false,
+              })
               return data.user
             }
           } else if (res.status === 401) {
             const currentToken = get().token
             if (!currentToken?.startsWith('dev-token-')) {
-              set({ user: null })
+              set({ user: null, isAuthenticated: false, canFetch: false })
             }
           }
         } catch {}
@@ -116,7 +125,14 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await res.json()
           if (data.success && data.user) {
-            set({ user: data.user, token: firebaseToken, isLoading: false, isAuthModalOpen: false })
+            set({
+              user: data.user,
+              token: firebaseToken,
+              isAuthenticated: true,
+              canFetch: true,
+              isLoading: false,
+              isAuthModalOpen: false,
+            })
 
             // Sync any local favorites
             try {
@@ -245,12 +261,18 @@ export const useAuthStore = create<AuthState>()(
         try {
           await fetch('/api/auth/logout', { method: 'POST' })
         } catch {}
-        set({ user: null, token: null, error: null })
+        set({ user: null, token: null, isAuthenticated: false, canFetch: false, error: null })
       },
     }),
     {
       name: 'zuulab_auth_session',
       partialize: (state) => ({ user: state.user, token: state.token }),
+      onRehydrateStorage: () => (state) => {
+        if (state && (state.user || state.token)) {
+          state.isAuthenticated = true
+          state.canFetch = true
+        }
+      },
     }
   )
 )

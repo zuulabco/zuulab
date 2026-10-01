@@ -48,7 +48,7 @@ interface AuditLog {
 }
 
 export default function AdminDashboardPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [todayData, setTodayData] = useState<any | null>(null)
@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
-      if (!token) return
+      if (!canFetch) return
       setLoading(true)
       try {
         const [statsRes, logsRes, todayRes] = await Promise.all([
@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
       }
     }
     loadDashboard()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   // Calculated Real Operational KPIs
   const newOrders = stats?.orders?.newOrders ?? 0

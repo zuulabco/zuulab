@@ -52,7 +52,7 @@ interface MaterialReadinessItem {
 export default function MaterialDetailPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token, user, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [stock, setStock] = useState<MaterialStockItem | null>(null)
@@ -71,7 +71,7 @@ export default function MaterialDetailPage() {
   const canManage = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
 
   const loadData = useCallback(async () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     setLoading(true)
     try {
       const [stockRes, movRes, readinessRes] = await Promise.all([

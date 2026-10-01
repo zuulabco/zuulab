@@ -44,7 +44,7 @@ export function extractBearerToken(request: Request): string | null {
   const authHeader = request.headers.get('Authorization')
   if (!authHeader) return null
   const [bearer, token] = authHeader.split(' ')
-  if (bearer !== 'Bearer' || !token) return null
+  if (bearer !== 'Bearer' || !token || token === 'null' || token === 'undefined') return null
   return token
 }
 

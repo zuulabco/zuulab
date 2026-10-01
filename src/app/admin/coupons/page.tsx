@@ -29,7 +29,7 @@ interface CouponItem {
 }
 
 export default function AdminCouponsPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [coupons, setCoupons] = useState<CouponItem[]>([])
@@ -54,7 +54,7 @@ export default function AdminCouponsPage() {
   const [toggling, setToggling] = useState(false)
 
   const loadCoupons = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const res = await fetch('/api/admin/coupons', {
@@ -75,7 +75,7 @@ export default function AdminCouponsPage() {
 
   useEffect(() => {
     loadCoupons()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const openCreateModal = () => {
     setEditingCoupon(null)
@@ -110,7 +110,7 @@ export default function AdminCouponsPage() {
 
   const handleModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !code.trim() || discountValue === '') return
+    if (!canFetch || !code.trim() || discountValue === '') return
 
     setSubmitting(true)
     try {
@@ -160,7 +160,7 @@ export default function AdminCouponsPage() {
   }
 
   const executeToggleStatus = async () => {
-    if (!toggleModalCoupon || !token) return
+    if (!toggleModalCoupon || !canFetch) return
     const targetState = !toggleModalCoupon.isActive
 
     setToggling(true)

@@ -78,7 +78,7 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, token, devLogin, logout, openAuthModal, initAuthListener, checkSession } = useAuthStore()
+  const { user, token, canFetch, devLogin, logout, openAuthModal, initAuthListener, checkSession } = useAuthStore()
   const [mounted, setMounted] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -136,11 +136,15 @@ export default function AdminLayout({
 
   const handleGlobalSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim() || !token) return
+    if (!searchQuery.trim() || !canFetch) return
     setIsSearching(true)
     try {
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
       const res = await fetch(`/api/admin/search?q=${encodeURIComponent(searchQuery)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       })
       const data = await res.json()
       if (data.success) {

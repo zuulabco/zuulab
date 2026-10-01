@@ -84,7 +84,7 @@ interface DriftItem {
 }
 
 export default function AdminInventoryPage() {
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
   const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'movements' | 'buffers'>('overview')
@@ -112,7 +112,7 @@ export default function AdminInventoryPage() {
   const [bufferInput, setBufferInput] = useState<number>(2)
 
   const loadData = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoading(true)
     try {
       const [channelsRes, queueRes] = await Promise.all([
@@ -141,10 +141,10 @@ export default function AdminInventoryPage() {
 
   useEffect(() => {
     loadData()
-  }, [token])
+  }, [token, canFetch, canFetch])
 
   const handleSyncProduct = async (productId: string) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/inventory/sync-product', {
         method: 'POST',
@@ -164,7 +164,7 @@ export default function AdminInventoryPage() {
   }
 
   const handleRetryJobs = async () => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/inventory/retry-jobs', {
         method: 'POST',
@@ -184,7 +184,7 @@ export default function AdminInventoryPage() {
   }
 
   const handleScanDrift = async () => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/inventory/queue?scanDrift=true', {
         headers: { Authorization: `Bearer ${token}` },
@@ -202,7 +202,7 @@ export default function AdminInventoryPage() {
   }
 
   const handleSaveBuffer = async (storeId?: string, isGlobal = false) => {
-    if (!token) return
+    if (!canFetch) return
     try {
       const res = await fetch('/api/admin/inventory/buffers', {
         method: 'POST',
@@ -236,7 +236,7 @@ export default function AdminInventoryPage() {
 
   const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !selectedProductId || changeAmount === '' || !reason.trim()) return
+    if (!canFetch || !selectedProductId || changeAmount === '' || !reason.trim()) return
 
     setSubmittingAdjust(true)
     try {

@@ -68,7 +68,7 @@ interface MarketplaceOrder {
 
 export default function AdminMarketplaceOrderDetailPage() {
   const { id } = useParams() as { id: string }
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
   const [order, setOrder] = useState<MarketplaceOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [reconciling, setReconciling] = useState(false)
@@ -78,7 +78,7 @@ export default function AdminMarketplaceOrderDetailPage() {
   } | null>(null)
 
   const loadOrder = () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     setLoading(true)
 
     fetch(`/api/admin/marketplaces/orders/${id}`, {
@@ -96,10 +96,10 @@ export default function AdminMarketplaceOrderDetailPage() {
 
   useEffect(() => {
     loadOrder()
-  }, [token, id])
+  }, [token, canFetch, id])
 
   const handleReconcile = async () => {
-    if (!token || !id) return
+    if (!canFetch || !id) return
     setReconciling(true)
     setNotification(null)
 

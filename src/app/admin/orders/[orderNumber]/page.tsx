@@ -19,7 +19,7 @@ import styles from '../../admin.module.css'
 export default function AdminOrderDetailPage() {
   const params = useParams()
   const orderNumber = params.orderNumber as string
-  const { token } = useAuthStore()
+  const { token, canFetch } = useAuthStore()
 
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -60,7 +60,7 @@ export default function AdminOrderDetailPage() {
   const [cancelShipmentReason, setCancelShipmentReason] = useState('Müşteri talebiyle iptal')
 
   const loadOrder = useCallback(() => {
-    if (!token || !orderNumber) return
+    if (!canFetch || !orderNumber) return
     setLoading(true)
 
     fetch(`/api/admin/orders/${orderNumber}`, {
@@ -78,10 +78,10 @@ export default function AdminOrderDetailPage() {
       })
       .catch((err) => setError(err.message || 'Sipariş yüklenirken hata oluştu.'))
       .finally(() => setLoading(false))
-  }, [token, orderNumber])
+  }, [token, canFetch, orderNumber])
 
   const loadInvoice = useCallback(() => {
-    if (!token || !orderNumber) return
+    if (!canFetch || !orderNumber) return
     setLoadingInvoice(true)
     fetch(`/api/admin/orders/${orderNumber}/invoice`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -94,10 +94,10 @@ export default function AdminOrderDetailPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingInvoice(false))
-  }, [token, orderNumber])
+  }, [token, canFetch, orderNumber])
 
   const loadShipment = useCallback(() => {
-    if (!token || !orderNumber) return
+    if (!canFetch || !orderNumber) return
     setLoadingShipment(true)
     fetch(`/api/admin/orders/${orderNumber}/shipping`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -112,10 +112,10 @@ export default function AdminOrderDetailPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoadingShipment(false))
-  }, [token, orderNumber])
+  }, [token, canFetch, orderNumber])
 
   const loadNotifications = useCallback(() => {
-    if (!token || !orderNumber) return
+    if (!canFetch || !orderNumber) return
     fetch(`/api/admin/orders/${orderNumber}/notifications`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -126,7 +126,7 @@ export default function AdminOrderDetailPage() {
         }
       })
       .catch((err) => console.error(err))
-  }, [token, orderNumber])
+  }, [token, canFetch, orderNumber])
 
   useEffect(() => {
     loadOrder()
@@ -137,7 +137,7 @@ export default function AdminOrderDetailPage() {
 
   // Status Change via Modal
   const confirmStatusChange = async () => {
-    if (!token) return
+    if (!canFetch) return
     setStatusUpdating(true)
     const note = statusNote.trim() || `Yönetici panelinden '${targetStatus}' durumuna güncellendi.`
 
@@ -168,7 +168,7 @@ export default function AdminOrderDetailPage() {
 
   // Create Shipment
   const handleCreateShipment = async () => {
-    if (!token) return
+    if (!canFetch) return
     setCreatingShipment(true)
     try {
       const res = await fetch(`/api/admin/orders/${orderNumber}/shipping`, {
@@ -197,7 +197,7 @@ export default function AdminOrderDetailPage() {
 
   // Sync Tracking
   const handleSyncShipment = async () => {
-    if (!token) return
+    if (!canFetch) return
     setSyncingShipment(true)
     try {
       const res = await fetch(`/api/admin/orders/${orderNumber}/shipping/sync`, {
@@ -224,7 +224,7 @@ export default function AdminOrderDetailPage() {
 
   // Cancel Shipment via Modal
   const confirmCancelShipment = async () => {
-    if (!token) return
+    if (!canFetch) return
     setCancellingShipment(true)
     try {
       const res = await fetch(`/api/admin/orders/${orderNumber}/shipping/cancel`, {
@@ -253,7 +253,7 @@ export default function AdminOrderDetailPage() {
 
   // Create Invoice
   const handleCreateInvoice = async () => {
-    if (!token) return
+    if (!canFetch) return
     setCreatingInvoice(true)
     try {
       const res = await fetch(`/api/admin/orders/${orderNumber}/invoice`, {
@@ -279,7 +279,7 @@ export default function AdminOrderDetailPage() {
 
   // Sync Invoice with Uyumsoft
   const handleSyncInvoice = async () => {
-    if (!token) return
+    if (!canFetch) return
     setLoadingInvoice(true)
     try {
       const res = await fetch(`/api/admin/orders/${orderNumber}/invoice`, {
@@ -302,7 +302,7 @@ export default function AdminOrderDetailPage() {
 
   // Retry failed notification
   const handleRetryNotification = async (notificationId: string) => {
-    if (!token) return
+    if (!canFetch) return
     setRetryingNotificationId(notificationId)
     try {
       const res = await fetch(`/api/admin/notifications/${notificationId}/retry`, {
@@ -325,7 +325,7 @@ export default function AdminOrderDetailPage() {
 
   // Save Tracking Number
   const handleSaveShipping = async () => {
-    if (!token) return
+    if (!canFetch) return
     setUpdatingShipping(true)
     try {
       const res = await fetch(`/api/orders/${orderNumber}/shipping`, {
@@ -353,7 +353,7 @@ export default function AdminOrderDetailPage() {
   // Add Internal Note
   const handleAddInternalNote = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token || !newNote.trim()) return
+    if (!canFetch || !newNote.trim()) return
 
     setAddingNote(true)
     try {
