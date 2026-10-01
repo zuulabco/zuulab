@@ -43,7 +43,7 @@ export default function AdminEditProductPage() {
 
   // Classification
   const [collectionId, setCollectionId] = useState('')
-  const [categoryId, setCategoryId] = useState('aydinlatmalar')
+  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar')
   const [selectedCollections, setSelectedCollections] = useState<string[]>(['zuukids'])
   const [material, setMaterial] = useState('')
   const [status, setStatus] = useState<'ACTIVE' | 'DRAFT' | 'ARCHIVED'>('ACTIVE')
@@ -144,7 +144,12 @@ export default function AdminEditProductPage() {
           setCompareAtPrice(p.oldPrice ?? '')
           setCostPrice(p.costPrice ?? p.cost ?? '')
           setCollectionId(p.collectionId || p.category || 'zuukids')
-          setCategoryId(p.categorySlug || p.categoryId || 'aydinlatmalar')
+          const resolvedCatId = p.categoryId
+            ? (ALL_CATEGORIES.find((c) => c.id === p.categoryId || c.slug === p.categoryId)?.id || p.categoryId)
+            : (p.categorySlug
+                ? (ALL_CATEGORIES.find((c) => c.id === p.categorySlug || c.slug === p.categorySlug)?.id || p.categorySlug)
+                : (ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar'))
+          setCategoryId(resolvedCatId)
           const colls =
             Array.isArray(p.collections) && p.collections.length > 0
               ? p.collections
@@ -725,7 +730,7 @@ export default function AdminEditProductPage() {
                   className={styles.formSelect}
                 >
                   {ALL_CATEGORIES.map((cat) => (
-                    <option key={cat.slug} value={cat.slug}>
+                    <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
                   ))}

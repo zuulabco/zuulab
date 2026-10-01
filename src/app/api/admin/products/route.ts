@@ -75,9 +75,10 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')
+    const isValidation = error.statusCode === 400 || error.isValidation || error.message?.includes('Geçersiz')
     return NextResponse.json(
       { success: false, error: error.message || 'Ürün oluşturulamadı.' },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : isValidation ? 400 : 500 }
     )
   }
 }

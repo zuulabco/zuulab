@@ -31,7 +31,7 @@ export default function AdminNewProductPage() {
   const [costPrice, setCostPrice] = useState<number | ''>('')
 
   // Classification (Category & Collections)
-  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES[0]?.slug || 'aydinlatmalar')
+  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar')
   const [selectedCollections, setSelectedCollections] = useState<string[]>(['zuukids'])
   const [material, setMaterial] = useState('PLA Premium (Biyouyumlu Organik Filament)')
   const [status, setStatus] = useState<'ACTIVE' | 'DRAFT' | 'ARCHIVED'>('ACTIVE')
@@ -343,7 +343,7 @@ export default function AdminNewProductPage() {
                   className={styles.formSelect}
                 >
                   {ALL_CATEGORIES.map((cat) => (
-                    <option key={cat.slug} value={cat.slug}>
+                    <option key={cat.id} value={cat.id}>
                       {cat.name}
                     </option>
                   ))}

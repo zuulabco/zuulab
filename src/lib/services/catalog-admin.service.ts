@@ -51,7 +51,10 @@ async function mapDbProduct(
   categories: any[] = [],
   productCollections: any[] = []
 ): Promise<Product> {
-  const cat = categories.find((c) => c.id === p.categoryId || c.slug === p.categoryId)
+  const cat =
+    categories.find((c) => c.id === p.categoryId || c.slug === p.categoryId) ||
+    Object.values(CATEGORY_CONFIGS).find((c) => c.id === p.categoryId || c.slug === p.categoryId)
+  const categoryId = cat ? cat.id : p.categoryId
   const categoryName = cat ? cat.name : p.categoryId
   const categorySlug = cat ? cat.slug : p.categoryId
 
@@ -94,7 +97,7 @@ async function mapDbProduct(
     sku: p.sku,
     description: p.description || '',
     shortDescription: p.shortDescription || '',
-    categoryId: p.categoryId,
+    categoryId,
     categoryName,
     categorySlug,
     category: categorySlug,
@@ -242,6 +245,60 @@ export async function adminGetProductById(id: string): Promise<Product | null> {
 }
 
 /**
+ * Resolves a category by ID or slug from PostgreSQL or CATEGORY_CONFIGS
+ */
+export async function findCategoryByIdOrSlug(
+  identifier?: string | null
+): Promise<{ id: string; name: string; slug: string } | null> {
+  if (!identifier || typeof identifier !== 'string') return null
+  const trimmed = identifier.trim()
+  if (!trimmed) return null
+
+  // 1. Check PostgreSQL categories table if database configured
+  if (isDatabaseConfigured) {
+    try {
+      const byId = await db.orm.public.Category.where({ id: trimmed }).first()
+      if (byId) {
+        return { id: byId.id, name: byId.name, slug: byId.slug }
+      }
+      const bySlug = await db.orm.public.Category.where({ slug: trimmed }).first()
+      if (bySlug) {
+        return { id: bySlug.id, name: bySlug.name, slug: bySlug.slug }
+      }
+    } catch (e) {
+      console.warn('[catalog-admin.service] findCategoryByIdOrSlug DB lookup error:', e)
+    }
+  }
+
+  // 2. Check static CATEGORY_CONFIGS (fallback / offline)
+  const config =
+    CATEGORY_CONFIGS[trimmed] ||
+    Object.values(CATEGORY_CONFIGS).find(
+      (c) => c.id === trimmed || c.slug === trimmed
+    )
+
+  if (config) {
+    return {
+      id: config.id,
+      name: config.name,
+      slug: config.slug,
+    }
+  }
+
+  // 3. Check SEED_CATEGORIES (fallback)
+  const seedCat = SEED_CATEGORIES.find((c: any) => c.id === trimmed || c.slug === trimmed)
+  if (seedCat) {
+    return {
+      id: seedCat.id,
+      name: seedCat.name,
+      slug: seedCat.slug,
+    }
+  }
+
+  return null
+}
+
+/**
  * Creates a new product in PostgreSQL catalog
  */
 export async function adminCreateProduct(payload: AdminProductPayload, adminEmail = 'system') {
@@ -255,12 +312,14 @@ export async function adminCreateProduct(payload: AdminProductPayload, adminEmai
   const sku = payload.sku || `ZUU-${Math.floor(1000 + Math.random() * 9000)}`
   const id = `prod-${Date.now()}`
 
-  const catConfig =
-    CATEGORY_CONFIGS[payload.categoryId] ||
-    Object.values(CATEGORY_CONFIGS).find(
-      (c) => c.id === payload.categoryId || c.slug === payload.categoryId
-    )
-  const categoryId = catConfig ? catConfig.id : payload.categoryId
+  const resolvedCategory = await findCategoryByIdOrSlug(payload.categoryId)
+  if (!resolvedCategory) {
+    const error: any = new Error(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
+    error.statusCode = 400
+    error.isValidation = true
+    throw error
+  }
+  const categoryId = resolvedCategory.id
   const collections =
     payload.collections || (payload.collectionId ? [payload.collectionId] : ['zuukids'])
   const primaryCol = collections[0] || 'zuukids'
@@ -396,7 +455,14 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
     updateFields.isActive = payload.status === 'ACTIVE'
   }
   if (payload.categoryId !== undefined) {
-    updateFields.categoryId = payload.categoryId
+    const resolvedCategory = await findCategoryByIdOrSlug(payload.categoryId)
+    if (!resolvedCategory) {
+      const error: any = new Error(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
+      error.statusCode = 400
+      error.isValidation = true
+      throw error
+    }
+    updateFields.categoryId = resolvedCategory.id
   }
   if (payload.collectionId !== undefined) {
     const colId = payload.collectionId
