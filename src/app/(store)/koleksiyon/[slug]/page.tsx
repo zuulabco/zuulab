@@ -7,9 +7,9 @@ import ProductCatalogClient, {
   ProductCatalogSkeleton,
 } from '../../urunler/ProductCatalogClient'
 import {
-  MOCK_CATEGORIES,
   getProductsByCollection,
-} from '@/lib/mock-data'
+  getCategories,
+} from '@/lib/services/products.service'
 import {
   getCollectionConfig,
   ALL_COLLECTION_SLUGS,
@@ -52,8 +52,11 @@ export default async function CollectionPage({ params }: PageProps) {
     notFound()
   }
 
-  // Products belonging to this collection
-  const products = getProductsByCollection(config.slug)
+  // Products belonging to this collection from DB
+  const [products, categories] = await Promise.all([
+    getProductsByCollection(config.slug),
+    getCategories(),
+  ])
 
   // JSON-LD structured data for collection page
   const breadcrumbJsonLd = {
@@ -110,7 +113,7 @@ export default async function CollectionPage({ params }: PageProps) {
         <Suspense fallback={<ProductCatalogSkeleton />}>
           <ProductCatalogClient
             products={products}
-            categories={MOCK_CATEGORIES}
+            categories={categories}
             initialCollection={config.slug}
             hideHeroIntro={true}
             catalogTitle={config.name}

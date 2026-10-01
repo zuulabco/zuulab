@@ -10,7 +10,7 @@ import LifestyleGrid from '@/components/home/LifestyleGrid'
 import HomeFinalDiscovery from '@/components/home/HomeFinalDiscovery'
 import HomeNewsletter from '@/components/home/HomeNewsletter'
 import ScrollReveal from '@/components/common/ScrollReveal'
-import { getBestSellers } from '@/lib/mock-data'
+import { getBestSellers } from '@/lib/services/products.service'
 import { getPublishedHomepageContent } from '@/lib/services/cms.service'
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  const bestSellers = getBestSellers(4)
+  const bestSellers = await getBestSellers(4)
 
   let cmsContent: any = null
   try {

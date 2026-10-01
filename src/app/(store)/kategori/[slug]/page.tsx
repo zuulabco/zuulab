@@ -7,9 +7,9 @@ import ProductCatalogClient, {
   ProductCatalogSkeleton,
 } from '../../urunler/ProductCatalogClient'
 import {
-  MOCK_CATEGORIES,
   getProductsByCategory,
-} from '@/lib/mock-data'
+  getCategories,
+} from '@/lib/services/products.service'
 import {
   getCategoryConfig,
   ALL_CATEGORY_SLUGS,
@@ -69,8 +69,11 @@ export default async function CategoryPage({ params }: PageProps) {
     notFound()
   }
 
-  // Real category products
-  const products = getProductsByCategory(category.slug)
+  // Real category products from DB
+  const [products, categories] = await Promise.all([
+    getProductsByCategory(category.slug),
+    getCategories(),
+  ])
 
   // JSON-LD structured data for category page
   const breadcrumbJsonLd = {
@@ -127,7 +130,7 @@ export default async function CategoryPage({ params }: PageProps) {
         <Suspense fallback={<ProductCatalogSkeleton />}>
           <ProductCatalogClient
             products={products}
-            categories={MOCK_CATEGORIES}
+            categories={categories}
             initialCategory={category.slug}
             hideHeroIntro={true}
             catalogTitle={category.name.toLowerCase()}

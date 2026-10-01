@@ -7,10 +7,10 @@ import ProductReviews from '@/components/product/ProductReviews'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import ProductCollectionDiscovery from '@/components/product/ProductCollectionDiscovery'
 import {
-  MOCK_PRODUCTS,
   getProductBySlug,
-  formatMockProductToListItem,
-} from '@/lib/mock-data'
+  getProducts,
+} from '@/lib/services/products.service'
+import { formatMockProductToListItem } from '@/lib/mock-data'
 import type { ProductListItem } from '@/types/product'
 import styles from './ProductPage.module.css'
 
@@ -20,7 +20,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const product = getProductBySlug(slug)
+  const product = await getProductBySlug(slug)
   if (!product) return { title: 'ürün bulunamadı — zuulab' }
 
   return {
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params
-  const product = getProductBySlug(slug)
+  const product = await getProductBySlug(slug)
 
   if (!product) {
     notFound()
@@ -46,12 +46,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
     (product.collections && product.collections[0]) ||
     (product.collectionWorld && product.collectionWorld !== 'general' ? product.collectionWorld : undefined)
 
-  // Related products from same collection / category (4-item grid)
-  const relatedProducts: ProductListItem[] = MOCK_PRODUCTS.filter(
-    (p) =>
-      (p.collectionWorld === product.collectionWorld || p.categoryId === product.categoryId) &&
-      p.id !== product.id
-  )
+  // Related products from same collection / category (4-item grid) from DB
+  const { items: allCandidates } = await getProducts({
+    collectionSlug: primaryCollectionSlug,
+    categorySlug: product.categorySlug,
+    limit: 8,
+  })
+
+  const relatedProducts: ProductListItem[] = allCandidates
+    .filter((p) => p.id !== product.id)
     .slice(0, 4)
     .map(formatMockProductToListItem)
 

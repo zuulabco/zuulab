@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCollectionConfig } from '@/config/collections'
-import { getProductsByCollection } from '@/lib/mock-data'
+import { getProductsByCollection } from '@/lib/services/products.service'
 
 interface Context {
   params: Promise<{ slug: string }>
@@ -18,8 +18,9 @@ export async function GET(request: Request, { params }: Context) {
       )
     }
 
-    const products = getProductsByCollection(config.slug).map((p) => {
-      const { cost, ...safe } = p as any
+    const collectionProducts = await getProductsByCollection(config.slug)
+    const products = collectionProducts.map((p) => {
+      const { cost, costPrice, ...safe } = p as any
       return safe
     })
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requirePermission } from '@/lib/services/permissions.service'
 import { adminBulkProductActions } from '@/lib/services/catalog-admin.service'
 
@@ -16,6 +17,15 @@ export async function POST(request: Request) {
     }
 
     const result = await adminBulkProductActions(ids, action, user.email)
+
+    try {
+      revalidatePath('/urunler')
+      revalidatePath('/')
+      revalidatePath('/koleksiyon/[slug]', 'page')
+      revalidatePath('/kategori/[slug]', 'page')
+    } catch (e) {
+      console.warn('[revalidatePath error]:', e)
+    }
 
     return NextResponse.json({
       success: true,

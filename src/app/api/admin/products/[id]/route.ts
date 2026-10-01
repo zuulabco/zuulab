@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requirePermission } from '@/lib/services/permissions.service'
 import {
   adminGetProductById,
@@ -41,6 +42,18 @@ export async function PUT(request: Request, { params }: Context) {
 
     const updated = await adminUpdateProduct(id, body, user.email)
 
+    try {
+      revalidatePath('/urunler')
+      revalidatePath('/')
+      revalidatePath('/koleksiyon/[slug]', 'page')
+      revalidatePath('/kategori/[slug]', 'page')
+      if (updated?.slug) {
+        revalidatePath(`/urun/${updated.slug}`)
+      }
+    } catch (e) {
+      console.warn('[revalidatePath error]:', e)
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Ürün güncellendi.',
@@ -61,6 +74,18 @@ export async function DELETE(request: Request, { params }: Context) {
     const { id } = await params
 
     const archived = await adminArchiveProduct(id, user.email)
+
+    try {
+      revalidatePath('/urunler')
+      revalidatePath('/')
+      revalidatePath('/koleksiyon/[slug]', 'page')
+      revalidatePath('/kategori/[slug]', 'page')
+      if (archived?.slug) {
+        revalidatePath(`/urun/${archived.slug}`)
+      }
+    } catch (e) {
+      console.warn('[revalidatePath error]:', e)
+    }
 
     return NextResponse.json({
       success: true,

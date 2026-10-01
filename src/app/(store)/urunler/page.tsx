@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductCatalogClient, { ProductCatalogSkeleton } from './ProductCatalogClient'
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/lib/mock-data'
+import { getProducts, getCategories } from '@/lib/services/products.service'
 
 export const metadata: Metadata = {
   title: 'ürünler — zuulab',
@@ -10,7 +10,12 @@ export const metadata: Metadata = {
     'zuulab tasarım evreni: zuukids, zuulife, zuulight ve zuutoptan 3d baskı koleksiyonları. biyo-bozunur pla ve endüstriyel hassas üretim modelleri.',
 }
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+  const [{ items: products }, categories] = await Promise.all([
+    getProducts({ limit: 100 }),
+    getCategories(),
+  ])
+
   return (
     <div
       className="container"
@@ -23,8 +28,8 @@ export default function ProductsPage() {
 
       <Suspense fallback={<ProductCatalogSkeleton />}>
         <ProductCatalogClient
-          products={MOCK_PRODUCTS}
-          categories={MOCK_CATEGORIES}
+          products={products}
+          categories={categories}
         />
       </Suspense>
     </div>

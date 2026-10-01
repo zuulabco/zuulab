@@ -17,22 +17,30 @@ async function main() {
   for (const col of Object.values(COLLECTION_CONFIGS)) {
     try {
       if (isDatabaseConfigured) {
-        await db.orm.public.Collection.create({
-          name: col.name,
-          slug: col.slug,
-          description: col.description,
-          shortDescription: col.tagline,
-          logo: col.logo || null,
-          heroImage: col.heroImage || null,
-          accentColor: col.accentColor || null,
-          status: 'ACTIVE',
-          seoTitle: col.seo.title,
-          seoDescription: col.seo.description,
-        })
+        const colId = `col-${col.slug}`
+        const existing = await db.orm.public.Collection.where({ slug: col.slug }).first()
+        if (!existing) {
+          await db.orm.public.Collection.create({
+            id: colId,
+            name: col.name,
+            slug: col.slug,
+            description: col.description,
+            shortDescription: col.tagline,
+            logo: col.logo || null,
+            heroImage: col.heroImage || null,
+            accentColor: col.accentColor || null,
+            status: 'ACTIVE',
+            seoTitle: col.seo.title,
+            seoDescription: col.seo.description,
+            sortOrder: 1,
+          })
+          console.log(`  ✓ Collection: ${col.name}`)
+        } else {
+          console.log(`  ℹ Collection ${col.name} already exists`)
+        }
       }
-      console.log(`  ✓ Collection: ${col.name}`)
     } catch (e: any) {
-      console.log(`  ℹ Collection ${col.name} already exists or skipped:`, e.message?.slice(0, 80))
+      console.log(`  ℹ Collection ${col.name} skipped:`, e.message?.slice(0, 80))
     }
   }
 
@@ -41,18 +49,24 @@ async function main() {
   for (const cat of MOCK_CATEGORIES) {
     try {
       if (isDatabaseConfigured) {
-        await db.orm.public.Category.create({
-          id: cat.id,
-          name: cat.name,
-          slug: cat.slug,
-          description: cat.description,
-          image: cat.image,
-          isActive: true,
-        })
+        const existing = await db.orm.public.Category.where({ slug: cat.slug }).first()
+        if (!existing) {
+          await db.orm.public.Category.create({
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            description: cat.description,
+            image: cat.image,
+            isActive: true,
+            sortOrder: cat.sortOrder || 0,
+          })
+          console.log(`  ✓ Category: ${cat.name}`)
+        } else {
+          console.log(`  ℹ Category ${cat.name} already exists`)
+        }
       }
-      console.log(`  ✓ Category: ${cat.name}`)
     } catch (e: any) {
-      console.log(`  ℹ Category ${cat.name} already exists or skipped:`, e.message?.slice(0, 80))
+      console.log(`  ℹ Category ${cat.name} skipped:`, e.message?.slice(0, 80))
     }
   }
 
@@ -61,31 +75,86 @@ async function main() {
   for (const prod of MOCK_PRODUCTS) {
     try {
       if (isDatabaseConfigured) {
-        await db.orm.public.Product.create({
-          id: prod.id,
-          name: prod.name,
-          slug: prod.slug,
-          sku: prod.sku,
-          description: prod.description,
-          shortDescription: prod.shortDescription,
-          categoryId: prod.categoryId,
-          price: String(prod.price) as any,
-          oldPrice: prod.oldPrice ? (String(prod.oldPrice) as any) : null,
-          costPrice: String(prod.cost || Math.round(prod.price * 0.35)) as any,
-          material: prod.material,
-          productionTime: prod.productionTime,
-          isFeatured: prod.isFeatured,
-          featured: prod.isFeatured,
-          isNew: prod.isNew,
-          isBestSeller: prod.isBestSeller || false,
-          bestSeller: prod.isBestSeller || false,
-          stock: prod.stock,
-          isActive: prod.isActive,
-        })
+        const existing = await db.orm.public.Product.where({ sku: prod.sku }).first()
+        const primaryCol = prod.collections?.[0] || prod.collectionWorld || 'zuukids'
+        const colId = `col-${primaryCol}`
+
+        if (!existing) {
+          await db.orm.public.Product.create({
+            id: prod.id,
+            name: prod.name,
+            slug: prod.slug,
+            sku: prod.sku,
+            description: prod.description,
+            shortDescription: prod.shortDescription,
+            categoryId: prod.categoryId,
+            collectionId: colId,
+            price: String(prod.price) as any,
+            oldPrice: prod.oldPrice ? (String(prod.oldPrice) as any) : null,
+            costPrice: String(prod.cost || Math.round(prod.price * 0.35)) as any,
+            material: prod.material,
+            productionTime: prod.productionTime,
+            isFeatured: prod.isFeatured,
+            featured: prod.isFeatured,
+            isNew: prod.isNew,
+            isBestSeller: prod.isBestSeller || false,
+            bestSeller: prod.isBestSeller || false,
+            stock: prod.stock,
+            isActive: prod.isActive,
+            trackInventory: true,
+            minimumStock: 0,
+            taxRate: '20' as any,
+            weight: '150' as any,
+          })
+          console.log(`  ✓ Product: ${prod.name}`)
+
+          // Seed images
+          if (prod.images && prod.images.length > 0) {
+            for (let i = 0; i < prod.images.length; i++) {
+              const img = prod.images[i]
+              try {
+                await db.orm.public.ProductImage.create({
+                  id: `img-${prod.id}-${i}`,
+                  productId: prod.id,
+                  url: img.url,
+                  alt: img.alt || prod.name,
+                  isPrimary: img.isPrimary || i === 0,
+                  sortOrder: i,
+                  type: 'IMAGE',
+                })
+              } catch {
+                // Ignore conflict
+              }
+            }
+          }
+
+          // Seed variants
+          if (prod.variants && prod.variants.length > 0) {
+            for (let i = 0; i < prod.variants.length; i++) {
+              const v = prod.variants[i]
+              try {
+                await db.orm.public.ProductVariant.create({
+                  id: v.id || `var-${prod.id}-${i}`,
+                  productId: prod.id,
+                  name: v.name,
+                  value: v.value,
+                  price: String(v.price || prod.price) as any,
+                  stock: v.stock || prod.stock,
+                  sku: v.sku || `${prod.sku}-${i + 1}`,
+                  isActive: true,
+                  sortOrder: i,
+                })
+              } catch {
+                // Ignore conflict
+              }
+            }
+          }
+        } else {
+          console.log(`  ℹ Product ${prod.name} already exists`)
+        }
       }
-      console.log(`  ✓ Product: ${prod.name}`)
     } catch (e: any) {
-      console.log(`  ℹ Product ${prod.name} already exists or skipped:`, e.message?.slice(0, 80))
+      console.log(`  ℹ Product ${prod.name} skipped:`, e.message?.slice(0, 80))
     }
   }
 
@@ -94,20 +163,23 @@ async function main() {
   for (const coup of SEED_COUPONS) {
     try {
       if (isDatabaseConfigured) {
-        await db.orm.public.Coupon.create({
-          id: coup.id,
-          code: coup.code,
-          type: coup.type as any,
-          discountValue: String(coup.discountValue) as any,
-          minCartAmount: coup.minCartAmount ? (String(coup.minCartAmount) as any) : null,
-          maxUses: coup.maxUses || null,
-          currentUses: coup.currentUses,
-          isActive: coup.isActive,
-        })
+        const existing = await db.orm.public.Coupon.where({ code: coup.code }).first()
+        if (!existing) {
+          await db.orm.public.Coupon.create({
+            id: coup.id,
+            code: coup.code,
+            type: coup.type as any,
+            discountValue: String(coup.discountValue) as any,
+            minCartAmount: coup.minCartAmount ? (String(coup.minCartAmount) as any) : null,
+            maxUses: coup.maxUses || null,
+            currentUses: coup.currentUses,
+            isActive: coup.isActive,
+          })
+          console.log(`  ✓ Coupon: ${coup.code}`)
+        }
       }
-      console.log(`  ✓ Coupon: ${coup.code}`)
     } catch (e: any) {
-      console.log(`  ℹ Coupon ${coup.code} already exists or skipped:`, e.message?.slice(0, 80))
+      console.log(`  ℹ Coupon ${coup.code} skipped:`, e.message?.slice(0, 80))
     }
   }
 
@@ -135,17 +207,20 @@ async function main() {
   for (const u of users) {
     try {
       if (isDatabaseConfigured) {
-        await db.orm.public.User.create({
-          id: u.id,
-          firebaseUid: u.firebaseUid,
-          email: u.email,
-          name: u.name,
-          role: u.role as any,
-          status: u.status,
-          emailVerified: true,
-        })
+        const existing = await db.orm.public.User.where({ email: u.email }).first()
+        if (!existing) {
+          await db.orm.public.User.create({
+            id: u.id,
+            firebaseUid: u.firebaseUid,
+            email: u.email,
+            name: u.name,
+            role: u.role as any,
+            status: u.status,
+            emailVerified: true,
+          })
+          console.log(`  ✓ User: ${u.email} (${u.role})`)
+        }
       }
-      console.log(`  ✓ User: ${u.email} (${u.role})`)
     } catch (e: any) {
       console.log(`  ℹ User ${u.email} skipped:`, e.message?.slice(0, 80))
     }
