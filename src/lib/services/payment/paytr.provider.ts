@@ -1,11 +1,104 @@
 import 'server-only'
 import crypto from 'crypto'
+import { normalizeIp } from '@/lib/config/maintenance'
 import type {
   PaymentProvider,
   PaymentSessionRequest,
   PaymentSessionResult,
   WebhookVerificationResult,
 } from './payment.interface'
+
+/**
+ * Formats basket items for PayTR user_basket specification.
+ * Guarantees that the sum of item prices and shipping in user_basket
+ * matches targetTotalTL to the exact kuruş, without negative prices.
+ */
+export function formatBasketForPayTR(
+  items: Array<{ name: string; price: number; quantity: number }>,
+  targetTotalTL: number,
+  shippingAmountTL: number = 0
+): Array<[string, string, number]> {
+  const targetKurus = Math.round(targetTotalTL * 100)
+  const shippingKurus = Math.max(0, Math.round(shippingAmountTL * 100))
+  const itemsTargetKurus = targetKurus - shippingKurus
+
+  const rawSubtotalKurus = items.reduce(
+    (sum, item) => sum + Math.round(item.price * 100) * item.quantity,
+    0
+  )
+
+  const basket: Array<[string, string, number]> = []
+
+  if (items.length === 0) {
+    return [['Sipariş Tutarı', targetTotalTL.toFixed(2), 1]]
+  }
+
+  if (itemsTargetKurus <= 0) {
+    basket.push(['Test Ürün / Hizmet', '0.00', 1])
+  } else if (rawSubtotalKurus === itemsTargetKurus) {
+    for (const item of items) {
+      basket.push([
+        item.name.slice(0, 200),
+        item.price.toFixed(2),
+        item.quantity,
+      ])
+    }
+  } else {
+    // Discount applied: distribute itemsTargetKurus proportionally across items
+    let allocatedKurus = 0
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const isLast = i === items.length - 1
+      const itemRawTotalKurus = Math.round(item.price * 100) * item.quantity
+
+      let itemEffectiveTotalKurus: number
+      if (isLast) {
+        itemEffectiveTotalKurus = itemsTargetKurus - allocatedKurus
+      } else {
+        const ratio = itemRawTotalKurus / rawSubtotalKurus
+        itemEffectiveTotalKurus = Math.round(itemsTargetKurus * ratio)
+        allocatedKurus += itemEffectiveTotalKurus
+      }
+
+      const qty = item.quantity
+      const baseUnitPriceKurus = Math.floor(itemEffectiveTotalKurus / qty)
+      const remainderKurus = itemEffectiveTotalKurus % qty
+
+      if (remainderKurus === 0) {
+        basket.push([
+          item.name.slice(0, 200),
+          (baseUnitPriceKurus / 100).toFixed(2),
+          qty,
+        ])
+      } else {
+        // Split remainder kuruş so unit prices are valid 2-decimal numbers summing exactly to total
+        const normalQty = qty - remainderKurus
+        if (normalQty > 0) {
+          basket.push([
+            item.name.slice(0, 200),
+            (baseUnitPriceKurus / 100).toFixed(2),
+            normalQty,
+          ])
+        }
+        basket.push([
+          item.name.slice(0, 200),
+          ((baseUnitPriceKurus + 1) / 100).toFixed(2),
+          remainderKurus,
+        ])
+      }
+    }
+  }
+
+  if (shippingKurus > 0) {
+    basket.push([
+      'Kargo Ücreti',
+      (shippingKurus / 100).toFixed(2),
+      1,
+    ])
+  }
+
+  return basket
+}
 
 /**
  * PayTR Payment Gateway Integration for Zuulab
@@ -56,15 +149,18 @@ export class PayTRPaymentProvider implements PaymentProvider {
     // If live PayTR credentials are configured, request token from PayTR API
     if (this.isLiveConfigured) {
       try {
-        const userIp = request.customer.ip || '127.0.0.1'
+        const userIp = normalizeIp(request.customer.ip) || '127.0.0.1'
         const email = request.customer.email
         // PayTR expects payment amount in kuruş (e.g. 100.50 TL -> 10050)
         const paymentAmountKurus = Math.round(request.amount * 100)
 
         // Basket format for PayTR: JSON string array of [name, price_str, quantity]
-        const userBasket = JSON.stringify(
-          request.items.map((i) => [i.name, i.price.toFixed(2), i.quantity])
+        const userBasketArray = formatBasketForPayTR(
+          request.items,
+          request.amount,
+          request.shippingAmount || 0
         )
+        const userBasket = JSON.stringify(userBasketArray)
         const userBasketBase64 = Buffer.from(userBasket).toString('base64')
 
         const noInstallment = '0'
@@ -73,11 +169,11 @@ export class PayTRPaymentProvider implements PaymentProvider {
         const testMode = this.isTestMode ? '1' : '0'
 
         // PayTR hash formulation:
-        // merchant_id + user_ip + merchant_oid + email + payment_amount + user_basket + no_installment + max_installment + currency + test_mode
+        // merchant_id + user_ip + merchant_oid + email + payment_amount + user_basket + no_installment + max_installment + currency + test_mode + merchant_salt
         const hashStr = `${this.merchantId}${userIp}${merchantOid}${email}${paymentAmountKurus}${userBasketBase64}${noInstallment}${maxInstallment}${currency}${testMode}`
         const paytrToken = crypto
           .createHmac('sha256', this.merchantKey)
-          .update(hashStr)
+          .update(hashStr + this.merchantSalt)
           .digest('base64')
 
         const postData = new URLSearchParams({

@@ -31,6 +31,9 @@ export interface PaymentSessionRequest {
     price: number
     quantity: number
   }>
+  shippingAmount?: number
+  discountAmount?: number
+  subtotal?: number
   merchantOkUrl?: string
   merchantFailUrl?: string
   callbackUrl?: string

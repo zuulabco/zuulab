@@ -3,6 +3,7 @@ import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.s
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { createOrder } from '@/lib/services/orders.service'
 import { initiatePayment } from '@/lib/services/payment/payment.service'
+import { getClientIp } from '@/lib/config/maintenance'
 
 export async function POST(request: Request) {
   try {
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
     })
 
     // 3. Initiate Payment session with provider
-    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1'
+    const clientIp = getClientIp(new Headers(request.headers))
     const paymentSession = await initiatePayment({
       orderNumber: order.orderNumber,
       customer: {

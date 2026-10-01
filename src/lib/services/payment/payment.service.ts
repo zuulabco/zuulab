@@ -98,6 +98,9 @@ export async function initiatePayment(params: {
       price: i.unitPrice,
       quantity: i.quantity,
     })),
+    shippingAmount: order.shippingAmount,
+    discountAmount: order.discountAmount,
+    subtotal: order.subtotal,
   })
 
   const now = new Date().toISOString()
