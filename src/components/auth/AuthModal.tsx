@@ -33,19 +33,6 @@ export default function AuthModal() {
     }
   }, [isAuthModalOpen])
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeAuthModal()
-    }
-    if (isAuthModalOpen) {
-      document.addEventListener('keydown', handleKey)
-      document.body.style.overflow = 'hidden'
-    }
-    return () => {
-      document.removeEventListener('keydown', handleKey)
-      document.body.style.overflow = 'auto'
-    }
-  }, [isAuthModalOpen, closeAuthModal])
 
   // Reset password visibility on mode change
   useEffect(() => {

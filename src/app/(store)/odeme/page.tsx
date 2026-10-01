@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
+import { getFreeShippingThreshold } from '@/lib/services/settings/store-settings.service'
 import CheckoutClient from './CheckoutClient'
 
 export const metadata: Metadata = {
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
   },
 }
 
-export default function CheckoutPage() {
+export default async function CheckoutPage() {
+  const freeShippingThreshold = await getFreeShippingThreshold()
+
   return (
     <div className="container" style={{ paddingTop: 'var(--sp-6, 24px)', paddingBottom: 'var(--sp-20, 80px)' }}>
       <Breadcrumbs
@@ -20,7 +23,7 @@ export default function CheckoutPage() {
           { label: 'ödeme' },
         ]}
       />
-      <CheckoutClient />
+      <CheckoutClient initialFreeShippingThreshold={freeShippingThreshold} />
     </div>
   )
 }

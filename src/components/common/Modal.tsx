@@ -61,11 +61,12 @@ export default function Modal({
     }
 
     const prevOverflow = document.body.style.overflow
+    const restoreOverflow = prevOverflow === 'hidden' ? '' : prevOverflow
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.body.style.overflow = prevOverflow
+      document.body.style.overflow = restoreOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isRendered, closeOnEsc, onClose])

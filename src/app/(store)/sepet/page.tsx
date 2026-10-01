@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import { getBestSellers } from '@/lib/services/products.service'
+import { getFreeShippingThreshold } from '@/lib/services/settings/store-settings.service'
 import { formatMockProductToListItem } from '@/lib/mock-data'
 import CartPageClient from './CartPageClient'
 
@@ -10,13 +11,19 @@ export const metadata: Metadata = {
 }
 
 export default async function CartPage() {
-  const bestSellers = await getBestSellers(8)
+  const [bestSellers, freeShippingThreshold] = await Promise.all([
+    getBestSellers(8),
+    getFreeShippingThreshold(),
+  ])
   const recommendedProducts = bestSellers.map(formatMockProductToListItem)
 
   return (
     <div className="container" style={{ paddingTop: 'var(--sp-6)', paddingBottom: 'var(--sp-20)' }}>
       <Breadcrumbs items={[{ label: 'sepetim' }]} />
-      <CartPageClient recommendedProducts={recommendedProducts} />
+      <CartPageClient
+        recommendedProducts={recommendedProducts}
+        initialFreeShippingThreshold={freeShippingThreshold}
+      />
     </div>
   )
 }

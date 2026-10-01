@@ -46,10 +46,11 @@ export interface ShippingCalculation {
 export function calculateShipping(
   subtotal: number,
   methodId: 'STANDARD' | 'EXPRESS' = 'STANDARD',
-  isFreeShippingCoupon = false
+  isFreeShippingCoupon = false,
+  freeShippingThreshold: number = FREE_SHIPPING_THRESHOLD
 ): ShippingCalculation {
-  const isFreeThresholdMet = subtotal >= FREE_SHIPPING_THRESHOLD
-  const remaining = Math.max(0, Math.round((FREE_SHIPPING_THRESHOLD - subtotal) * 100) / 100)
+  const isFreeThresholdMet = subtotal >= freeShippingThreshold
+  const remaining = Math.max(0, Math.round((freeShippingThreshold - subtotal) * 100) / 100)
 
   const selected =
     DEFAULT_SHIPPING_METHODS.find((m) => m.id === methodId) ||
@@ -78,7 +79,7 @@ export function calculateShipping(
     selectedMethod: selected,
     shippingFee: selectedWithEffective.effectivePrice,
     isFreeShipping: selectedWithEffective.effectivePrice === 0,
-    freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
+    freeShippingThreshold,
     remainingForFreeShipping: isFreeShippingCoupon ? 0 : remaining,
     availableMethods,
   }

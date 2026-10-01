@@ -31,6 +31,19 @@ export default function CartDrawer() {
   // Transition lifecycle for smooth entrance and exit animations
   const [isRendered, setIsRendered] = useState(isDrawerOpen)
   const [isExiting, setIsExiting] = useState(false)
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(750)
+
+  // Sync latest dynamic free shipping threshold when drawer opens
+  useEffect(() => {
+    fetch('/api/shipping/threshold')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && typeof data.freeShippingThreshold === 'number') {
+          setFreeShippingThreshold(data.freeShippingThreshold)
+        }
+      })
+      .catch(() => {})
+  }, [isDrawerOpen])
 
   useEffect(() => {
     if (isDrawerOpen) {
@@ -65,6 +78,7 @@ export default function CartDrawer() {
     }
 
     const prevOverflow = document.body.style.overflow
+    const restoreOverflow = prevOverflow === 'hidden' ? '' : prevOverflow
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
 
@@ -73,7 +87,7 @@ export default function CartDrawer() {
     }
 
     return () => {
-      document.body.style.overflow = prevOverflow
+      document.body.style.overflow = restoreOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isRendered, isDrawerOpen, isExiting, closeDrawer])
@@ -82,9 +96,11 @@ export default function CartDrawer() {
 
   const count = itemCount()
   const sub = subtotal()
-  const shippingFee = sub >= FREE_SHIPPING_THRESHOLD || sub === 0 ? 0 : STANDARD_SHIPPING_FEE
-  const freeShippingRemainder = Math.max(0, FREE_SHIPPING_THRESHOLD - sub)
-  const freeShippingProgress = Math.min(100, (sub / FREE_SHIPPING_THRESHOLD) * 100)
+  const isFreeThresholdMet = sub >= freeShippingThreshold
+  const shippingFee = isFreeThresholdMet || sub === 0 ? 0 : STANDARD_SHIPPING_FEE
+  const freeShippingRemainder = Math.max(0, freeShippingThreshold - sub)
+  const freeShippingProgress =
+    freeShippingThreshold === 0 ? 100 : Math.min(100, (sub / freeShippingThreshold) * 100)
   const finalTotal = Math.max(0, sub - discountAmount + shippingFee)
 
   const handleCheckout = () => {

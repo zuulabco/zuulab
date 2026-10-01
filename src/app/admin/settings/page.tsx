@@ -150,6 +150,9 @@ export default function AdminSettingsPage() {
 
       const data = await res.json()
       if (data.success) {
+        if (data.settings && data.settings.freeShippingThreshold !== undefined) {
+          setFreeShippingThreshold(data.settings.freeShippingThreshold)
+        }
         addToast('Sistem ve mağaza ayarları başarıyla kaydedildi.', 'success')
       } else {
         addToast(data.error || 'Ayarlar kaydedilemedi.', 'error')

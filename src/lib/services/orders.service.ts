@@ -2,6 +2,7 @@ import 'server-only'
 import { db, isDatabaseConfigured } from '@/prisma/db'
 import { verifyAndCalculateCart } from './products.service'
 import { calculateShipping } from './shipping.service'
+import { getFreeShippingThreshold } from './settings/store-settings.service'
 import { releaseInventoryReservation, reserveInventory, getInventoryStatus, commitInventoryReservation } from './inventory.service'
 import { logAuditEvent } from './admin.service'
 import { createNotification } from './notification/notification.service'
@@ -417,10 +418,12 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
   }
 
   // 2. Shipping calculation
+  const freeShippingThreshold = await getFreeShippingThreshold()
   const shippingCalc = calculateShipping(
     verifiedCart.subtotal,
     shippingMethod,
-    verifiedCart.coupon?.type === 'FREE_SHIPPING'
+    verifiedCart.coupon?.type === 'FREE_SHIPPING',
+    freeShippingThreshold
   )
 
   const effectiveShipping = shippingCalc.shippingFee

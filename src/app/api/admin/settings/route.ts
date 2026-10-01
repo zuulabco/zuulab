@@ -1,26 +1,19 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/services/permissions.service'
 import { logAuditEvent } from '@/lib/services/admin.service'
-
-let storeSettings = {
-  storeName: 'Zuulab 3D Studio',
-  storeEmail: 'iletisim@zuulab.com',
-  storePhone: '+90 216 555 0192',
-  storeAddress: 'Moda Cad. Zuulab Tasarım Atölyesi No: 42, Kadıköy / İstanbul',
-  currency: 'TRY',
-  taxRate: 20,
-  freeShippingThreshold: 750,
-  orderPrefix: 'ZUU-2026',
-  allowCustomerCancellation: true,
-}
+import {
+  getStoreSettings,
+  updateStoreSettings,
+} from '@/lib/services/settings/store-settings.service'
 
 export async function GET(request: Request) {
   try {
     await requirePermission(request, 'SETTINGS_MANAGE')
+    const settings = await getStoreSettings()
 
     return NextResponse.json({
       success: true,
-      settings: storeSettings,
+      settings,
     })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')
@@ -36,21 +29,18 @@ export async function POST(request: Request) {
     const user = await requirePermission(request, 'SETTINGS_MANAGE')
     const body = await request.json().catch(() => ({}))
 
-    storeSettings = {
-      ...storeSettings,
-      ...body,
-    }
+    const settings = await updateStoreSettings(body, user.email)
 
     await logAuditEvent({
       action: 'SETTINGS_UPDATED',
       entity: 'SystemSettings',
-      metadata: { settings: storeSettings, adminEmail: user.email },
+      metadata: { settings, adminEmail: user.email },
     })
 
     return NextResponse.json({
       success: true,
       message: 'Mağaza ve ticaret ayarları kaydedildi.',
-      settings: storeSettings,
+      settings,
     })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')
@@ -60,3 +50,4 @@ export async function POST(request: Request) {
     )
   }
 }
+

@@ -3,6 +3,7 @@ import { db, isDatabaseConfigured } from '@/prisma/db'
 import { MOCK_PRODUCTS, MOCK_CATEGORIES, type MockProduct, type MockCategory } from '@/lib/mock-data'
 import { SEED_COUPONS } from './db-fallback'
 import { FREE_SHIPPING_THRESHOLD } from './shipping.service'
+import { getFreeShippingThreshold } from './settings/store-settings.service'
 
 export interface ProductFilterOptions {
   collectionSlug?: string
@@ -466,9 +467,10 @@ export async function verifyAndCalculateCart(
   }
 
   // Shipping calculation
+  const freeShippingThreshold = await getFreeShippingThreshold()
   const isFreeShipCoupon = couponInfo?.type === 'FREE_SHIPPING'
   const shippingAmount =
-    subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 || isFreeShipCoupon
+    subtotal >= freeShippingThreshold || subtotal === 0 || isFreeShipCoupon
       ? 0
       : STANDARD_SHIPPING_FEE
 
@@ -480,7 +482,7 @@ export async function verifyAndCalculateCart(
     discountAmount,
     shippingAmount,
     totalAmount,
-    freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
+    freeShippingThreshold,
     coupon: couponInfo,
   }
 }

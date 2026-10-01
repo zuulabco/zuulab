@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -17,9 +17,13 @@ const STANDARD_SHIPPING_FEE = DEFAULT_SHIPPING_METHODS[0]?.price ?? 49.9
 
 interface Props {
   recommendedProducts?: ProductListItem[]
+  initialFreeShippingThreshold?: number
 }
 
-export default function CartPageClient({ recommendedProducts = [] }: Props) {
+export default function CartPageClient({
+  recommendedProducts = [],
+  initialFreeShippingThreshold = 750,
+}: Props) {
   const router = useRouter()
   const {
     items,
@@ -33,18 +37,32 @@ export default function CartPageClient({ recommendedProducts = [] }: Props) {
     subtotal,
   } = useCartStore()
 
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(initialFreeShippingThreshold)
   const [isCouponOpen, setIsCouponOpen] = useState(false)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
   const [isCouponLoading, setIsCouponLoading] = useState(false)
   const [isClearModalOpen, setIsClearModalOpen] = useState(false)
 
+  // Sync latest dynamic free shipping threshold from DB
+  useEffect(() => {
+    fetch('/api/shipping/threshold')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && typeof data.freeShippingThreshold === 'number') {
+          setFreeShippingThreshold(data.freeShippingThreshold)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   const sub = subtotal()
   const isFreeShipCoupon = coupon?.type === 'FREE_SHIPPING'
-  const isFreeThresholdMet = sub >= FREE_SHIPPING_THRESHOLD
+  const isFreeThresholdMet = sub >= freeShippingThreshold
   const shippingFee = isFreeThresholdMet || isFreeShipCoupon || sub === 0 ? 0 : STANDARD_SHIPPING_FEE
-  const freeShippingRemainder = Math.max(0, FREE_SHIPPING_THRESHOLD - sub)
-  const freeShippingProgress = Math.min(100, (sub / FREE_SHIPPING_THRESHOLD) * 100)
+  const freeShippingRemainder = Math.max(0, freeShippingThreshold - sub)
+  const freeShippingProgress =
+    freeShippingThreshold === 0 ? 100 : Math.min(100, (sub / freeShippingThreshold) * 100)
   const finalTotal = Math.max(0, sub - discountAmount + shippingFee)
 
   // Filter recommendations to avoid displaying products already in the cart

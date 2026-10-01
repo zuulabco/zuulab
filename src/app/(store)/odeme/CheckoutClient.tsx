@@ -18,17 +18,34 @@ const CITIES = [
   'Denizli', 'Trabzon', 'Diyarbakır', 'Muğla', 'Tekirdağ', 'Aydın', 'Balıkesir'
 ]
 
-export default function CheckoutClient() {
+interface CheckoutClientProps {
+  initialFreeShippingThreshold?: number
+}
+
+export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: CheckoutClientProps) {
   const router = useRouter()
   const { items, coupon, discountAmount, applyCoupon, removeCoupon, subtotal } = useCartStore()
   const { user, token, openAuthModal } = useAuthStore()
 
   const [mounted, setMounted] = useState(false)
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(initialFreeShippingThreshold)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false)
   const submittingRef = useRef(false)
+
+  // Sync latest dynamic free shipping threshold from DB
+  useEffect(() => {
+    fetch('/api/shipping/threshold')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && typeof data.freeShippingThreshold === 'number') {
+          setFreeShippingThreshold(data.freeShippingThreshold)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Delivery & Customer state
   const [email, setEmail] = useState('')
@@ -234,11 +251,12 @@ export default function CheckoutClient() {
 
   const sub = subtotal()
   const isFreeShipCoupon = coupon?.type === 'FREE_SHIPPING'
-  const shippingCalc = calculateShipping(sub, shippingMethod, isFreeShipCoupon)
+  const shippingCalc = calculateShipping(sub, shippingMethod, isFreeShipCoupon, freeShippingThreshold)
   const effectiveShipping = shippingCalc.shippingFee
   const grandTotal = Math.max(0, sub - discountAmount + effectiveShipping)
   const remainingForFree = shippingCalc.remainingForFreeShipping
-  const freeShippingProgress = Math.min(100, Math.round((sub / FREE_SHIPPING_THRESHOLD) * 100))
+  const freeShippingProgress =
+    freeShippingThreshold === 0 ? 100 : Math.min(100, Math.round((sub / freeShippingThreshold) * 100))
 
 
 
@@ -812,7 +830,7 @@ export default function CheckoutClient() {
               </div>
             ) : (
               <div className={`${styles.freeShipInfo} ${styles.freeShipAchieved}`}>
-                <span>✓ ₺{FREE_SHIPPING_THRESHOLD} üzeri siparişiniz için <strong>ücretsiz kargo</strong> uygulandı.</span>
+                <span>✓ {freeShippingThreshold > 0 ? `₺${freeShippingThreshold} üzeri siparişiniz için ` : 'Tüm siparişleriniz için '}<strong>ücretsiz kargo</strong> uygulandı.</span>
               </div>
             )}
 
