@@ -1,6 +1,7 @@
 import 'server-only'
 import { verifyAuthToken } from '@/lib/firebase-admin'
 import { db, isDatabaseConfigured } from '@/prisma/db'
+import { extractSessionCookie, verifySessionToken } from './session.service'
 
 export interface AuthUser {
   id: string
@@ -48,25 +49,71 @@ export function extractBearerToken(request: Request): string | null {
 }
 
 /**
- * Verifies token from incoming HTTP Request and retrieves the corresponding DB User
+ * Retrieves a user by their database ID from PostgreSQL (or memory fallback).
+ */
+export async function getUserById(id: string): Promise<AuthUser | null> {
+  if (isDatabaseConfigured) {
+    try {
+      const user = await db.orm.public.User.where({ id }).first()
+      if (user) {
+        return {
+          id: user.id,
+          firebaseUid: user.firebaseUid,
+          email: user.email,
+          name: user.name || null,
+          avatar: user.avatar || null,
+          role: (user.role as AuthUser['role']) || 'CUSTOMER',
+          status: user.status || 'ACTIVE',
+          storeId: (user as any).storeId || null,
+        }
+      }
+    } catch (err) {
+      console.warn('[auth.service] getUserById failed:', err)
+    }
+  }
+
+  // Fallback in-memory
+  for (const [, user] of inMemoryUsers) {
+    if (user.id === id) return user
+  }
+  return null
+}
+
+/**
+ * Verifies token or session cookie from incoming HTTP Request and retrieves the corresponding DB User
  */
 export async function authenticateRequest(
   request: Request
 ): Promise<AuthUser | null> {
+  // 1. Try Bearer token first (client Firebase ID token)
   const token = extractBearerToken(request)
-  if (!token) return null
+  if (token) {
+    const decoded = await verifyAuthToken(token)
+    if (decoded && decoded.uid) {
+      return syncOrCreateUser({
+        firebaseUid: decoded.uid,
+        email: decoded.email || `${decoded.uid}@zuulab.user`,
+        name: (decoded.name as string) || null,
+        avatar: (decoded.picture as string) || null,
+        roleOverride: (decoded.role as AuthUser['role']) || undefined,
+        storeId: (decoded as any).storeId || undefined,
+      })
+    }
+  }
 
-  const decoded = await verifyAuthToken(token)
-  if (!decoded || !decoded.uid) return null
+  // 2. Try cross-subdomain session cookie (zuulab_session)
+  const sessionToken = extractSessionCookie(request)
+  if (sessionToken) {
+    const sessionPayload = verifySessionToken(sessionToken)
+    if (sessionPayload && sessionPayload.userId) {
+      const user = await getUserById(sessionPayload.userId)
+      if (user && user.status === 'ACTIVE') {
+        return user
+      }
+    }
+  }
 
-  return syncOrCreateUser({
-    firebaseUid: decoded.uid,
-    email: decoded.email || `${decoded.uid}@zuulab.user`,
-    name: (decoded.name as string) || null,
-    avatar: (decoded.picture as string) || null,
-    roleOverride: (decoded.role as AuthUser['role']) || undefined,
-    storeId: (decoded as any).storeId || undefined,
-  })
+  return null
 }
 
 /**

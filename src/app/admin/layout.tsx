@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
+import AuthModal from '@/components/auth/AuthModal'
 import styles from './admin.module.css'
 
 interface NavSection {
@@ -77,18 +78,45 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, token, devLogin, logout, openAuthModal, initAuthListener } = useAuthStore()
+  const { user, token, devLogin, logout, openAuthModal, initAuthListener, checkSession } = useAuthStore()
   const [mounted, setMounted] = useState(false)
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any>(null)
   const [isSearching, setIsSearching] = useState(false)
 
   useEffect(() => {
+    let isCancelled = false
     setMounted(true)
     const unsubscribe = initAuthListener()
-    return () => unsubscribe()
-  }, [initAuthListener])
+
+    // If an administrative user is already populated in store, don't show loading blocker
+    if (
+      user &&
+      (user.role === 'ADMIN' ||
+        user.role === 'SUPER_ADMIN' ||
+        user.role === 'ORDER_MANAGER' ||
+        user.role === 'CONTENT_MANAGER' ||
+        user.role === 'SUPPORT' ||
+        user.role === 'STAFF')
+    ) {
+      setIsCheckingSession(false)
+      return () => unsubscribe()
+    }
+
+    // Verify cross-subdomain session cookie from .zuulab.com
+    checkSession().finally(() => {
+      if (!isCancelled) {
+        setIsCheckingSession(false)
+      }
+    })
+
+    return () => {
+      isCancelled = true
+      unsubscribe()
+    }
+  }, [initAuthListener, checkSession])
 
   // Auto-close mobile drawer on route change
   useEffect(() => {
@@ -124,10 +152,10 @@ export default function AdminLayout({
     }
   }
 
-  if (!mounted) {
+  if (!mounted || isCheckingSession) {
     return (
       <div className={styles.gateContainer}>
-        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Yükleniyor...</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Yetkilendirme kontrol ediliyor...</div>
       </div>
     )
   }
@@ -146,39 +174,44 @@ export default function AdminLayout({
     const isDev = process.env.NODE_ENV !== 'production'
 
     return (
-      <div className={styles.gateContainer}>
-        <div className={styles.gateCard}>
-          <div style={{ fontSize: 24, marginBottom: 8, color: 'var(--text-muted)' }}>⬛</div>
-          <div className={styles.adminBadge}>Erişim Kısıtlı</div>
-          <h2 className={styles.gateTitle}>Zuulab Yönetim Portalı</h2>
-          <p className={styles.gateDesc}>
-            Bu alana yalnızca yetkili yöneticiler ve mağaza personeli erişebilir.
-          </p>
+      <>
+        <div className={styles.gateContainer}>
+          <div className={styles.gateCard}>
+            <div style={{ fontSize: 24, marginBottom: 8, color: 'var(--text-muted)' }}>⬛</div>
+            <div className={styles.adminBadge}>Erişim Kısıtlı</div>
+            <h2 className={styles.gateTitle}>Zuulab Yönetim Portalı</h2>
+            <p className={styles.gateDesc}>
+              {user
+                ? 'Mevcut hesabınızın bu alana erişim yetkisi bulunmamaktadır. Lütfen yetkili bir yönetici hesabıyla giriş yapın.'
+                : 'Bu alana yalnızca yetkili yöneticiler ve mağaza personeli erişebilir.'}
+            </p>
 
-          <button
-            className={styles.gateBtn}
-            onClick={() => openAuthModal()}
-          >
-            Yönetici Girişi Yap
-          </button>
-
-          {isDev && (
             <button
-              className={styles.gateSecondaryBtn}
-              onClick={() => devLogin('ADMIN')}
-              style={{ marginTop: 8 }}
+              className={styles.gateBtn}
+              onClick={() => openAuthModal()}
             >
-              Geliştirici Girişi (Admin Dev)
+              Yönetici Girişi Yap
             </button>
-          )}
 
-          <div style={{ marginTop: 20 }}>
-            <a href="https://zuulab.com" style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>
-              Mağazaya dön
-            </a>
+            {isDev && (
+              <button
+                className={styles.gateSecondaryBtn}
+                onClick={() => devLogin('ADMIN')}
+                style={{ marginTop: 8 }}
+              >
+                Geliştirici Girişi (Admin Dev)
+              </button>
+            )}
+
+            <div style={{ marginTop: 20 }}>
+              <a href="https://zuulab.com" style={{ color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none' }}>
+                Mağazaya dön
+              </a>
+            </div>
           </div>
         </div>
-      </div>
+        <AuthModal />
+      </>
     )
   }
 
@@ -364,6 +397,7 @@ export default function AdminLayout({
 
         <main className={styles.contentArea}>{children}</main>
       </div>
+      <AuthModal />
     </div>
   )
 }

@@ -37,6 +37,7 @@ interface AuthState {
 
   // Auth actions
   initAuthListener: () => () => void
+  checkSession: () => Promise<UserProfile | null>
   signInWithGoogle: () => Promise<void>
   signInWithEmail: (email: string, pass: string) => Promise<void>
   registerWithEmail: (email: string, pass: string, name?: string) => Promise<void>
@@ -75,6 +76,30 @@ export const useAuthStore = create<AuthState>()(
         })
 
         return unsubscribe
+      },
+
+      // Verifies server-side SSO session cookie and restores user state
+      checkSession: async () => {
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: {
+              ...(get().token ? { Authorization: `Bearer ${get().token}` } : {}),
+            },
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.success && data.user) {
+              set({ user: data.user, isLoading: false })
+              return data.user
+            }
+          } else if (res.status === 401) {
+            const currentToken = get().token
+            if (!currentToken?.startsWith('dev-token-')) {
+              set({ user: null })
+            }
+          }
+        } catch {}
+        return null
       },
 
       // Sync user with backend database
@@ -216,6 +241,9 @@ export const useAuthStore = create<AuthState>()(
           if (isFirebaseClientConfigured) {
             await firebaseSignOut(auth)
           }
+        } catch {}
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' })
         } catch {}
         set({ user: null, token: null, error: null })
       },
