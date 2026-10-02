@@ -53,6 +53,13 @@ export default function AdminProductsPage() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Bulk stock count
+  const [stockModalOpen, setStockModalOpen] = useState(false)
+  const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({})
+  const [stockAll, setStockAll] = useState('')
+  const [stockReason, setStockReason] = useState('Stok sayımı')
+  const [stockSaving, setStockSaving] = useState(false)
+  const [stockMessages, setStockMessages] = useState<Record<string, { ok: boolean; text: string }>>({})
   const [actionLoading, setActionLoading] = useState(false)
 
   // UI-16 Global Modal State
@@ -386,6 +393,19 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 disabled={actionLoading}
+                onClick={() => {
+                  setStockDrafts({})
+                  setStockAll('')
+                  setStockMessages({})
+                  setStockModalOpen(true)
+                }}
+                className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}
+              >
+                Stok Güncelle
+              </button>
+              <button
+                type="button"
+                disabled={actionLoading}
                 onClick={() => setBulkModal({ isOpen: true, action: 'activate' })}
                 className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
               >
@@ -657,6 +677,166 @@ export default function AdminProductsPage() {
               disabled={actionLoading}
             >
               {actionLoading ? 'Çoğaltılıyor...' : 'Evet, Çoğalt'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk stock count */}
+      <Modal
+        isOpen={stockModalOpen}
+        onClose={() => !stockSaving && setStockModalOpen(false)}
+        ariaLabel="Toplu stok güncelleme"
+        maxWidth={680}
+      >
+        <div style={{ padding: '8px 4px' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>
+            Toplu stok güncelleme
+          </h3>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 12px' }}>
+            Her ürün için rafta saydığınız adedi yazın; boş bıraktıklarınız değişmez. Siz bu ekrandayken bir sipariş
+            gelip stok değişirse o ürün kaydedilmez ve size bildirilir.
+          </p>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              className={styles.formInput}
+              style={{ width: 120 }}
+              placeholder="Adet"
+              value={stockAll}
+              onChange={(e) => setStockAll(e.target.value)}
+            />
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
+              disabled={stockAll.trim() === ''}
+              onClick={() =>
+                setStockDrafts(Object.fromEntries(selectedIds.map((id) => [id, stockAll.trim()])))
+              }
+            >
+              Hepsine uygula
+            </button>
+            <input
+              className={styles.formInput}
+              style={{ flex: 1 }}
+              placeholder="Açıklama"
+              value={stockReason}
+              onChange={(e) => setStockReason(e.target.value)}
+              aria-label="Açıklama"
+            />
+          </div>
+
+          <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+            <table className={styles.table} style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Ürün</th>
+                  <th style={{ width: 90 }}>Mevcut</th>
+                  <th style={{ width: 120 }}>Yeni stok</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products
+                  .filter((p) => selectedIds.includes(p.id))
+                  .map((p) => {
+                    const message = stockMessages[p.id]
+                    return (
+                      <tr key={p.id}>
+                        <td style={{ fontSize: 12 }}>
+                          <div style={{ fontWeight: 600 }}>{p.name}</div>
+                          <div style={{ color: 'var(--text-muted)' }}>{p.sku}</div>
+                          {message && (
+                            <div style={{ color: message.ok ? '#059669' : '#dc2626', marginTop: 2 }}>{message.text}</div>
+                          )}
+                        </td>
+                        <td style={{ fontSize: 13 }}>{p.stock}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            className={styles.formInput}
+                            style={{ width: 100 }}
+                            placeholder={String(p.stock)}
+                            value={stockDrafts[p.id] ?? ''}
+                            onChange={(e) => setStockDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                            aria-label={`${p.name} yeni stok`}
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={() => setStockModalOpen(false)}
+              disabled={stockSaving}
+            >
+              Kapat
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnPrimary}`}
+              disabled={stockSaving}
+              onClick={async () => {
+                const items = products
+                  .filter((p) => selectedIds.includes(p.id) && (stockDrafts[p.id] ?? '').trim() !== '')
+                  .map((p) => ({ productId: p.id, stock: Number(stockDrafts[p.id]), expectedStock: p.stock }))
+                if (items.length === 0) {
+                  toast.error('En az bir ürün için yeni stok girin.')
+                  return
+                }
+                if (items.some((i) => !Number.isInteger(i.stock) || i.stock < 0)) {
+                  toast.error('Stoklar 0 veya pozitif tam sayı olmalıdır.')
+                  return
+                }
+                setStockSaving(true)
+                try {
+                  const res = await fetch('/api/admin/inventory/set-stock', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ items, reason: stockReason }),
+                  })
+                  const data = await res.json()
+                  if (!data.success) throw new Error(data.error || 'Stok güncellenemedi.')
+                  const results = data.results as Array<{ productId: string; status: string; newStock: number | null; message?: string }>
+                  const ok = results.filter((r) => r.status === 'UPDATED' || r.status === 'UNCHANGED')
+                  const failed = results.filter((r) => r.status !== 'UPDATED' && r.status !== 'UNCHANGED')
+                  setStockMessages(
+                    Object.fromEntries(
+                      results.map((r) => [
+                        r.productId,
+                        ok.includes(r)
+                          ? { ok: true, text: `Kaydedildi: ${r.newStock}` }
+                          : { ok: false, text: r.message || 'Kaydedilemedi.' },
+                      ])
+                    )
+                  )
+                  loadProducts()
+                  if (failed.length === 0) {
+                    toast.success(`${ok.length} ürünün stoğu kaydedildi.`)
+                    setStockModalOpen(false)
+                  } else {
+                    // Conflicting rows keep their input; the list now shows the current stock.
+                    toast.error(`${failed.length} ürün kaydedilemedi, ayrıntılar listede.`)
+                    setStockDrafts((d) => Object.fromEntries(Object.entries(d).filter(([id]) => failed.some((f) => f.productId === id))))
+                  }
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Stok güncellenemedi.')
+                } finally {
+                  setStockSaving(false)
+                }
+              }}
+            >
+              {stockSaving ? 'Kaydediliyor…' : 'Stokları kaydet'}
             </button>
           </div>
         </div>

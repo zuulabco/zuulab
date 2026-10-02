@@ -37,6 +37,7 @@ export interface AdminProductPayload {
   name: string
   slug?: string
   sku?: string
+  barcode?: string | null
   description?: string
   shortDescription?: string
   price: number
@@ -425,7 +426,9 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
     updateFields.cost = cost
     updateFields.costPrice = cost
   }
-  if (payload.stock !== undefined) updateFields.stock = Math.max(0, Math.floor(Number(payload.stock) || 0))
+  // Stock is not written here: a form saved after a sale would undo it. Stock changes
+  // go through inventory-admin (counted levels / adjustments, with a ledger entry).
+  if (payload.barcode !== undefined) updateFields.barcode = payload.barcode?.trim() || null
   if (payload.lowStockThreshold !== undefined) updateFields.lowStockThreshold = payload.lowStockThreshold
   if (payload.material !== undefined) updateFields.material = payload.material
   if (payload.featured !== undefined) {

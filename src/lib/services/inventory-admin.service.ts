@@ -169,6 +169,116 @@ export async function adminAdjustStock(params: {
   return { success: true, movement, newStock: result.newStock }
 }
 
+export interface StockLevelResult {
+  productId: string
+  name: string
+  status: 'UPDATED' | 'UNCHANGED' | 'CONFLICT' | 'NOT_FOUND' | 'HAS_VARIANTS' | 'INVALID'
+  previousStock: number | null
+  newStock: number | null
+  message?: string
+}
+
+const MAX_STOCK = 1_000_000
+
+/**
+ * Sets products to a counted stock level ("make it N"), one or many at once.
+ *
+ * Each product is locked, compared and written in its own transaction with a
+ * ledger entry. With `expectedStock` (the number the admin was looking at) a
+ * product whose stock changed meanwhile — e.g. an order arrived — is reported as a
+ * CONFLICT and left untouched, so a count never silently undoes a sale.
+ * Products with variants keep their stock on the variants and are skipped.
+ */
+export async function adminSetStockLevels(params: {
+  items: Array<{ productId: string; stock: number; expectedStock?: number | null }>
+  reason: string
+  changedBy: string
+}): Promise<StockLevelResult[]> {
+  const reason = params.reason?.trim() || 'Stok sayımı'
+  const results: StockLevelResult[] = []
+  const variantOwners = new Set(
+    (
+      await db.orm.public.ProductVariant.select('productId')
+        .where((v) => v.productId.in(params.items.map((i) => i.productId)))
+        .all()
+    ).map((v) => v.productId)
+  )
+
+  for (const item of params.items) {
+    const target = Number(item.stock)
+    if (!Number.isInteger(target) || target < 0 || target > MAX_STOCK) {
+      results.push({ productId: item.productId, name: '', status: 'INVALID', previousStock: null, newStock: null, message: 'Stok 0 veya pozitif bir tam sayı olmalıdır.' })
+      continue
+    }
+    if (variantOwners.has(item.productId)) {
+      results.push({ productId: item.productId, name: '', status: 'HAS_VARIANTS', previousStock: null, newStock: null, message: 'Varyantlı ürün: stok varyantlar üzerinden girilir.' })
+      continue
+    }
+
+    const outcome = await db.transaction(async (tx) => {
+      const [row] = (await tx.query(
+        db.raw.sql`SELECT id, name, sku, stock FROM products WHERE id = ${item.productId} FOR UPDATE`
+          .returnsRow({ id: 'pg/text@1', name: 'pg/text@1', sku: 'pg/text@1', stock: 'pg/int4@1' } as never)
+          .build()
+      )) as unknown as Array<{ id: string; name: string; sku: string; stock: number }>
+      if (!row) return { status: 'NOT_FOUND' as const, name: '', previous: null, next: null }
+
+      const previous = Number(row.stock)
+      if (item.expectedStock !== undefined && item.expectedStock !== null && Number(item.expectedStock) !== previous) {
+        return { status: 'CONFLICT' as const, name: row.name, previous, next: null }
+      }
+      if (previous === target) return { status: 'UNCHANGED' as const, name: row.name, previous, next: target }
+
+      await tx.execute(
+        db.raw.sql`UPDATE products SET stock = ${target}, updated_at = now() WHERE id = ${row.id}`.affectedCount().build()
+      )
+      await tx.orm.public.InventoryTransaction.create({
+        productId: row.id,
+        sku: row.sku,
+        changeQuantity: target - previous,
+        previousStock: previous,
+        newStock: target,
+        previousReserved: 0,
+        newReserved: 0,
+        type: 'CYCLE_COUNT_ADJUSTMENT',
+        reason: `COUNT: ${reason}`,
+        idempotencyKey: `STOCK_COUNT:${row.id}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+        metadata: { changedBy: params.changedBy, movementType: 'CORRECTION' } as never,
+      })
+      return { status: 'UPDATED' as const, name: row.name, previous, next: target }
+    })
+
+    results.push({
+      productId: item.productId,
+      name: outcome.name,
+      status: outcome.status,
+      previousStock: outcome.previous,
+      newStock: outcome.next,
+      message:
+        outcome.status === 'CONFLICT'
+          ? `Siz düzenlerken stok değişti (şu an ${outcome.previous}). Güncel değere bakıp tekrar kaydedin.`
+          : outcome.status === 'NOT_FOUND'
+            ? 'Ürün bulunamadı.'
+            : undefined,
+    })
+  }
+
+  const updated = results.filter((r) => r.status === 'UPDATED')
+  if (updated.length > 0) {
+    invalidateCatalog()
+    await logAuditEvent({
+      action: 'INVENTORY_COUNTED',
+      entity: 'Inventory',
+      metadata: {
+        reason,
+        changedBy: params.changedBy,
+        products: updated.map((r) => ({ id: r.productId, from: r.previousStock, to: r.newStock })),
+      },
+    })
+  }
+  return results
+}
+
 /**
  * Stock movement history from the inventory ledger (manual and order-driven).
  */

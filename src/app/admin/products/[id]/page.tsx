@@ -58,7 +58,8 @@ export default function AdminEditProductPage() {
 
   // Stock
   const [stock, setStock] = useState<number>(0)
-  const [reservedStock, setReservedStock] = useState<number>(0)
+  const [stockInput, setStockInput] = useState('')
+  const [stockSaving, setStockSaving] = useState(false)
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5)
 
   // Production and Sales Metrics
@@ -137,7 +138,7 @@ export default function AdminEditProductPage() {
           setName(p.name || '')
           setSlug(p.slug || '')
           setSku(p.sku || '')
-          setBarcode(p.barcode || '868000100001')
+          setBarcode(p.barcode || '')
           setShortDescription(p.shortDescription || '')
           setDescription(p.description || '')
           setPrice(p.price ?? '')
@@ -152,7 +153,6 @@ export default function AdminEditProductPage() {
           setIsFeatured(!!p.isFeatured)
           setIsBestSeller(!!p.isBestSeller)
           setStock(p.stock || 0)
-          setReservedStock(p.reservedStock || Math.min(Math.floor(p.stock * 0.15), 3))
           setLowStockThreshold(p.lowStockThreshold || 5)
           setImageUrl(p.primaryImage?.url || p.images?.[0]?.url || '')
         } else {
@@ -260,7 +260,7 @@ export default function AdminEditProductPage() {
           status,
           featured: isFeatured,
           bestSeller: isBestSeller,
-          stock: Number(stock),
+          barcode: barcode.trim() || null,
           lowStockThreshold: Number(lowStockThreshold),
           imageUrl: imageUrl || null,
         }),
@@ -343,7 +343,38 @@ export default function AdminEditProductPage() {
     )
   }
 
-  const availableStock = Math.max(0, stock - reservedStock)
+  // Writes a counted stock level. The stock shown is sent along, so a sale that
+  // arrived meanwhile is reported instead of being overwritten.
+  const saveStock = async () => {
+    const value = Number(stockInput)
+    if (stockInput.trim() === '' || !Number.isInteger(value) || value < 0) {
+      toast.error('Stok için 0 veya pozitif bir tam sayı girin.')
+      return
+    }
+    setStockSaving(true)
+    try {
+      const res = await fetch('/api/admin/inventory/set-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: [{ productId: id, stock: value, expectedStock: stock }], reason: 'Ürün sayfasından stok girişi' }),
+      })
+      const data = await res.json()
+      const result = data.results?.[0]
+      if (!data.success || !result) throw new Error(data.error || 'Stok güncellenemedi.')
+      if (result.status === 'UPDATED' || result.status === 'UNCHANGED') {
+        setStock(result.newStock)
+        setStockInput('')
+        toast.success(`Stok ${result.newStock} olarak kaydedildi.`)
+      } else {
+        if (result.status === 'CONFLICT' && typeof result.previousStock === 'number') setStock(result.previousStock)
+        toast.error(result.message || 'Stok güncellenemedi.')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Stok güncellenemedi.')
+    } finally {
+      setStockSaving(false)
+    }
+  }
 
   return (
     <div className={styles.pageContainer} style={{ maxWidth: 1100 }}>
@@ -778,21 +809,48 @@ export default function AdminEditProductPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Toplam Stok:</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stock} adet</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Rezerve (Sipariş):</span>
-                <span style={{ fontWeight: 600, color: 'var(--warning)' }}>{reservedStock} adet</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Satılabilir Net:</span>
-                <span style={{ fontWeight: 600, color: availableStock > 0 ? '#059669' : '#dc2626' }}>{availableStock} adet</span>
+                <span style={{ color: 'var(--text-muted)' }}>Satılabilir stok:</span>
+                <span style={{ fontWeight: 600, color: stock > 0 ? '#059669' : '#dc2626' }}>{stock} adet</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6 }}>
-                <span style={{ color: 'var(--text-muted)' }}>Düşük Stok Eşiği:</span>
+                <span style={{ color: 'var(--text-muted)' }}>Düşük stok eşiği:</span>
                 <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{lowStockThreshold} adet</span>
               </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <label className={styles.formLabel} htmlFor="prod-stock-count">
+                Yeni stok (sayılan miktar)
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  id="prod-stock-count"
+                  type="number"
+                  min={0}
+                  step={1}
+                  className={styles.formInput}
+                  placeholder={String(stock)}
+                  value={stockInput}
+                  onChange={(e) => setStockInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      saveStock()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={saveStock}
+                  disabled={stockSaving}
+                >
+                  {stockSaving ? 'Kaydediliyor…' : 'Stoku kaydet'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                Rafta saydığınız adedi yazın. Stok ayrıca kaydedilir; ürün formundaki &quot;Kaydet&quot; stoğa dokunmaz.
+              </p>
             </div>
 
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
