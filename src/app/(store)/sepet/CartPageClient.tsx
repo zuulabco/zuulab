@@ -46,7 +46,7 @@ export default function CartPageClient({
 
   // Sync latest dynamic free shipping threshold from DB
   useEffect(() => {
-    fetch('/api/shipping/threshold')
+    fetch('/api/shipping/threshold', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && typeof data.freeShippingThreshold === 'number') {

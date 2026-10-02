@@ -35,7 +35,7 @@ export default function CartDrawer() {
 
   // Sync latest dynamic free shipping threshold when drawer opens
   useEffect(() => {
-    fetch('/api/shipping/threshold')
+    fetch('/api/shipping/threshold', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && typeof data.freeShippingThreshold === 'number') {

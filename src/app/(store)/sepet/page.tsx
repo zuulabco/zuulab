@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   description: 'zuulab alışveriş sepetinizdeki 3d tasarım ürünlerini inceleyin, kupon uygulayın ve güvenle sipariş verin.',
 }
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function CartPage() {
   const [bestSellers, freeShippingThreshold] = await Promise.all([
     getBestSellers(8),

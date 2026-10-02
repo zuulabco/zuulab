@@ -64,7 +64,7 @@ export function calculateShipping(
       effectivePrice = 0
     } else if (isFreeThresholdMet && method.id === 'EXPRESS') {
       // Discounted express if threshold met
-      effectivePrice = Math.max(0, method.price - 49.9)
+      effectivePrice = Math.max(0, Math.round((method.price - 49.9) * 100) / 100)
     }
     return {
       ...method,

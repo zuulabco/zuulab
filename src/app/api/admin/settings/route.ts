@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requirePermission } from '@/lib/services/permissions.service'
 import { logAuditEvent } from '@/lib/services/admin.service'
 import {
@@ -30,6 +31,14 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
 
     const settings = await updateStoreSettings(body, user.email)
+
+    try {
+      revalidatePath('/odeme')
+      revalidatePath('/sepet')
+      revalidatePath('/api/shipping/threshold')
+    } catch {
+      // Non-blocking in non-Next serverless contexts
+    }
 
     await logAuditEvent({
       action: 'SETTINGS_UPDATED',

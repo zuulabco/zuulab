@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
-import { calculateShipping, FREE_SHIPPING_THRESHOLD } from '@/lib/services/shipping.service'
+import { calculateShipping } from '@/lib/services/shipping.service'
 import styles from './Checkout.module.css'
 
 const CITIES = [
@@ -37,7 +37,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
   // Sync latest dynamic free shipping threshold from DB
   useEffect(() => {
-    fetch('/api/shipping/threshold')
+    fetch('/api/shipping/threshold', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && typeof data.freeShippingThreshold === 'number') {
