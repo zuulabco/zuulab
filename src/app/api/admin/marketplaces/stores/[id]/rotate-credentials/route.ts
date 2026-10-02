@@ -41,7 +41,7 @@ export async function POST(
         success: false,
         error: error.message || 'API anahtarları döndürülemedi.',
       },
-      { status: isForbidden ? 403 : isNotFound ? 404 : 500 }
+      { status: isForbidden ? 403 : isNotFound ? 404 : error.code === 'NOT_CONFIGURED' ? 503 : 500 }
     )
   }
 }

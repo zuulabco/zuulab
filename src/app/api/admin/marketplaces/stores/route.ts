@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         success: false,
         error: error.message || 'Pazaryeri mağazası oluşturulamadı.',
       },
-      { status: isForbidden ? 403 : isValidation ? 400 : 500 }
+      { status: isForbidden ? 403 : isValidation ? 400 : error.code === 'NOT_CONFIGURED' ? 503 : 500 }
     )
   }
 }

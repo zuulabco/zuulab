@@ -23,7 +23,7 @@ import { logAuditEvent } from '../admin.service'
 import { db } from '@/prisma/db'
 import { dbNumeric } from '@/lib/db/numeric'
 import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
-import { openSecret, sealSecret } from '@/lib/security/secret-box'
+import { isSecretBoxConfigured, openSecret, sealSecret } from '@/lib/security/secret-box'
 import {
   reserveInventory,
   releaseInventoryReservation,
@@ -145,6 +145,17 @@ function normalizeEnvironment(value: unknown): MarketplaceEnvironment {
   return value === 'STAGE' ? 'STAGE' : 'PRODUCTION'
 }
 
+function assertSecretBoxReady(provider: MarketplaceProviderType): void {
+  if (!isSecretBoxConfigured()) {
+    throw new MarketplaceError({
+      message:
+        'Sunucuda MARKETPLACE_CREDENTIALS_KEY ortam değişkeni tanımlı değil veya geçersiz; API anahtarları kaydedilemez. Vercel ortam değişkenlerine ekleyip yeniden deploy edin.',
+      code: 'NOT_CONFIGURED',
+      provider,
+    })
+  }
+}
+
 function keyHint(apiKey: string): string {
   return apiKey.slice(-4)
 }
@@ -245,6 +256,8 @@ export async function createMarketplaceStore(
   if (Boolean(apiKey) !== Boolean(apiSecret)) {
     throw validationError('API anahtarı ve gizli anahtar birlikte girilmelidir.', provider)
   }
+  // Fail before writing anything, so a missing key never leaves a store without its credentials.
+  if (apiKey) assertSecretBoxReady(provider)
 
   const existing = await db.orm.public.MarketplaceStore.where({ provider, externalSellerId: externalMerchantId, environment }).first()
   if (existing) {
@@ -376,6 +389,7 @@ export async function rotateStoreCredentials(
   if (!apiKey || !apiSecret) {
     throw validationError('Yeni API anahtarı ve API gizli anahtarı zorunludur.', store.provider)
   }
+  assertSecretBoxReady(store.provider)
 
   const version = await writeCredential(id, apiKey, apiSecret)
   // New keys deserve a fresh connection test; clear the old result.
