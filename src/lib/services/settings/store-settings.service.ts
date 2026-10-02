@@ -50,31 +50,29 @@ export function parseFreeShippingThreshold(val: any): number | null {
 export async function getStoreSettings(): Promise<StoreSettings> {
   if (isDatabaseConfigured) {
     try {
-      const records = await (db.orm.public.Setting as any).findMany({
-        where: {
-          key: { in: [SETTING_KEY_STORE_SETTINGS, SETTING_KEY_FREE_SHIPPING_THRESHOLD] },
-        },
-      })
+      const [settingsRec, thresholdRec] = await Promise.all([
+        (db.orm.public.Setting as any).where({ key: SETTING_KEY_STORE_SETTINGS }).first(),
+        (db.orm.public.Setting as any).where({ key: SETTING_KEY_FREE_SHIPPING_THRESHOLD }).first(),
+      ])
 
       let dbSettings: Partial<StoreSettings> = {}
       let thresholdOverride: number | null = null
 
-      for (const rec of records) {
-        if (rec.key === SETTING_KEY_STORE_SETTINGS && rec.value) {
-          try {
-            const parsed = JSON.parse(rec.value)
-            if (parsed && typeof parsed === 'object') {
-              dbSettings = parsed
-            }
-          } catch (e) {
-            console.warn('[store-settings] JSON parse error for store.settings:', e)
+      if (settingsRec?.value) {
+        try {
+          const parsed = JSON.parse(settingsRec.value)
+          if (parsed && typeof parsed === 'object') {
+            dbSettings = parsed
           }
+        } catch (e) {
+          console.warn('[store-settings] JSON parse error for store.settings:', e)
         }
-        if (rec.key === SETTING_KEY_FREE_SHIPPING_THRESHOLD && rec.value !== null && rec.value !== undefined) {
-          const parsedThreshold = parseFreeShippingThreshold(rec.value)
-          if (parsedThreshold !== null) {
-            thresholdOverride = parsedThreshold
-          }
+      }
+
+      if (thresholdRec?.value !== null && thresholdRec?.value !== undefined) {
+        const parsedThreshold = parseFreeShippingThreshold(thresholdRec.value)
+        if (parsedThreshold !== null) {
+          thresholdOverride = parsedThreshold
         }
       }
 

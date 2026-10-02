@@ -476,6 +476,21 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
   if (isDatabaseConfigured && Object.keys(updateFields).length > 0) {
     await db.orm.public.Product.where({ id }).update(updateFields)
 
+    // If price changed, sync all variant prices to the new canonical price.
+    // ProductVariant.price is used by cart/checkout, so it must always mirror Product.price.
+    if (payload.price !== undefined) {
+      try {
+        const existingVariants = await db.orm.public.ProductVariant.where({ productId: id }).all()
+        for (const v of existingVariants) {
+          await db.orm.public.ProductVariant.where({ id: v.id }).update({
+            price: String(payload.price) as any,
+          })
+        }
+      } catch (varErr) {
+        console.warn('[catalog-admin.service] Failed to sync variant prices:', varErr)
+      }
+    }
+
     if (payload.imageUrl) {
       const existingImg = await db.orm.public.ProductImage.where({ productId: id, isPrimary: true }).first()
       if (existingImg) {
