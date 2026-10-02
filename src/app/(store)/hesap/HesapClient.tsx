@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { DASHBOARD_URL } from '@/lib/config/urls'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
@@ -167,9 +168,9 @@ export default function HesapClient() {
 
         <div className={styles.headerActions}>
           {isAdmin && (
-            <Link href="/admin" className={styles.adminBtn}>
+            <a href={DASHBOARD_URL} className={styles.adminBtn}>
               yönetim paneli →
-            </Link>
+            </a>
           )}
           <button
             type="button"

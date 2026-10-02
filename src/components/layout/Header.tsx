@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { DASHBOARD_URL } from '@/lib/config/urls'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import CartButton from './CartButton'
@@ -306,13 +307,13 @@ export default function Header() {
 
             {/* Admin Badge if admin */}
             {user && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
-              <Link
-                href="/admin"
+              <a
+                href={DASHBOARD_URL}
                 className={styles.adminBadgeLink}
                 title="Yönetim Paneli"
               >
                 admin
-              </Link>
+              </a>
             )}
 
             {/* Account trigger */}
@@ -468,9 +469,9 @@ export default function Header() {
                   {user.role === 'ADMIN' && <span className={styles.adminTag}> (admin)</span>}
                 </p>
                 {user.role === 'ADMIN' && (
-                  <Link href="/admin" className={styles.mobileNavLinkSm} tabIndex={mobileOpen ? 0 : -1}>
+                  <a href={DASHBOARD_URL} className={styles.mobileNavLinkSm} tabIndex={mobileOpen ? 0 : -1}>
                     yönetim paneli
-                  </Link>
+                  </a>
                 )}
                 <Link href="/hesap" className={styles.mobileNavLinkSm} tabIndex={mobileOpen ? 0 : -1}>
                   hesabım
