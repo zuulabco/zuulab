@@ -80,6 +80,8 @@ export interface MarketplaceStore {
   /** Last 4 characters of the API key, never the key itself */
   credentialHint: string | null
   credentialVersion: number | null
+  /** Last stock/price push to the marketplace */
+  lastPushAt?: string | null
   createdAt: string
   updatedAt: string
 }

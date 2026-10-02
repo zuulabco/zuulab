@@ -66,6 +66,7 @@ type StoreRow = {
   priceMarkupPercent: unknown
   lastConnectionAt: unknown
   lastOrderSyncAt: unknown
+  lastPushAt?: unknown
   lastError: string | null
   createdAt: unknown
   updatedAt: unknown
@@ -96,6 +97,7 @@ function toStore(row: StoreRow, credential: CredentialSummary): MarketplaceStore
     hasCredentials: Boolean(credential),
     credentialHint: credential ? `••••${credential.apiKeyHint}` : null,
     credentialVersion: credential?.version ?? null,
+    lastPushAt: dbTimestampToIso(row.lastPushAt),
     createdAt: dbTimestampToIso(row.createdAt) ?? '',
     updatedAt: dbTimestampToIso(row.updatedAt) ?? '',
   }

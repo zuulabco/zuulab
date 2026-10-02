@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuthStore } from '@/store/authStore'
@@ -9,6 +9,8 @@ import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import styles from '../admin.module.css'
+
+const PAGE_SIZE = 50
 
 interface ProductItem {
   id: string
@@ -48,8 +50,10 @@ export default function AdminProductsPage() {
   const [category, setCategory] = useState('ALL')
   const [status, setStatus] = useState('ALL')
   const [stockLevel, setStockLevel] = useState('all')
-  const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 20
+  // The list grows by PAGE_SIZE as the admin scrolls to the bottom.
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -78,7 +82,8 @@ export default function AdminProductsPage() {
 
   const loadProducts = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
+    if (limit === PAGE_SIZE) setLoading(true)
+    else setLoadingMore(true)
 
     const params = new URLSearchParams()
     if (search.trim()) params.set('search', search.trim())
@@ -86,8 +91,8 @@ export default function AdminProductsPage() {
     if (category !== 'ALL') params.set('category', category)
     if (status !== 'ALL') params.set('status', status)
     if (stockLevel !== 'all') params.set('stockLevel', stockLevel)
-    params.set('limit', String(pageSize))
-    params.set('offset', String((currentPage - 1) * pageSize))
+    params.set('limit', String(limit))
+    params.set('offset', '0')
 
     fetch(`/api/admin/products?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -105,8 +110,11 @@ export default function AdminProductsPage() {
         console.error(err)
         toast.error('Bağlantı hatası: Ürün listesi alınamadı.')
       })
-      .finally(() => setLoading(false))
-  }, [token, canFetch, search, collection, category, status, stockLevel, currentPage, pageSize])
+      .finally(() => {
+        setLoading(false)
+        setLoadingMore(false)
+      })
+  }, [token, canFetch, search, collection, category, status, stockLevel, limit])
 
   useEffect(() => {
     loadProducts()
@@ -114,7 +122,7 @@ export default function AdminProductsPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setCurrentPage(1)
+    setLimit(PAGE_SIZE)
     loadProducts()
   }
 
@@ -124,7 +132,7 @@ export default function AdminProductsPage() {
     setCategory('ALL')
     setStatus('ALL')
     setStockLevel('all')
-    setCurrentPage(1)
+    setLimit(PAGE_SIZE)
   }
 
   // Duplicate product via Modal
@@ -241,9 +249,21 @@ export default function AdminProductsPage() {
     )
   }
 
-  const totalPages = Math.ceil(total / pageSize) || 1
-  const startItem = total === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const endItem = Math.min(currentPage * pageSize, total)
+  const hasMore = products.length < total
+
+  // Load the next PAGE_SIZE rows when the bottom of the list comes into view.
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || !hasMore || loading || loadingMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setLimit((l) => l + PAGE_SIZE)
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, loading, loadingMore])
   const isFiltered = search !== '' || collection !== 'ALL' || category !== 'ALL' || status !== 'ALL' || stockLevel !== 'all'
 
   return (
@@ -298,7 +318,7 @@ export default function AdminProductsPage() {
             value={collection}
             onChange={(e) => {
               setCollection(e.target.value)
-              setCurrentPage(1)
+              setLimit(PAGE_SIZE)
             }}
             className={styles.filterSelect}
             style={{ flex: 1, minWidth: 160 }}
@@ -315,7 +335,7 @@ export default function AdminProductsPage() {
             value={category}
             onChange={(e) => {
               setCategory(e.target.value)
-              setCurrentPage(1)
+              setLimit(PAGE_SIZE)
             }}
             className={styles.filterSelect}
             style={{ flex: 1, minWidth: 160 }}
@@ -332,7 +352,7 @@ export default function AdminProductsPage() {
             value={stockLevel}
             onChange={(e) => {
               setStockLevel(e.target.value)
-              setCurrentPage(1)
+              setLimit(PAGE_SIZE)
             }}
             className={styles.filterSelect}
             style={{ minWidth: 150 }}
@@ -347,7 +367,7 @@ export default function AdminProductsPage() {
             value={status}
             onChange={(e) => {
               setStatus(e.target.value)
-              setCurrentPage(1)
+              setLimit(PAGE_SIZE)
             }}
             className={styles.filterSelect}
             style={{ minWidth: 130 }}
@@ -578,36 +598,23 @@ export default function AdminProductsPage() {
           </table>
         </div>
 
-        {/* Pagination Bar */}
+        {/* List footer: grows on scroll */}
         <div className={styles.paginationBar}>
           <div>
-            Toplam <strong>{total}</strong> üründen <strong>{startItem} - {endItem}</strong> arası gösteriliyor
+            Toplam <strong>{total}</strong> üründen <strong>{products.length}</strong> tanesi gösteriliyor
           </div>
-
-          <div className={styles.paginationActions}>
+          {hasMore && (
             <button
               type="button"
               className={styles.pageNavBtn}
-              disabled={currentPage <= 1 || loading}
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={loading || loadingMore}
+              onClick={() => setLimit((l) => l + PAGE_SIZE)}
             >
-              ← Önceki
+              {loadingMore ? 'Yükleniyor…' : 'Daha fazla yükle'}
             </button>
-
-            <span style={{ fontSize: 12, padding: '0 8px', color: 'var(--text-secondary)' }}>
-              Sayfa {currentPage} / {totalPages}
-            </span>
-
-            <button
-              type="button"
-              className={styles.pageNavBtn}
-              disabled={currentPage >= totalPages || loading}
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              Sonraki →
-            </button>
-          </div>
+          )}
         </div>
+        <div ref={sentinelRef} aria-hidden="true" style={{ height: 1 }} />
       </div>
 
       {/* ── UI-16 Global Modal: Archive Confirmation ── */}

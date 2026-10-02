@@ -7,7 +7,7 @@
 - Live: catalog, cart, checkout, PayTR payments (test mode), orders, stock, coupons,
   customer accounts, support, returns/refunds, admin panel.
 - In progress: Uyumsoft e-invoicing (Phase 4), Sürat Kargo (Phase 5), marketplace stock/price
-  push and product upload (Phase 7d–e; stores, listings and Trendyol order import are live),
+  product upload (Phase 7e; stores, listings, Trendyol order import and stock/price push are live),
   warehouse/production modules (Phase 8, still on sample data).
 
 ---
@@ -51,6 +51,7 @@
 | **Email provider down** | Orders continue; emails fail and are logged. | Check Resend status and the API key. |
 | **Marketplace package waiting** ("x ürün eşleşmedi") | The package is kept; no site order and no stock change until every line is linked. | Admin → Pazaryeri → Ürün Eşleştirme: link or import the product, then "Bekleyenleri yeniden dene" (the next sync also retries). |
 | **Marketplace order oversold** | The sale already happened on the marketplace, so the order is created and stock goes negative; audit log `ORDER_OVERSOLD`. | Produce or restock; correct the stock count. |
+| **Marketplace rejected a stock/price update** | The listing shows "gönderim reddedildi" with Trendyol's reason on the matching page; it is sent again an hour later. | Fix the cause on Trendyol (e.g. locked product, price rule) or correct the store price. |
 | **Marketplace orders not arriving** | Store row shows the last error; each sync is logged. | Check the store connection test, the external scheduler (cron-job.org) and `CRON_SECRET`. |
 | **Unexpected server errors** | One `request.error` JSON line per error in Vercel logs (path, route, digest). | Filter Vercel logs by `"event":"request.error"`. |
 

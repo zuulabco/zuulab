@@ -2394,6 +2394,8 @@ model MarketplaceStore {
   credential         MarketplaceCredential?
   listings           MarketplaceListing[]
   orders             MarketplaceOrder[]
+  pushBatches        MarketplacePushBatch[]
+  lastPushAt         DateTime? @map("last_push_at")
 
   @@unique([provider, externalSellerId, environment])
   @@map("marketplace_stores")
@@ -2449,6 +2451,14 @@ model MarketplaceListing {
   // Prices pushed to this store (initialised from the marketplace on first read).
   targetSalePrice  Decimal?        @db.Decimal(10, 2) @map("target_sale_price")
   targetListPrice  Decimal?        @db.Decimal(10, 2) @map("target_list_price")
+  // What was last sent to the marketplace (cleared again if the marketplace rejects it)
+  pushedQuantity   Int?            @map("pushed_quantity")
+  pushedSalePrice  Decimal?        @db.Decimal(10, 2) @map("pushed_sale_price")
+  pushedListPrice  Decimal?        @db.Decimal(10, 2) @map("pushed_list_price")
+  pushedAt         DateTime?       @map("pushed_at")
+  pushBatchId      String?         @map("push_batch_id")
+  pushError        String?         @map("push_error") @db.Text
+  pushErrorAt      DateTime?       @map("push_error_at")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
@@ -2494,4 +2504,23 @@ model MarketplaceOrder {
   @@unique([storeId, packageId])
   @@index([status])
   @@map("marketplace_orders")
+}
+
+// One stock/price update request sent to a marketplace; the marketplace processes it
+// asynchronously and reports per-item results under its batch request id.
+model MarketplacePushBatch {
+  id              String    @id @default(cuid())
+  storeId         String    @map("store_id")
+  batchRequestId  String    @map("batch_request_id")
+  // [{ listingId, barcode, quantity?, salePrice?, listPrice? }]
+  items           Json
+  status          String    @default("PENDING") // PENDING | COMPLETED | PARTIAL | FAILED
+  failedCount     Int       @default(0) @map("failed_count")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  checkedAt       DateTime? @map("checked_at")
+
+  store           MarketplaceStore @relation(fields:[storeId], references:[id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("marketplace_push_batches")
 }

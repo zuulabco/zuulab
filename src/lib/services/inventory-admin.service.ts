@@ -2,7 +2,6 @@ import 'server-only'
 import { db } from '@/prisma/db'
 import { dbTimestampToIso } from '@/lib/db/time'
 import { invalidateCatalog } from '@/lib/cache/catalog-cache'
-import { enqueueStockSyncForProducts } from './marketplace/stock-sync.service'
 import { logAuditEvent } from './admin.service'
 
 /**
@@ -164,7 +163,7 @@ export async function adminAdjustStock(params: {
     },
   })
 
-  enqueueStockSyncForProducts([params.productId]).catch(() => {})
+  // Marketplaces pick the new stock up on the next push run (listing-push.service).
 
   return { success: true, movement, newStock: result.newStock }
 }

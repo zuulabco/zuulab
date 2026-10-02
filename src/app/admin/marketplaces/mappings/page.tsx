@@ -37,6 +37,9 @@ interface Listing {
   ignored: boolean
   targetSalePrice: number | null
   targetListPrice: number | null
+  pushedQuantity: number | null
+  pushedSalePrice: number | null
+  pushError: string | null
   suggestions: Suggestion[]
 }
 
@@ -382,6 +385,18 @@ export default function MarketplaceMappingsPage() {
                     <td style={{ fontSize: 12 }}>
                       {tl(l.salePrice)}
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>stok {l.quantity}</div>
+                      {(l.pushedQuantity !== null || l.pushedSalePrice !== null) && (
+                        <div style={{ fontSize: 11, color: '#059669' }} title="Sitenin bu mağazaya son gönderdiği">
+                          gönderildi: {l.pushedQuantity !== null ? `${l.pushedQuantity} adet` : ''}
+                          {l.pushedQuantity !== null && l.pushedSalePrice !== null ? ' · ' : ''}
+                          {l.pushedSalePrice !== null ? tl(l.pushedSalePrice) : ''}
+                        </div>
+                      )}
+                      {l.pushError && (
+                        <div style={{ fontSize: 11, color: '#dc2626' }} title={l.pushError}>
+                          gönderim reddedildi: {l.pushError.slice(0, 80)}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <input

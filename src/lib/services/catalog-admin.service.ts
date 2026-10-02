@@ -209,7 +209,11 @@ export async function adminGetProducts(filters: AdminProductFilter = {}) {
   else if (filters.sort === 'price_desc') list.sort((a, b) => b.price - a.price)
   else if (filters.sort === 'stock_asc') list.sort((a, b) => a.stock - b.stock)
   else if (filters.sort === 'stock_desc') list.sort((a, b) => b.stock - a.stock)
-  else list.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  else {
+    // Default: products on sale first, archived/draft after them; newest first within each.
+    const rank = (p: { status: string }) => (p.status === 'ACTIVE' ? 0 : 1)
+    list.sort((a, b) => rank(a) - rank(b) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  }
 
   const limit = filters.limit || 50
   const offset = filters.offset || 0

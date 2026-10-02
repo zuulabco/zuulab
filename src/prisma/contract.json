@@ -104,6 +104,10 @@
       "model": "MarketplaceOrder",
       "namespace": "public"
     },
+    "marketplace_push_batches": {
+      "model": "MarketplacePushBatch",
+      "namespace": "public"
+    },
     "marketplace_stores": {
       "model": "MarketplaceStore",
       "namespace": "public"
@@ -3878,6 +3882,69 @@
                   "kind": "scalar"
                 }
               },
+              "pushBatchId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "pushError": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "pushErrorAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "pushedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "pushedListPrice": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                }
+              },
+              "pushedQuantity": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "pushedSalePrice": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                }
+              },
               "quantity": {
                 "nullable": false,
                 "type": {
@@ -4069,6 +4136,27 @@
                 },
                 "productUrl": {
                   "column": "product_url"
+                },
+                "pushBatchId": {
+                  "column": "push_batch_id"
+                },
+                "pushError": {
+                  "column": "push_error"
+                },
+                "pushErrorAt": {
+                  "column": "push_error_at"
+                },
+                "pushedAt": {
+                  "column": "pushed_at"
+                },
+                "pushedListPrice": {
+                  "column": "pushed_list_price"
+                },
+                "pushedQuantity": {
+                  "column": "pushed_quantity"
+                },
+                "pushedSalePrice": {
+                  "column": "pushed_sale_price"
                 },
                 "quantity": {
                   "column": "quantity"
@@ -4355,6 +4443,120 @@
               "table": "marketplace_orders"
             }
           },
+          "MarketplacePushBatch": {
+            "fields": {
+              "batchRequestId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "checkedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "failedCount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "items": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "storeId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "store": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "storeId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "MarketplaceStore",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "batchRequestId": {
+                  "column": "batch_request_id"
+                },
+                "checkedAt": {
+                  "column": "checked_at"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "failedCount": {
+                  "column": "failed_count"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "items": {
+                  "column": "items"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "storeId": {
+                  "column": "store_id"
+                }
+              },
+              "namespaceId": "public",
+              "table": "marketplace_push_batches"
+            }
+          },
           "MarketplaceStore": {
             "fields": {
               "createdAt": {
@@ -4406,6 +4608,16 @@
                 }
               },
               "lastOrderSyncAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "lastPushAt": {
                 "nullable": true,
                 "type": {
                   "codecId": "pg/timestamp-temporal@1",
@@ -4525,6 +4737,21 @@
                   "model": "MarketplaceOrder",
                   "namespace": "public"
                 }
+              },
+              "pushBatches": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "storeId"
+                  ]
+                },
+                "to": {
+                  "model": "MarketplacePushBatch",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -4549,6 +4776,9 @@
                 },
                 "lastOrderSyncAt": {
                   "column": "last_order_sync_at"
+                },
+                "lastPushAt": {
+                  "column": "last_push_at"
                 },
                 "name": {
                   "column": "name"
@@ -18893,6 +19123,55 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "push_batch_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "push_error": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "push_error_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "pushed_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "pushed_list_price": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                },
+                "pushed_quantity": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "pushed_sale_price": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                },
                 "quantity": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -19245,6 +19524,104 @@
               },
               "uniques": []
             },
+            "marketplace_push_batches": {
+              "columns": {
+                "batch_request_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "checked_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "created_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "failed_count": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "items": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PENDING"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "store_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "onUpdate": "cascade",
+                  "source": {
+                    "columns": [
+                      "store_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "marketplace_push_batches"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "marketplace_stores"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "status",
+                    "created_at"
+                  ],
+                  "name": "marketplace_push_batches_status_created_at_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "marketplace_stores": {
               "columns": {
                 "created_at": {
@@ -19292,6 +19669,14 @@
                   "nullable": true
                 },
                 "last_order_sync_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "last_push_at": {
                   "codecId": "pg/timestamp-temporal@1",
                   "nativeType": "timestamp",
                   "nullable": true,
@@ -28418,10 +28803,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b452931b02cf8e518fcb8f7422149441a52d3d3a77fce65248b963375b2af30a"
+    "storageHash": "732f38ac913863b73f8e6e187a534bf21ffe437311be873e130c22f8d16b90a4"
   },
   "execution": {
-    "executionHash": "be3bfd44679968d8a4ffbb18225416f08fb9f80764b17a5e842927636f674623",
+    "executionHash": "6340d282ec657572b17fcb3a67ec4d99b6a7992e828c63df85c2cad1f73b608f",
     "mutations": {
       "defaults": [
         {
@@ -28929,6 +29314,17 @@
           "ref": {
             "entry": "marketplace_orders",
             "field": "updated_at",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "cuid2",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "marketplace_push_batches",
+            "field": "id",
             "namespace": "public"
           }
         },

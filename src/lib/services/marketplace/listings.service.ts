@@ -58,6 +58,10 @@ export interface ListingView {
   ignored: boolean
   targetSalePrice: number | null
   targetListPrice: number | null
+  pushedQuantity: number | null
+  pushedSalePrice: number | null
+  pushedAt: string | null
+  pushError: string | null
   suggestions: ListingSuggestion[]
 }
 
@@ -87,6 +91,10 @@ type ListingRow = {
   ignored: boolean
   targetSalePrice: unknown
   targetListPrice: unknown
+  pushedQuantity?: number | null
+  pushedSalePrice?: unknown
+  pushedAt?: unknown
+  pushError?: string | null
 }
 
 const MAX_PAGES = 50
@@ -436,6 +444,10 @@ export async function getListings(filters: { storeId?: string; filter?: ListingF
         ignored: r.ignored,
         targetSalePrice: nullableMoney(r.targetSalePrice),
         targetListPrice: nullableMoney(r.targetListPrice),
+        pushedQuantity: r.pushedQuantity ?? null,
+        pushedSalePrice: nullableMoney(r.pushedSalePrice),
+        pushedAt: dbTimestampToIso(r.pushedAt),
+        pushError: r.pushError ?? null,
         suggestions: r.productId || r.ignored ? [] : suggestionsFor(r, products),
       }
     })

@@ -18,7 +18,7 @@ interface MarketplaceStore {
   stockSyncEnabled: boolean
   priceSyncEnabled: boolean
   orderImportEnabled: boolean
-  priceMarkupPercent: number
+  lastPushAt?: string | null
   hasCredentials: boolean
   credentialHint: string | null
   credentialVersion: number | null
@@ -53,6 +53,30 @@ const PROVIDER_FIELDS: Record<Provider, { sellerId: string; apiKey: string; apiS
   },
 }
 
+interface PushPlanItem {
+  listingId: string
+  barcode: string
+  title: string
+  productName: string | null
+  marketplaceQuantity: number
+  marketplaceSalePrice: number | null
+  desiredQuantity: number | null
+  desiredSalePrice: number | null
+  send: { quantity?: number; salePrice?: number; listPrice?: number } | null
+  skipReason: string | null
+  pushError: string | null
+  warning: string | null
+}
+
+interface PushPlan {
+  storeId: string
+  storeName: string
+  stockSyncEnabled: boolean
+  priceSyncEnabled: boolean
+  items: PushPlanItem[]
+  toSend: number
+}
+
 interface StoreForm {
   provider: Provider
   name: string
@@ -60,7 +84,6 @@ interface StoreForm {
   environment: Environment
   apiKey: string
   apiSecret: string
-  priceMarkupPercent: string
 }
 
 const EMPTY_FORM: StoreForm = {
@@ -70,7 +93,6 @@ const EMPTY_FORM: StoreForm = {
   environment: 'PRODUCTION',
   apiKey: '',
   apiSecret: '',
-  priceMarkupPercent: '0',
 }
 
 function formatDate(value: string | null): string {
@@ -96,7 +118,11 @@ export default function AdminMarketplacesPage() {
   const [keyForm, setKeyForm] = useState({ apiKey: '', apiSecret: '' })
 
   const [editStore, setEditStore] = useState<MarketplaceStore | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', environment: 'PRODUCTION' as Environment, priceMarkupPercent: '0' })
+  const [editForm, setEditForm] = useState({ name: '', environment: 'PRODUCTION' as Environment })
+
+  const [plan, setPlan] = useState<PushPlan | null>(null)
+  const [planLoadingId, setPlanLoadingId] = useState<string | null>(null)
+  const [pushing, setPushing] = useState(false)
 
   const authHeaders = useCallback(
     (json = false): Record<string, string> => ({
@@ -178,7 +204,6 @@ export default function AdminMarketplacesPage() {
           environment: form.environment,
           apiKey: form.apiKey || undefined,
           apiSecret: form.apiSecret || undefined,
-          priceMarkupPercent: Number(form.priceMarkupPercent || 0),
         }),
       })
       const data = await res.json()
@@ -232,12 +257,59 @@ export default function AdminMarketplacesPage() {
       {
         name: editForm.name,
         environment: editForm.environment,
-        priceMarkupPercent: Number(editForm.priceMarkupPercent || 0),
       },
       `${editForm.name} güncellendi.`
     )
     setSaving(false)
     if (ok) setEditStore(null)
+  }
+
+  async function openPlan(store: MarketplaceStore) {
+    setPlanLoadingId(store.id)
+    try {
+      const res = await fetch(`/api/admin/marketplaces/stores/${store.id}/push`, { headers: authHeaders() })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Önizleme hazırlanamadı.')
+      setPlan(data.plan)
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Önizleme hazırlanamadı.', type: 'error' })
+    } finally {
+      setPlanLoadingId(null)
+    }
+  }
+
+  async function sendPlan() {
+    if (!plan) return
+    setPushing(true)
+    try {
+      const res = await fetch(`/api/admin/marketplaces/stores/${plan.storeId}/push`, { method: 'POST', headers: authHeaders() })
+      const data = await res.json()
+      const r = data.result
+      if (!data.success || !r) throw new Error(data.error || 'Gönderim yapılamadı.')
+      setNotification({
+        text:
+          r.status === 'SENT'
+            ? `${plan.storeName}: ${r.sent} ürün gönderildi. Trendyol birkaç dakika içinde işler; reddedilen olursa Ürün Eşleştirme ekranında görünür.`
+            : r.status === 'NOTHING_TO_SEND'
+              ? `${plan.storeName}: gönderilecek değişiklik yok.`
+              : `${plan.storeName}: ${r.errorMessage}`,
+        type: r.status === 'SENT' || r.status === 'NOTHING_TO_SEND' ? 'success' : 'error',
+      })
+      setPlan(null)
+      loadStores()
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Gönderim yapılamadı.', type: 'error' })
+    } finally {
+      setPushing(false)
+    }
+  }
+
+  function toggleSwitch(store: MarketplaceStore, key: 'orderImportEnabled' | 'stockSyncEnabled' | 'priceSyncEnabled', on: boolean) {
+    if (on && key === 'stockSyncEnabled' &&
+      !window.confirm(`${store.name}: stok gönderimi açılınca sitedeki stoklar düzenli olarak Trendyol'a yazılır (stoku 0 olan ürün satıştan düşer). Önce "Gönderim" önizlemesine baktınız mı?`)) return
+    if (on && key === 'priceSyncEnabled' &&
+      !window.confirm(`${store.name}: fiyat gönderimi açılınca Ürün Eşleştirme ekranındaki "Mağaza fiyatı" Trendyol'a yazılır. Devam edilsin mi?`)) return
+    patchStore(store, { [key]: on })
   }
 
   async function handleDelete(store: MarketplaceStore) {
@@ -328,7 +400,7 @@ export default function AdminMarketplacesPage() {
                 <th>Sipariş al</th>
                 <th>Stok gönder</th>
                 <th>Fiyat gönder</th>
-                <th>Fiyat farkı</th>
+                <th>Son gönderim</th>
                 <th>Durum</th>
                 <th style={{ textAlign: 'right' }}>İşlemler</th>
               </tr>
@@ -378,11 +450,11 @@ export default function AdminMarketplacesPage() {
                           aria-label={key}
                           checked={store[key]}
                           disabled={busy}
-                          onChange={(e) => patchStore(store, { [key]: e.target.checked })}
+                          onChange={(e) => toggleSwitch(store, key, e.target.checked)}
                         />
                       </td>
                     ))}
-                    <td style={{ fontSize: 12 }}>%{store.priceMarkupPercent.toLocaleString('tr-TR')}</td>
+                    <td style={{ fontSize: 11 }}>{formatDate(store.lastPushAt ?? null)}</td>
                     <td>
                       <button
                         type="button"
@@ -414,17 +486,25 @@ export default function AdminMarketplacesPage() {
                         >
                           {store.hasCredentials ? 'Anahtarları değiştir' : 'Anahtar gir'}
                         </button>
+                        {store.provider === 'TRENDYOL' && store.hasCredentials && (
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            style={{ padding: '3px 8px', fontSize: 11 }}
+                            disabled={planLoadingId === store.id}
+                            onClick={() => openPlan(store)}
+                            title="Stok/fiyat gönderiminin önizlemesi"
+                          >
+                            {planLoadingId === store.id ? 'Hazırlanıyor…' : 'Gönderim'}
+                          </button>
+                        )}
                         <button
                           type="button"
                           className={styles.secondaryButton}
                           style={{ padding: '3px 8px', fontSize: 11 }}
                           onClick={() => {
                             setEditStore(store)
-                            setEditForm({
-                              name: store.name,
-                              environment: store.environment,
-                              priceMarkupPercent: String(store.priceMarkupPercent),
-                            })
+                            setEditForm({ name: store.name, environment: store.environment })
                           }}
                         >
                           Düzenle
@@ -447,6 +527,79 @@ export default function AdminMarketplacesPage() {
           </table>
         )}
       </div>
+
+      {plan && (
+        <div className={styles.modalOverlay} onClick={() => !pushing && setPlan(null)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, width: '95%' }}>
+            <h3 style={{ marginTop: 0 }}>{plan.storeName}: stok ve fiyat gönderimi</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Stok gönderimi: <strong>{plan.stockSyncEnabled ? 'açık' : 'kapalı'}</strong> · Fiyat gönderimi:{' '}
+              <strong>{plan.priceSyncEnabled ? 'açık' : 'kapalı'}</strong>. Yalnızca değişenler gönderilir; açık
+              olduğunda bu işlem her 10 dakikada bir sipariş alımından sonra kendiliğinden de çalışır.
+              {!plan.stockSyncEnabled && !plan.priceSyncEnabled && ' Şu an hiçbir şey gönderilmez; aşağıdaki liste yalnızca durumu gösterir.'}
+            </p>
+            <div style={{ maxHeight: 420, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 4 }}>
+              <table className={styles.table} style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Ürün</th>
+                    <th>Trendyol&apos;da</th>
+                    <th>Sitenin istediği</th>
+                    <th>Bu gönderimde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.items.map((i) => (
+                    <tr key={i.listingId}>
+                      <td style={{ fontSize: 12 }}>
+                        <div style={{ fontWeight: 600 }}>{i.title}</div>
+                        <div style={{ color: 'var(--text-muted)' }}>
+                          {i.barcode}
+                          {i.productName ? ` → ${i.productName}` : ''}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {i.marketplaceQuantity} adet
+                        <br />
+                        {i.marketplaceSalePrice !== null ? `${i.marketplaceSalePrice} TL` : '—'}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {i.desiredQuantity !== null ? `${i.desiredQuantity} adet` : '—'}
+                        <br />
+                        {i.desiredSalePrice !== null ? `${i.desiredSalePrice} TL` : '—'}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {i.send ? (
+                          <span style={{ color: '#2563eb', fontWeight: 600 }}>
+                            {i.send.quantity !== undefined ? `stok ${i.send.quantity}` : ''}
+                            {i.send.quantity !== undefined && i.send.salePrice !== undefined ? ' · ' : ''}
+                            {i.send.salePrice !== undefined ? `fiyat ${i.send.salePrice} TL` : ''}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>{i.skipReason ?? 'Değişiklik yok'}</span>
+                        )}
+                        {i.warning && <div style={{ color: '#dc2626' }}>{i.warning}</div>}
+                        {i.pushError && <div style={{ color: '#dc2626' }}>Son hata: {i.pushError}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 'auto' }}>
+                {plan.toSend} ürün gönderilecek
+              </span>
+              <button className={styles.secondaryButton} onClick={() => setPlan(null)} disabled={pushing}>
+                Kapat
+              </button>
+              <button className={styles.primaryButton} onClick={sendPlan} disabled={pushing || plan.toSend === 0}>
+                {pushing ? 'Gönderiliyor…' : 'Şimdi gönder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {testResult && (
         <div className={styles.modalOverlay} onClick={() => setTestResult(null)}>
@@ -546,18 +699,6 @@ export default function AdminMarketplacesPage() {
                 />
               </div>
             </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Fiyat farkı (%): pazaryeri fiyatı = site fiyatı × (1 + fark/100)</label>
-              <input
-                className={styles.input}
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                value={form.priceMarkupPercent}
-                onChange={(e) => setForm({ ...form, priceMarkupPercent: e.target.value })}
-              />
-            </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button type="button" className={styles.secondaryButton} onClick={() => setShowAdd(false)} disabled={saving}>
                 İptal
@@ -635,18 +776,6 @@ export default function AdminMarketplacesPage() {
                 <option value="PRODUCTION">Canlı</option>
                 <option value="STAGE">Test (Stage)</option>
               </select>
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Fiyat farkı (%)</label>
-              <input
-                className={styles.input}
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                value={editForm.priceMarkupPercent}
-                onChange={(e) => setEditForm({ ...editForm, priceMarkupPercent: e.target.value })}
-              />
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
               <button type="button" className={styles.secondaryButton} onClick={() => setEditStore(null)} disabled={saving}>
