@@ -5,9 +5,12 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
 
 // Format price in Turkish Lira
 export function formatPrice(
-  amount: number | string | { toString(): string },
+  amount: number | string | { toString(): string } | null | undefined,
   options?: { currency?: string; locale?: string }
 ): string {
+  // A missing amount is a data bug; show a dash instead of crashing the page or
+  // implying the price is zero.
+  if (amount === null || amount === undefined) return '—'
   const num = typeof amount === 'number' ? amount : parseFloat(amount.toString())
   if (isNaN(num)) return '₺0,00'
 

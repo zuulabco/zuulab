@@ -9,12 +9,13 @@ import AccountNav from '@/components/account/AccountNav'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Siparisler.module.css'
 
+// Shape of StoredOrder returned by /api/orders (src/lib/services/orders.service.ts).
 interface OrderItem {
   id: string
   productName: string
   quantity: number
   unitPrice: number
-  total: number
+  totalAmount: number
 }
 
 interface Order {
@@ -24,8 +25,8 @@ interface Order {
   createdAt: string
   subtotal: number
   discountAmount: number
-  shippingCost: number
-  total: number
+  shippingAmount: number
+  totalAmount: number
   items: OrderItem[]
 }
 
@@ -182,14 +183,14 @@ export default function SiparislerPage() {
                             {item.productName.toLowerCase()}
                             <span className={styles.previewItemQty}>x{item.quantity}</span>
                           </span>
-                          <span>{formatPrice(item.total)}</span>
+                          <span>{formatPrice(item.totalAmount)}</span>
                         </div>
                       ))}
                     </div>
 
                     <div className={styles.orderRowFooter}>
                       <span className={styles.orderTotal}>
-                        {totalItemsCount} ürün · {formatPrice(order.total)}
+                        {totalItemsCount} ürün · {formatPrice(order.totalAmount)}
                       </span>
 
                       <Link

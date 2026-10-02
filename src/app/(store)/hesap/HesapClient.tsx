@@ -12,12 +12,13 @@ import Modal from '@/components/common/Modal'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Hesap.module.css'
 
+// Shape of StoredOrder returned by /api/orders (src/lib/services/orders.service.ts).
 interface OrderSummary {
   id: string
   orderNumber: string
   status: string
   createdAt: string
-  total: number
+  totalAmount: number
   itemCount?: number
   items?: Array<{ id: string; quantity: number }>
 }
@@ -240,7 +241,7 @@ export default function HesapClient() {
 
                 <div className={styles.orderPreviewRow}>
                   <span>{latestOrderItemsCount} adet ürün</span>
-                  <span className={styles.orderPrice}>{formatPrice(latestOrder.total)}</span>
+                  <span className={styles.orderPrice}>{formatPrice(latestOrder.totalAmount)}</span>
                 </div>
 
                 <div className={styles.orderFooterRow}>
