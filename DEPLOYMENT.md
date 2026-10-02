@@ -84,6 +84,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261002T1456_rate_limits` — shared rate-limit counters
    - `20261002T1749_marketplace_stores` — marketplace stores and encrypted API credentials
    - `20261002T1932_marketplace_listings` — marketplace listings, their links to site products and store prices
+   - `20261002T2024_marketplace_orders` — marketplace packages and the site orders created from them
 
 ---
 
@@ -102,10 +103,17 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
 | Path | Schedule | Purpose |
 |---|---|---|
 | `/api/cron/payment-expiration` | daily 03:00 UTC | Backstop: expire unpaid orders and release their stock |
+| `/api/cron/marketplace-orders-sync` | daily 04:30 UTC | Backstop: import marketplace orders |
+
+Vercel Hobby runs crons once a day, but marketplace orders should arrive within minutes.
+Schedule the order import externally, e.g. cron-job.org every 10 minutes:
+`GET https://www.zuulab.com/api/cron/marketplace-orders-sync` with header
+`Authorization: Bearer <CRON_SECRET>`. Overlapping runs are safe (database lease per store).
 
 Unpaid orders are also expired at every checkout, and each is reconciled with
 PayTR's status API before expiring, so a paid order is never cancelled.
-All cron routes require `Authorization: Bearer $CRON_SECRET` and take a DB lock.
+All cron routes require `Authorization: Bearer $CRON_SECRET` and take a database lease
+(`settings` table, atomic), so concurrent runs on different instances never overlap.
 
 ---
 

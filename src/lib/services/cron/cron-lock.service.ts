@@ -1,7 +1,7 @@
 import 'server-only'
 import { db, isDatabaseConfigured } from '@/prisma/db'
 
-// Local in-memory lock fallback for development/testing
+// Per-process lock, only when no database is configured (local development)
 const memoryLocks = new Map<string, number>()
 
 export interface CronAuthResult {
@@ -62,11 +62,18 @@ export interface CronLockResult {
 }
 
 /**
- * Distributed lease/lock for serverless cron jobs to prevent concurrent duplicate executions.
- * Uses PostgreSQL Setting table in production, in-memory Map in local development.
+ * Distributed lease for cron jobs and syncs, shared by every serverless instance.
  *
- * @param jobName Unique identifier for the cron task (e.g. 'notifications_process')
- * @param ttlSeconds Lock expiration time in seconds (default 300s = 5 minutes)
+ * One atomic statement on the `settings` table: the lock row is inserted, or taken
+ * over only if its lease has expired; whoever gets a row back owns the lock. A crashed
+ * holder can never block a job longer than `ttlSeconds`.
+ *
+ * Fails closed in production: if the database cannot be asked, the job does not run
+ * (it could not do its work without the database anyway). Only without any database
+ * (local development) is a per-process lock used.
+ *
+ * @param jobName Unique identifier for the task (e.g. 'notifications_process')
+ * @param ttlSeconds Lease length in seconds (default 300s = 5 minutes)
  */
 export async function acquireCronLock(
   jobName: string,
@@ -74,70 +81,51 @@ export async function acquireCronLock(
 ): Promise<CronLockResult> {
   const lockKey = `cron_lock:${jobName}`
   const now = Date.now()
-  const nowIso = new Date(now).toISOString()
 
   if (isDatabaseConfigured) {
     try {
-      const existing = await (db.orm.public.Setting as any).findUnique({
-        where: { key: lockKey },
-      })
-
-      if (existing && existing.value) {
-        const lockTime = new Date(existing.value).getTime()
-        const ageSeconds = (now - lockTime) / 1000
-
-        // If another instance acquired the lock within TTL, reject concurrent run
-        if (ageSeconds < ttlSeconds) {
-          return {
-            acquired: false,
-            jobName,
-            reason: `LOCKED_BY_ANOTHER_INSTANCE (active for ${Math.round(ttlSeconds - ageSeconds)}s more)`,
-          }
-        }
-      }
-
-      // Update or insert lock timestamp
-      await (db.orm.public.Setting as any).upsert({
-        where: { key: lockKey },
-        update: { value: nowIso, group: 'cron' },
-        create: { key: lockKey, value: nowIso, group: 'cron', type: 'string' },
-      })
-
-      return { acquired: true, jobName }
+      const rows = (await db.runtime().query(
+        db.raw.sql`
+          INSERT INTO settings (id, key, value, type, "group", updated_at)
+          VALUES (gen_random_uuid()::text, ${lockKey}, ${new Date(now).toISOString()}, 'string', 'cron', now())
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+          WHERE settings.value::timestamptz < now() - make_interval(secs => ${ttlSeconds})
+          RETURNING key
+        `
+          .returnsRow({ key: 'pg/text@1' } as never)
+          .build()
+      )) as unknown as Array<{ key: string }>
+      return rows.length === 1
+        ? { acquired: true, jobName }
+        : { acquired: false, jobName, reason: 'LOCKED_BY_ANOTHER_INSTANCE' }
     } catch (err) {
-      console.warn('[cron-lock] DB lock failed, checking memory:', err)
+      console.error(JSON.stringify({ event: 'cron.lock.failed', job: jobName, error: (err as Error).message }))
+      if (process.env.NODE_ENV === 'production') {
+        return { acquired: false, jobName, reason: 'LOCK_UNAVAILABLE' }
+      }
     }
   }
 
-  // In-memory fallback
   const lastTime = memoryLocks.get(jobName) || 0
-  const ageSeconds = (now - lastTime) / 1000
-  if (ageSeconds < ttlSeconds) {
-    return {
-      acquired: false,
-      jobName,
-      reason: `LOCKED_BY_ANOTHER_INSTANCE (memory lock: ${Math.round(ttlSeconds - ageSeconds)}s remaining)`,
-    }
+  if ((now - lastTime) / 1000 < ttlSeconds) {
+    return { acquired: false, jobName, reason: 'LOCKED_BY_ANOTHER_INSTANCE (memory lock)' }
   }
-
   memoryLocks.set(jobName, now)
   return { acquired: true, jobName }
 }
 
 /**
- * Releases the distributed cron lock once execution completes.
+ * Releases the lock once execution completes.
  */
 export async function releaseCronLock(jobName: string): Promise<void> {
-  const lockKey = `cron_lock:${jobName}`
   memoryLocks.delete(jobName)
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public.Setting as any).deleteMany({
-        where: { key: lockKey },
-      })
-    } catch {
-      // Ignored
-    }
+  if (!isDatabaseConfigured) return
+  try {
+    await db
+      .runtime()
+      .execute(db.raw.sql`DELETE FROM settings WHERE key = ${`cron_lock:${jobName}`}`.affectedCount().build())
+  } catch (err) {
+    // The lease expires on its own.
+    console.error(JSON.stringify({ event: 'cron.unlock.failed', job: jobName, error: (err as Error).message }))
   }
 }

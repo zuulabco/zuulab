@@ -7,8 +7,6 @@ import {
   type LowStockProduct,
 } from './production.service'
 import { getAllOrders, type StoredOrder } from './orders.service'
-import { getMarketplaceOrders } from './marketplace/marketplace.service'
-import type { MarketplaceOrder } from './marketplace/marketplace.interface'
 import { ShippingService } from './shipping/shipping.service'
 import { BulkShippingService, type ShippingDailyStats } from './shipping/bulk-shipping.service'
 import { MaterialService, type MaterialReadinessSummary } from './material.service'
@@ -223,7 +221,7 @@ export class DailyOperationsService {
       }>
     }> = []
 
-    // 1. Direct Storefront Orders
+    // Storefront and marketplace orders (marketplace orders are imported into the same table)
     const directOrders = await getAllOrders()
     for (const ord of directOrders) {
       // Check multi-store scoping if order has storeId attached
@@ -242,7 +240,7 @@ export class DailyOperationsService {
         openOrders.push({
           orderId: ord.id,
           orderNumber: ord.orderNumber,
-          channel: 'DIRECT',
+          channel: ord.channel && ord.channel !== 'DIRECT' ? 'MARKETPLACE' : 'DIRECT',
           storeId: ordStoreId,
           customerName: ord.shippingAddressSnapshot?.fullName || 'Müşteri',
           createdAt: ord.createdAt,
@@ -254,38 +252,6 @@ export class DailyOperationsService {
             quantity: i.quantity,
           })),
         })
-      }
-    }
-
-    // 2. Marketplace Orders
-    const marketplaceOrders = await getMarketplaceOrders(storeId ? { storeId } : {})
-    for (const mOrd of marketplaceOrders) {
-      if (storeId && mOrd.storeId !== storeId) {
-        continue
-      }
-      const openStatuses = ['NEW', 'APPROVED', 'PREPARING', 'UNMAPPED']
-      if (openStatuses.includes(mOrd.status)) {
-        const mappedItems = mOrd.items
-          .filter((i) => Boolean(i.productId))
-          .map((i) => ({
-            productId: i.productId!,
-            productName: i.productName,
-            sku: i.merchantSku || i.externalSku,
-            quantity: i.quantity,
-          }))
-
-        if (mappedItems.length > 0) {
-          openOrders.push({
-            orderId: mOrd.id,
-            orderNumber: mOrd.externalOrderNumber,
-            channel: 'MARKETPLACE',
-            storeId: mOrd.storeId,
-            customerName: mOrd.customerName,
-            createdAt: mOrd.createdAt || mOrd.orderDate,
-            status: mOrd.status,
-            items: mappedItems,
-          })
-        }
       }
     }
 

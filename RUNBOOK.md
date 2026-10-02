@@ -6,8 +6,9 @@
   `MAINTENANCE_ALLOWED_IPS` and the admin can reach the storefront).
 - Live: catalog, cart, checkout, PayTR payments (test mode), orders, stock, coupons,
   customer accounts, support, returns/refunds, admin panel.
-- In progress: Uyumsoft e-invoicing (Phase 4), Sürat Kargo (Phase 5), marketplaces
-  (Phase 7), warehouse/production modules (Phase 8, still on sample data).
+- In progress: Uyumsoft e-invoicing (Phase 4), Sürat Kargo (Phase 5), marketplace stock/price
+  push and product upload (Phase 7d–e; stores, listings and Trendyol order import are live),
+  warehouse/production modules (Phase 8, still on sample data).
 
 ---
 
@@ -48,6 +49,9 @@
 | **Payment captured twice** (two attempts paid) | Audit log `PAYMENT_DUPLICATE_CAPTURE`. | Refund the extra payment in the PayTR panel. |
 | **Oversold** (late payment after stock ran out) | Order confirmed, stock goes negative, audit log `ORDER_OVERSOLD`. | Produce or restock, or contact the customer. |
 | **Email provider down** | Orders continue; emails fail and are logged. | Check Resend status and the API key. |
+| **Marketplace package waiting** ("x ürün eşleşmedi") | The package is kept; no site order and no stock change until every line is linked. | Admin → Pazaryeri → Ürün Eşleştirme: link or import the product, then "Bekleyenleri yeniden dene" (the next sync also retries). |
+| **Marketplace order oversold** | The sale already happened on the marketplace, so the order is created and stock goes negative; audit log `ORDER_OVERSOLD`. | Produce or restock; correct the stock count. |
+| **Marketplace orders not arriving** | Store row shows the last error; each sync is logged. | Check the store connection test, the external scheduler (cron-job.org) and `CRON_SECRET`. |
 | **Unexpected server errors** | One `request.error` JSON line per error in Vercel logs (path, route, digest). | Filter Vercel logs by `"event":"request.error"`. |
 
 ---

@@ -1,37 +1,16 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/services/auth.service'
-import { getMarketplaceOrderById } from '@/lib/services/marketplace/marketplace.service'
+import { getMarketplaceOrderView } from '@/lib/services/marketplace/marketplace-orders.service'
+import { listingErrorResponse } from '../../listings/route-error'
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin(request)
     const { id } = await params
-
-    const order = await getMarketplaceOrderById(id)
-    if (!order) {
-      return NextResponse.json(
-        { success: false, error: 'Pazaryeri siparişi bulunamadı.' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      order,
-    })
-  } catch (error: any) {
-    const isForbidden =
-      error.message?.includes('FORBIDDEN') ||
-      error.message?.includes('UNAUTHORIZED')
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Sipariş detayları alınamadı.',
-      },
-      { status: isForbidden ? 403 : 500 }
-    )
+    const order = await getMarketplaceOrderView(id)
+    if (!order) return NextResponse.json({ success: false, error: 'Sipariş bulunamadı.' }, { status: 404 })
+    return NextResponse.json({ success: true, order })
+  } catch (err) {
+    return listingErrorResponse(err, 'Sipariş detayları alınamadı.')
   }
 }

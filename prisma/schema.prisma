@@ -665,6 +665,7 @@ model Order {
   notes          OrderNote[]
   couponUsages   CouponUsage[]
   returnRequests ReturnRequest[]
+  marketplaceOrder MarketplaceOrder?
 
   @@index([userId])
   @@index([status, createdAt])
@@ -2392,6 +2393,7 @@ model MarketplaceStore {
 
   credential         MarketplaceCredential?
   listings           MarketplaceListing[]
+  orders             MarketplaceOrder[]
 
   @@unique([provider, externalSellerId, environment])
   @@map("marketplace_stores")
@@ -2458,4 +2460,38 @@ model MarketplaceListing {
   @@index([productId])
   @@index([productMainId])
   @@map("marketplace_listings")
+}
+
+// One marketplace shipment package as last read from the marketplace, and the site
+// order created from it (once every line is linked to a site product).
+model MarketplaceOrder {
+  id                  String    @id @default(cuid())
+  storeId             String    @map("store_id")
+  packageId           String    @map("package_id")
+  externalOrderNumber String    @map("external_order_number")
+  status              String    // marketplace package status, e.g. Created, Shipped
+  orderDate           DateTime  @map("order_date")
+  lastModifiedAt      DateTime  @map("last_modified_at")
+  totalAmount         Decimal   @db.Decimal(10, 2) @map("total_amount")
+  customerName        String?   @map("customer_name")
+  cargoProvider       String?   @map("cargo_provider")
+  trackingNumber      String?   @map("tracking_number")
+  trackingUrl         String?   @map("tracking_url")
+  // Lines as sold (barcode, name, quantity, prices); no addresses.
+  lines               Json
+  // Decided when first seen: false for the first import of a store (history) and for
+  // packages first seen cancelled, so old sales never change today's stock.
+  affectsStock        Boolean   @default(true) @map("affects_stock")
+  unmatchedCount      Int       @default(0) @map("unmatched_count")
+  orderId             String?   @unique @map("order_id")
+  lastError           String?   @map("last_error") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  store               MarketplaceStore @relation(fields:[storeId], references:[id], onDelete: Cascade)
+  order               Order?    @relation(fields:[orderId], references:[id], onDelete: SetNull)
+
+  @@unique([storeId, packageId])
+  @@index([status])
+  @@map("marketplace_orders")
 }

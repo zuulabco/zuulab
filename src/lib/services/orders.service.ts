@@ -606,7 +606,8 @@ export async function updateOrderStatus(
   else if (targetStatus === 'DELIVERED') notifType = 'ORDER_DELIVERED'
   else if (targetStatus === 'CANCELLED') notifType = 'ORDER_CANCELLED'
 
-  if (notifType) {
+  // Marketplace customers are informed by the marketplace; we have no address for them.
+  if (notifType && order.channel === 'DIRECT') {
     createNotification({
       orderNumber,
       eventType: notifType,

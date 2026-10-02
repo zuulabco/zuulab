@@ -1,29 +1,16 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/services/auth.service'
-import { reconcileUnmatchedOrders } from '@/lib/services/marketplace/marketplace.service'
+import { retryPendingMarketplaceOrders } from '@/lib/services/marketplace/marketplace-orders.service'
+import { listingErrorResponse } from '../listings/route-error'
 
+/** Retries every package waiting for product links (optionally for one store). */
 export async function POST(request: Request) {
   try {
     const user = await requireAdmin(request)
     const body = (await request.json().catch(() => ({}))) as { storeId?: string }
-
-    const result = await reconcileUnmatchedOrders(body.storeId, user.id)
-
-    return NextResponse.json({
-      success: true,
-      message: `${result.checkedCount} adet eşleşmemiş sipariş kontrol edildi, ${result.updatedCount} tanesi güncel eşleştirmelerle bağlandı.`,
-      result,
-    })
-  } catch (error: any) {
-    const isForbidden =
-      error.message?.includes('FORBIDDEN') ||
-      error.message?.includes('UNAUTHORIZED')
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Toplu yeniden eşleştirme gerçekleştirilemedi.',
-      },
-      { status: isForbidden ? 403 : 500 }
-    )
+    const result = await retryPendingMarketplaceOrders(body.storeId || undefined, user.id)
+    return NextResponse.json({ success: true, ...result })
+  } catch (err) {
+    return listingErrorResponse(err, 'Bekleyen siparişler yeniden denenemedi.')
   }
 }

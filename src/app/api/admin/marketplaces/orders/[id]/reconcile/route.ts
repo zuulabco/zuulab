@@ -1,38 +1,21 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/services/auth.service'
-import { reconcileMarketplaceOrder } from '@/lib/services/marketplace/marketplace.service'
+import {
+  getMarketplaceOrderView,
+  retryPendingMarketplaceOrders,
+} from '@/lib/services/marketplace/marketplace-orders.service'
+import { listingErrorResponse } from '../../../listings/route-error'
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/** Tries again to create the site order of a package that was waiting for product links. */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAdmin(request)
     const { id } = await params
-
-    const order = await reconcileMarketplaceOrder(id, user.id)
-    if (!order) {
-      return NextResponse.json(
-        { success: false, error: 'Sipariş bulunamadı.' },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Sipariş ürün eşleştirmeleri güncel katalog ile yeniden doğrulandı.',
-      order,
-    })
-  } catch (error: any) {
-    const isForbidden =
-      error.message?.includes('FORBIDDEN') ||
-      error.message?.includes('UNAUTHORIZED')
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Sipariş yeniden eşleştirilemedi.',
-      },
-      { status: isForbidden ? 403 : 500 }
-    )
+    const before = await getMarketplaceOrderView(id)
+    if (!before) return NextResponse.json({ success: false, error: 'Sipariş bulunamadı.' }, { status: 404 })
+    await retryPendingMarketplaceOrders(before.storeId, user.id)
+    return NextResponse.json({ success: true, order: await getMarketplaceOrderView(id) })
+  } catch (err) {
+    return listingErrorResponse(err, 'Sipariş yeniden denenemedi.')
   }
 }
