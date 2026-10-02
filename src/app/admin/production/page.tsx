@@ -1,498 +1,353 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
-import { useToastStore } from '@/store/toastStore'
+import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
-import { getProductionStatusConfig, getMaterialReadinessStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+
+type Status = 'PLANNED' | 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED' | 'STOCKED' | 'FAILED' | 'CANCELLED'
+type Filter = 'OPEN' | 'COMPLETED' | 'DONE' | 'ALL'
+
+interface Job {
+  id: string
+  productId: string
+  productNameSnapshot: string
+  skuSnapshot: string
+  quantity: number
+  completedQuantity: number
+  acceptedQuantity: number
+  failedQuantity: number
+  status: Status
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+  printerReference: string | null
+  notes: string | null
+  materialLabel: string | null
+  gramsPerUnit: number | null
+  requiredGrams: number | null
+  materialConsumedGrams: number | null
+  materialMissingGrams?: number
+  createdAt: string
+  completedAt: string | null
+}
+
+interface Suggestion {
+  productId: string
+  productName: string
+  sku: string
+  currentStock: number
+  minimumStock: number
+  allocatedStock: number
+  suggestedProductionQty: number
+}
+
+const STATUS: Record<Status, { text: string; cls: string }> = {
+  PLANNED: { text: 'Planlandı', cls: 'badgeNeutral' },
+  QUEUED: { text: 'Sırada', cls: 'badgeNeutral' },
+  IN_PROGRESS: { text: 'Basılıyor', cls: 'badgeInfo' },
+  COMPLETED: { text: 'Bitti, stoğa alınacak', cls: 'badgeWarning' },
+  STOCKED: { text: 'Stoğa alındı', cls: 'badgeSuccess' },
+  FAILED: { text: 'Başarısız', cls: 'badgeDanger' },
+  CANCELLED: { text: 'İptal', cls: 'badgeNeutral' },
+}
+
+const PRIORITY: Record<Job['priority'], string> = { LOW: 'Düşük', NORMAL: 'Normal', HIGH: 'Yüksek', URGENT: 'Acil' }
+
+const FILTERS: Record<Filter, { label: string; statuses: Status[] | null }> = {
+  OPEN: { label: 'Açık işler', statuses: ['PLANNED', 'QUEUED', 'IN_PROGRESS'] },
+  COMPLETED: { label: 'Stoğa alınacaklar', statuses: ['COMPLETED'] },
+  DONE: { label: 'Bitenler', statuses: ['STOCKED', 'FAILED', 'CANCELLED'] },
+  ALL: { label: 'Tümü', statuses: null },
+}
+
+function gramsText(g: number | null): string {
+  if (g === null) return '—'
+  return g >= 1000 ? `${(g / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} kg` : `${g.toLocaleString('tr-TR')} g`
+}
 
 export default function ProductionPage() {
   const { token, canFetch } = useAuthStore()
-  const { addToast } = useToastStore()
-
-  const [orders, setOrders] = useState<any[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [filter, setFilter] = useState<Filter>('OPEN')
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [completeJob, setCompleteJob] = useState<Job | null>(null)
+  const [completeForm, setCompleteForm] = useState({ printed: '', failed: '0', notes: '' })
 
-  // Complete Batch Modal State
-  const [completingOrder, setCompletingOrder] = useState<any | null>(null)
-  const [completedQty, setCompletedQty] = useState<number | ''>('')
-  const [failedQty, setFailedQty] = useState<number | ''>(0)
-  const [submittingComplete, setSubmittingComplete] = useState(false)
+  const headers = useCallback(
+    (json = false): Record<string, string> => ({
+      Authorization: `Bearer ${token}`,
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+    }),
+    [token]
+  )
 
-  async function loadOrders() {
+  const load = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
-    try {
-      const res = await fetch('/api/admin/production', { headers: { Authorization: `Bearer ${token}` } })
-      const data = await res.json()
-      if (data.success) {
-        setOrders(data.orders || [])
-      } else {
-        addToast(data.error || 'Üretim emirleri yüklenemedi.', 'error')
-      }
-    } catch (err: any) {
-      addToast(err.message || 'Üretim servisine bağlanılamadı.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
+    Promise.all([
+      fetch('/api/admin/production', { headers: headers() }).then((r) => r.json()),
+      fetch('/api/admin/production/stats', { headers: headers() }).then((r) => r.json()),
+    ])
+      .then(([list, stats]) => {
+        if (!list.success) throw new Error(list.error)
+        setJobs(list.orders)
+        setSuggestions(stats.lowStock ?? stats.lowStockProducts ?? [])
+      })
+      .catch((err) => toast.error(err.message || 'Üretim işleri yüklenemedi.'))
+      .finally(() => setLoading(false))
+  }, [canFetch, headers])
 
   useEffect(() => {
-    loadOrders()
-  }, [token, canFetch, canFetch])
+    load()
+  }, [load])
 
-  async function handleAction(orderId: string, action: 'start' | 'stock', body?: any) {
-    setActionLoading(orderId + action)
+  async function act(job: Job, action: 'start' | 'stock' | 'cancel' | 'fail', body?: Record<string, unknown>) {
+    setBusyId(job.id)
     try {
-      const res = await fetch(`/api/admin/production/${orderId}/${action}`, {
+      const res = await fetch(`/api/admin/production/${job.id}/${action}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
+        headers: headers(true),
+        body: JSON.stringify(body ?? {}),
       })
       const data = await res.json()
-      if (!data.success) {
-        addToast(data.error || 'İşlem başarısız oldu.', 'error')
-      } else {
-        addToast(
-          action === 'start' ? 'Baskı emri başlatıldı.' : 'Ürünler merkezi stoğa başarıyla eklendi.',
-          'success'
-        )
-        await loadOrders()
-      }
-    } catch (err: any) {
-      addToast(err.message || 'İşlem sırasında hata oluştu.', 'error')
+      if (!data.success) throw new Error(data.error || 'İşlem yapılamadı.')
+      if (action === 'stock') toast.success(`${job.productNameSnapshot}: ${job.acceptedQuantity} adet stoğa eklendi (stok ${data.newStock}).`)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'İşlem yapılamadı.')
     } finally {
-      setActionLoading(null)
+      setBusyId(null)
     }
   }
 
-  async function handleConfirmComplete(e: React.FormEvent) {
-    e.preventDefault()
-    if (!completingOrder || completedQty === '') return
-    setSubmittingComplete(true)
+  async function submitComplete() {
+    if (!completeJob) return
+    const printed = Number(completeForm.printed)
+    const failed = Number(completeForm.failed || 0)
+    if (!Number.isInteger(printed) || printed < 1 || !Number.isInteger(failed) || failed < 0 || failed > printed) {
+      toast.error('Basılan adet en az 1, hatalı adet basılandan fazla olamaz.')
+      return
+    }
+    setBusyId(completeJob.id)
     try {
-      const res = await fetch(`/api/admin/production/${completingOrder.id}/complete`, {
+      const res = await fetch(`/api/admin/production/${completeJob.id}/complete`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          completedQuantity: Number(completedQty),
-          failedQuantity: Number(failedQty || 0),
-        }),
+        headers: headers(true),
+        body: JSON.stringify({ completedQuantity: printed, failedQuantity: failed, notes: completeForm.notes }),
       })
       const data = await res.json()
-      if (data.success) {
-        addToast('Baskı tamamlandı olarak işaretlendi ve stoğa devir bekliyor.', 'success')
-        setCompletingOrder(null)
-        await loadOrders()
-      } else {
-        addToast(data.error || 'Tamamlama işlemi başarısız.', 'error')
-      }
-    } catch (err: any) {
-      addToast(err.message || 'İşlem sırasında hata oluştu.', 'error')
+      if (!data.success) throw new Error(data.error || 'Kaydedilemedi.')
+      toast.success(
+        data.order.status === 'FAILED'
+          ? 'Tüm parçalar hatalı: iş başarısız olarak kapandı.'
+          : `${data.order.acceptedQuantity} sağlam parça hazır. "Stoğa al" ile stoğa ekleyin.`
+      )
+      setCompleteJob(null)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Kaydedilemedi.')
     } finally {
-      setSubmittingComplete(false)
+      setBusyId(null)
     }
   }
 
-  const active = orders.filter((o) => o.status === 'IN_PROGRESS')
-  const queued = orders.filter((o) => o.status === 'PLANNED' || o.status === 'QUEUED')
-  const completed = orders.filter((o) => o.status === 'COMPLETED')
-  const history = orders.filter((o) => ['STOCKED', 'FAILED', 'CANCELLED'].includes(o.status))
-
-  // Metrics
-  const metrics = useMemo(() => {
-    const total = orders.length
-    const inProgressCount = active.length
-    const queuedCount = queued.length
-    const readyToStockCount = completed.length
-    const blockedCount = orders.filter((o) => o.materialReadiness?.status === 'BLOCKED').length
-    return { total, inProgressCount, queuedCount, readyToStockCount, blockedCount }
-  }, [orders, active, queued, completed])
+  const visible = jobs.filter((j) => !FILTERS[filter].statuses || FILTERS[filter].statuses!.includes(j.status))
+  const count = (f: Filter) => jobs.filter((j) => !FILTERS[f].statuses || FILTERS[f].statuses!.includes(j.status)).length
 
   return (
-    <div className={styles.pageContainer}>
-      {/* Page Header */}
-      <div className={styles.header}>
+    <div className={styles.adminPage}>
+      <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.title}>3D Üretim Masası (Print Operations)</h1>
-          <p className={styles.subtitle}>
-            Atölye 3D yazıcı üretim kuyruğu, hammadde hazırlığı ve merkezi stoğa devir.
+          <h1 className={styles.pageTitle}>Üretim (3D baskı)</h1>
+          <p className={styles.pageSubtitle}>
+            Stok yenileme işleri: bas → bitir (sağlam/hatalı) → stoğa al. Filament, iş bitince basılan her parça için düşülür.
           </p>
         </div>
-
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnSecondary}`}
-            onClick={() => loadOrders()}
-            disabled={loading}
-          >
-            Yenile
-          </button>
-          <Link
-            href="/admin/production/new"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            style={{ textDecoration: 'none' }}
-          >
-            + Yeni Üretim Emri
+          <Link href="/admin/materials" className={styles.secondaryButton}>
+            Filament
+          </Link>
+          <Link href="/admin/production/new" className={styles.primaryButton}>
+            + Yeni baskı işi
           </Link>
         </div>
       </div>
 
-      {/* Metrics Strip */}
-      <div className={styles.metricsStrip}>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Toplam Üretim Emri</div>
-          <div className={styles.metricValue}>{metrics.total}</div>
-          <div className={styles.metricSub}>Atölye iş kayıtları</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Yazıcıda (Aktif)</div>
-          <div className={styles.metricValue} style={{ color: 'var(--zuu-blue, #0284c7)' }}>
-            {metrics.inProgressCount}
+      {suggestions.length > 0 && (
+        <div className={styles.tableCard} style={{ padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Basılması önerilenler (minimum stoğun altında)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {suggestions.map((s) => (
+              <Link
+                key={s.productId}
+                href={`/admin/production/new?productId=${s.productId}&quantity=${s.suggestedProductionQty || s.minimumStock}`}
+                className={styles.secondaryButton}
+                style={{ fontSize: 12 }}
+                title={`Stok ${s.currentStock} / minimum ${s.minimumStock}${s.allocatedStock ? ` · üretimde ${s.allocatedStock}` : ''}`}
+              >
+                {s.productName}: stok {s.currentStock}/{s.minimumStock}
+                {s.suggestedProductionQty > 0 ? ` → ${s.suggestedProductionQty} bas` : ' (üretimde)'}
+              </Link>
+            ))}
           </div>
-          <div className={styles.metricSub}>Baskısı devam eden partiler</div>
         </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Sırada Bekleyen</div>
-          <div className={styles.metricValue}>{metrics.queuedCount}</div>
-          <div className={styles.metricSub}>Planlanan ve kuyruktaki partiler</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Stoğa Devir Bekleyen</div>
-          <div className={styles.metricValue} style={{ color: 'var(--success)' }}>
-            {metrics.readyToStockCount}
-          </div>
-          <div className={styles.metricSub}>Baskısı bitmiş, rafa alınacaklar</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Malzeme Bloke</div>
-          <div className={styles.metricValue} style={{ color: metrics.blockedCount > 0 ? 'var(--danger)' : 'inherit' }}>
-            {metrics.blockedCount}
-          </div>
-          <div className={styles.metricSub}>{metrics.blockedCount > 0 ? 'Hammadde yetersiz' : 'Tüm malzemeler hazır'}</div>
-        </div>
+      )}
+
+      <div className={styles.operationalTabs}>
+        {(Object.keys(FILTERS) as Filter[]).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            className={`${styles.operationalTabItem} ${filter === f ? styles.active : ''}`}
+          >
+            {FILTERS[f].label} ({count(f)})
+          </button>
+        ))}
       </div>
 
-      {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          Üretim emirleri yükleniyor...
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* ── 1. ACTIVE IN-PROGRESS PRODUCTION ───────────────────────────────────── */}
-          <div className={styles.cardPanel}>
-            <div className={styles.panelHeader}>
-              <span className={styles.panelTitle}>Yazıcıda Aktif Devam Eden Baskılar ({active.length})</span>
-            </div>
-            <div className={styles.panelBody} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {active.length === 0 ? (
-                <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Şu anda 3D yazıcılarda aktif basılan bir parti bulunmuyor.
-                </div>
-              ) : (
-                active.map((o) => (
-                  <div
-                    key={o.id}
-                    style={{
-                      background: 'var(--surface-1)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      padding: 16,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {o.productNameSnapshot}
-                        </span>
-                        {o.materialReadiness && (
-                          <span className={`${styles.badge} ${getMaterialReadinessStatusConfig(o.materialReadiness.status).badgeClass}`}>
-                            {o.materialReadiness.badgeLabel || 'Malzeme Hazır'}
-                          </span>
+      <div className={styles.tableCard}>
+        {loading ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+        ) : visible.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            Bu listede iş yok. &quot;+ Yeni baskı işi&quot; ile başlayın.
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Ürün</th>
+                <th>Adet</th>
+                <th>Filament</th>
+                <th>Durum</th>
+                <th>Oluşturma</th>
+                <th style={{ textAlign: 'right' }}>İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((j) => {
+                const busy = busyId === j.id
+                return (
+                  <tr key={j.id}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{j.productNameSnapshot}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {j.skuSnapshot}
+                        {j.priority !== 'NORMAL' && ` · ${PRIORITY[j.priority]}`}
+                        {j.printerReference && ` · ${j.printerReference}`}
+                      </div>
+                      {j.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{j.notes}</div>}
+                    </td>
+                    <td style={{ fontSize: 13 }}>
+                      {j.quantity}
+                      {j.completedQuantity > 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {j.acceptedQuantity} sağlam · {j.failedQuantity} hatalı
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {j.materialLabel ?? <span style={{ color: 'var(--text-muted)' }}>seçilmedi</span>}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {j.materialConsumedGrams !== null
+                          ? `kullanılan ${gramsText(j.materialConsumedGrams)}`
+                          : j.requiredGrams !== null
+                            ? `gerekli ${gramsText(j.requiredGrams)} (${j.gramsPerUnit} g/adet)`
+                            : 'gram bilgisi yok'}
+                      </div>
+                      {(j.materialMissingGrams ?? 0) > 0 && (
+                        <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>{gramsText(j.materialMissingGrams!)} eksik</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`${styles.badge} ${styles[STATUS[j.status].cls]}`}>{STATUS[j.status].text}</span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{new Date(j.createdAt).toLocaleDateString('tr-TR')}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {(j.status === 'PLANNED' || j.status === 'QUEUED') && (
+                          <button className={styles.primaryButton} style={{ padding: '3px 10px', fontSize: 11 }} disabled={busy} onClick={() => act(j, 'start')}>
+                            Baskıya başla
+                          </button>
                         )}
-                      </div>
-
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        SKU: <span style={{ fontFamily: 'var(--font-mono)' }}>{o.skuSnapshot}</span> · Miktar: <strong style={{ color: 'var(--text-primary)' }}>{o.quantity} adet</strong>
-                        {o.printerReference && ` · Yazıcı: ${o.printerReference}`}
-                        {o.startedAt && ` · Başlama: ${new Date(o.startedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                           <button
-                        type="button"
-                        className={`${styles.btn} ${styles.btnPrimary}`}
-                        style={{ padding: '6px 12px', fontSize: 12, background: '#10b981', borderColor: '#10b981' }}
-                        onClick={() => {
-                          setCompletingOrder(o)
-                          setCompletedQty(o.quantity)
-                          setFailedQty(0)
-                        }}
-                      >
-                        Baskıyı Tamamla
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* ── 2. COMPLETED & READY TO STOCK ───────────────────────────────────────── */}
-          <div className={styles.cardPanel}>
-            <div className={styles.panelHeader}>
-              <span className={styles.panelTitle}>Tamamlanan ve Merkezi Stoğa Alınacaklar ({completed.length})</span>
-            </div>
-            <div className={styles.panelBody} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {completed.length === 0 ? (
-                <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Stoğa aktarılmayı bekleyen tamamlanmış üretim bulunmuyor.
-                </div>
-              ) : (
-                completed.map((o) => (
-                  <div
-                    key={o.id}
-                    style={{
-                      background: 'var(--surface-0)',
-                      border: '1px solid #bbf7d0',
-                      borderRadius: 6,
-                      padding: 16,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {o.productNameSnapshot}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        Kabul Edilen: <strong style={{ color: '#16a34a' }}>{o.acceptedQuantity} adet</strong>
-                        {o.failedQuantity > 0 && ` · Fire/Hatalı: ${o.failedQuantity} adet`}
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>(SKU: {o.skuSnapshot})</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={actionLoading === o.id + 'stock'}
-                      className={`${styles.btn} ${styles.btnPrimary}`}
-                      style={{ padding: '6px 14px', fontSize: 12 }}
-                      onClick={() => handleAction(o.id, 'stock')}
-                    >
-                      {actionLoading === o.id + 'stock' ? 'Stoğa Alınıyor...' : `+ ${o.acceptedQuantity} Adeti Merkezi Stoğa Ekle`}
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* ── 3. QUEUED & PLANNED PRODUCTION ──────────────────────────────────────── */}
-          <div className={styles.cardPanel}>
-            <div className={styles.panelHeader}>
-              <span className={styles.panelTitle}>Sırada Bekleyen Baskı Emirleri ({queued.length})</span>
-            </div>
-            <div className={styles.panelBody} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {queued.length === 0 ? (
-                <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Kuyrukta bekleyen üretim emri bulunmuyor.
-                </div>
-              ) : (
-                queued.map((o) => {
-                  const isBlocked = o.materialReadiness?.status === 'BLOCKED'
-                  return (
-                    <div
-                      key={o.id}
-                      style={{
-                        background: 'var(--surface-1)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        padding: 14,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: 12,
-                      }}
-                    >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {o.productNameSnapshot}
-                          </span>
-                          {o.materialReadiness && (
-                            <span className={`${styles.badge} ${getMaterialReadinessStatusConfig(o.materialReadiness.status).badgeClass}`}>
-                              {o.materialReadiness.badgeLabel || (isBlocked ? 'Hammadde Eksik' : 'Malzeme Hazır')}
-                            </span>
-                          )}
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            Öncelik: {o.priority}
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                          Miktar: <strong>{o.quantity} adet</strong> · SKU: <span style={{ fontFamily: 'var(--font-mono)' }}>{o.skuSnapshot}</span>
-                          {o.notes && <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>— {o.notes}</span>}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        {isBlocked ? (
-                          <Link
-                            href="/admin/materials"
-                            className={`${styles.btn} ${styles.btnSecondary}`}
-                            style={{ padding: '5px 10px', fontSize: 11, color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                          >
-                            Hammaddeyi İncele &rarr;
-                          </Link>
-                        ) : (
+                        {j.status === 'IN_PROGRESS' && (
                           <button
-                            type="button"
-                            disabled={actionLoading === o.id + 'start'}
-                            className={`${styles.btn} ${styles.btnPrimary}`}
-                            style={{ padding: '5px 12px', fontSize: 11 }}
-                            onClick={() => handleAction(o.id, 'start')}
+                            className={styles.primaryButton}
+                            style={{ padding: '3px 10px', fontSize: 11 }}
+                            disabled={busy}
+                            onClick={() => {
+                              setCompleteJob(j)
+                              setCompleteForm({ printed: String(j.quantity), failed: '0', notes: '' })
+                            }}
                           >
-                            {actionLoading === o.id + 'start' ? 'Başlatılıyor...' : 'Baskıyı Başlat'}
+                            Bitir
+                          </button>
+                        )}
+                        {j.status === 'COMPLETED' && (
+                          <button className={styles.primaryButton} style={{ padding: '3px 10px', fontSize: 11 }} disabled={busy} onClick={() => act(j, 'stock')}>
+                            Stoğa al ({j.acceptedQuantity})
+                          </button>
+                        )}
+                        {['PLANNED', 'QUEUED', 'IN_PROGRESS'].includes(j.status) && (
+                          <button
+                            className={styles.secondaryButton}
+                            style={{ padding: '3px 10px', fontSize: 11 }}
+                            disabled={busy}
+                            onClick={() => window.confirm(`"${j.productNameSnapshot}" işi iptal edilsin mi?`) && act(j, 'cancel')}
+                          >
+                            İptal
                           </button>
                         )}
                       </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-          {/* ── 4. PRODUCTION HISTORY / ARCHIVE ─────────────────────────────────────── */}
-          {history.length > 0 && (
-            <div className={styles.cardPanel}>
-              <div className={styles.panelHeader}>
-                <span className={styles.panelTitle}>Son Tamamlanan & Geçmiş Üretim Kayıtları ({history.length})</span>
-              </div>
-              <div className={styles.panelBody} style={{ padding: 0 }}>
-                <div className={styles.tableWrapper}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th>Ürün</th>
-                        <th>SKU</th>
-                        <th style={{ textAlign: 'right' }}>Planlanan</th>
-                        <th style={{ textAlign: 'right' }}>Kabul Edilen</th>
-                        <th>Durum</th>
-                        <th>Tarih</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.slice(0, 10).map((h) => (
-                        <tr key={h.id}>
-                          <td style={{ fontWeight: 600 }}>{h.productNameSnapshot}</td>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{h.skuSnapshot}</td>
-                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{h.quantity}</td>
-                          <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#16a34a' }}>
-                            {h.acceptedQuantity ?? h.quantity}
-                          </td>
-                          <td>
-                            <span className={`${styles.badge} ${getProductionStatusConfig(h.status).badgeClass}`}>
-                              {getProductionStatusConfig(h.status).label}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                            {new Date(h.updatedAt).toLocaleDateString('tr-TR')}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Complete Batch Confirmation Modal */}
-      {completingOrder && (
-        <Modal
-          isOpen={!!completingOrder}
-          onClose={() => setCompletingOrder(null)}
-          ariaLabel="Baskıyı Tamamla"
-        >
-          <form onSubmit={handleConfirmComplete} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Baskı Partisini Tamamla
-            </h3>
-
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              <strong>{completingOrder.productNameSnapshot}</strong> için baskı sürecini tamamlıyorsunuz.
-              Kabul edilen sağlam ürünleri ve fire miktarını belirleyin.
+      <Modal isOpen={Boolean(completeJob)} onClose={() => !busyId && setCompleteJob(null)} ariaLabel="Baskıyı bitir" maxWidth={440}>
+        {completeJob && (
+          <div style={{ padding: '8px 4px' }}>
+            <h3 style={{ marginTop: 0 }}>{completeJob.productNameSnapshot}: baskı bitti</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Yazıcıdan çıkan toplam parçayı ve bunların kaçının hatalı olduğunu girin. Filament basılan her parça için
+              düşülür
+              {completeJob.gramsPerUnit !== null && completeJob.materialLabel
+                ? ` (${completeJob.gramsPerUnit} g/adet, ${completeJob.materialLabel})`
+                : ''}
+              . Sağlam parçalar sonra &quot;Stoğa al&quot; ile stoğa eklenir.
             </p>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Sağlam Üretilen (Kabul) *
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={completingOrder.quantity * 2}
-                  value={completedQty}
-                  onChange={(e) => setCompletedQty(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                  required
-                />
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Basılan (toplam)</label>
+                <input type="number" min={1} step={1} className={styles.formInput} value={completeForm.printed} onChange={(e) => setCompleteForm({ ...completeForm, printed: e.target.value })} />
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Hatalı / Fire Adedi
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={failedQty}
-                  onChange={(e) => setFailedQty(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                />
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Hatalı</label>
+                <input type="number" min={0} step={1} className={styles.formInput} value={completeForm.failed} onChange={(e) => setCompleteForm({ ...completeForm, failed: e.target.value })} />
               </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnSecondary}`}
-                onClick={() => setCompletingOrder(null)}
-                disabled={submittingComplete}
-              >
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Not (isteğe bağlı)</label>
+              <input className={styles.formInput} value={completeForm.notes} onChange={(e) => setCompleteForm({ ...completeForm, notes: e.target.value })} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setCompleteJob(null)} disabled={Boolean(busyId)}>
                 Vazgeç
               </button>
-              <button
-                type="submit"
-                className={`${styles.btn} ${styles.btnPrimary}`}
-                disabled={submittingComplete || completedQty === ''}
-              >
-                {submittingComplete ? 'Kaydediliyor...' : 'Tamamlandı Olarak İşle'}
+              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={submitComplete} disabled={Boolean(busyId)}>
+                Kaydet
               </button>
             </div>
-          </form>
-        </Modal>
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

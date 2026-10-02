@@ -74,12 +74,40 @@ async function heldByProduct(): Promise<Map<string, number>> {
  * Retrieves stock breakdown for all products
  */
 export async function adminGetInventoryOverview() {
-  const [products, categories, reserved] = await Promise.all([
+  const [products, categories, reserved, openJobs, listings, stores] = await Promise.all([
     db.orm.public.Product.orderBy((p) => p.name.asc()).all(),
     db.orm.public.Category.select('id', 'name').all(),
     heldByProduct(),
+    db.orm.public.ProductionOrder.where((o) => o.status.in(['PLANNED', 'QUEUED', 'IN_PROGRESS', 'COMPLETED'] as never))
+      .select('productId', 'quantity', 'acceptedQuantity', 'status')
+      .all(),
+    db.orm.public.MarketplaceListing.where({ archived: false, ignored: false })
+      .select('productId', 'storeId', 'quantity', 'pushedQuantity', 'pushError')
+      .all(),
+    db.orm.public.MarketplaceStore.select('id', 'name', 'stockSyncEnabled').all(),
   ])
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
+  // Pieces on the way: open jobs count their planned quantity, completed ones their good pieces.
+  const inProduction = new Map<string, number>()
+  for (const j of openJobs) {
+    const qty = j.status === 'COMPLETED' ? j.acceptedQuantity : j.quantity
+    inProduction.set(j.productId, (inProduction.get(j.productId) ?? 0) + qty)
+  }
+  const storeById = new Map(stores.map((s) => [s.id, s]))
+  const channels = new Map<string, Array<{ storeName: string; marketplaceQuantity: number; pushedQuantity: number | null; stockSyncEnabled: boolean; pushError: string | null }>>()
+  for (const l of listings) {
+    if (!l.productId) continue
+    const store = storeById.get(l.storeId)
+    const list = channels.get(l.productId) ?? []
+    list.push({
+      storeName: store?.name ?? '—',
+      marketplaceQuantity: l.quantity,
+      pushedQuantity: l.pushedQuantity ?? null,
+      stockSyncEnabled: Boolean(store?.stockSyncEnabled),
+      pushError: l.pushError ?? null,
+    })
+    channels.set(l.productId, list)
+  }
 
   return products.map((p) => {
     const available = p.stock
@@ -96,7 +124,10 @@ export async function adminGetInventoryOverview() {
       reserved: held,
       available,
       lowStockThreshold: threshold,
+      minimumStock: p.minimumStock,
       status,
+      inProduction: inProduction.get(p.id) ?? 0,
+      channels: channels.get(p.id) ?? [],
     }
   })
 }

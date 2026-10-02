@@ -248,22 +248,20 @@ export async function createProductionOrder(input: CreateProductionOrderInput): 
     .first()
   if (!product) return { success: false, error: 'Ürün bulunamadı.' }
 
-  // Filament: as chosen, else the one the product's previous job used.
+  // Filament and grams per piece: as given, else what the product's previous job used.
+  const previous = await db.orm.public.ProductionOrder.where({ productId: product.id })
+    .orderBy((o) => o.createdAt.desc())
+    .select('materialStockId', 'gramsPerUnit')
+    .first()
   let materialStockId = input.materialStockId || null
-  if (!materialStockId && input.materialStockId === undefined) {
-    const previous = await db.orm.public.ProductionOrder.where({ productId: product.id })
-      .orderBy((o) => o.createdAt.desc())
-      .select('materialStockId')
-      .first()
-    materialStockId = previous?.materialStockId ?? null
-  }
+  if (!materialStockId && input.materialStockId === undefined) materialStockId = previous?.materialStockId ?? null
   if (materialStockId && !(await db.orm.public.MaterialStock.where({ id: materialStockId }).select('id').first())) {
     return { success: false, error: 'Seçilen filament bulunamadı.' }
   }
   const gramsPerUnit =
     input.gramsPerUnit !== undefined && input.gramsPerUnit !== null && String(input.gramsPerUnit) !== ''
       ? Number(input.gramsPerUnit)
-      : product.estimatedMaterialWeightGrams ?? null
+      : product.estimatedMaterialWeightGrams ?? num(previous?.gramsPerUnit)
   if (gramsPerUnit !== null && (!Number.isFinite(gramsPerUnit) || gramsPerUnit < 0)) {
     return { success: false, error: 'Parça başı gram geçerli bir sayı olmalıdır.' }
   }

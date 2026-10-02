@@ -23,10 +23,10 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Kontrol Paneli', href: '/' },
       { label: 'Bugünün Özeti', href: '/today', tag: 'Öncelik' },
       { label: 'Siparişler', href: '/orders', tag: 'Aksiyon' },
-      { label: 'Üretim Kuyruğu', href: '/production', tag: '3D Baskı' },
+      { label: 'Üretim (3D Baskı)', href: '/production', tag: 'Stok yenileme' },
       { label: 'Kargo & Sevk', href: '/shipping' },
-      { label: 'Stok Durumu', href: '/inventory', tag: 'Kritik' },
-      { label: 'Hammadde & Sarf', href: '/materials', tag: 'Filament' },
+      { label: 'Envanter', href: '/inventory' },
+      { label: 'Filament & Malzeme', href: '/materials' },
     ],
   },
   {
@@ -35,7 +35,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Ürün Listesi', href: '/products' },
       { label: 'Kategoriler', href: '/categories' },
       { label: 'Koleksiyonlar', href: '/collections' },
-      { label: 'Ürün Ekonomisi & Kâr', href: '/economics', tag: 'Maliyet' },
     ],
   },
   {
@@ -64,13 +63,35 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Ürün Eşleştirme & Aktarım', href: '/marketplaces/mappings' },
       { label: 'Pazaryeri Mağazaları', href: '/marketplaces' },
       { label: 'e-Faturalar', href: '/invoices' },
-      { label: 'Depo & Lojistik', href: '/warehouse', tag: 'İleri' },
       { label: 'Kullanıcılar & Roller', href: '/users', tag: 'RBAC' },
       { label: 'Bildirimler', href: '/notifications' },
       { label: 'Mağaza Ayarları', href: '/settings' },
     ],
   },
 ]
+
+/**
+ * Modules switched off for this business (sells from stock, small catalog): their
+ * pages still exist in the code but show this notice instead of sample data.
+ */
+const DISABLED_MODULES = ['/warehouse', '/economics']
+
+function isDisabledModule(path: string): boolean {
+  return DISABLED_MODULES.some((m) => path === m || path.startsWith(`${m}/`))
+}
+
+function DisabledModuleNotice() {
+  return (
+    <div style={{ maxWidth: 560, margin: '48px auto', padding: 24, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-0)' }}>
+      <h2 style={{ marginTop: 0, fontSize: 18 }}>Bu modül kullanılmıyor</h2>
+      <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+        Depo (raf/konum, toplama, koli, el terminali, etiket yazıcı) ve ürün ekonomisi modülleri bu işletme için
+        kapatıldı; gösterecekleri veriler gerçek değildi. Stok için <a href="/inventory">Envanter</a>, üretim için{' '}
+        <a href="/production">Üretim</a>, sipariş hazırlama için <a href="/orders">Siparişler</a> sayfalarını kullanın.
+      </p>
+    </div>
+  )
+}
 
 export default function AdminLayout({
   children,
@@ -407,7 +428,9 @@ export default function AdminLayout({
           </div>
         </header>
 
-        <main className={styles.contentArea}>{children}</main>
+        <main className={styles.contentArea}>
+          {isDisabledModule(normalizedCurrentPath) ? <DisabledModuleNotice /> : children}
+        </main>
       </div>
       <AuthModal />
     </div>

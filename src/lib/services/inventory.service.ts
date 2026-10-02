@@ -2,7 +2,6 @@ import 'server-only'
 import { db, isDatabaseConfigured } from '@/prisma/db'
 import { MOCK_PRODUCTS } from '@/lib/mock-data'
 import { logAuditEvent } from './admin.service'
-import { enqueueStockSyncForProducts } from './marketplace/stock-sync.service'
 
 export type InventoryTransactionType =
   | 'DIRECT_ORDER_RESERVATION'
@@ -442,10 +441,6 @@ export async function reserveInventory(
       },
     })
 
-    // Asynchronously trigger downstream marketplace stock synchronization (outside DB transaction)
-    enqueueStockSyncForProducts(items.map((i) => i.productId)).catch((err) => {
-      console.warn('[inventory.service] Stock sync trigger warning:', err)
-    })
 
     return { success: true }
   } catch (err: any) {
@@ -553,9 +548,6 @@ export async function releaseInventoryReservation(
   })
 
   // Trigger marketplace sync outside lock
-  if (affectedProductIds.length > 0) {
-    enqueueStockSyncForProducts(affectedProductIds).catch(() => {})
-  }
 
   return { success: true }
 }
@@ -638,9 +630,6 @@ export async function commitInventoryReservation(
     metadata: { context, items },
   })
 
-  if (affectedProductIds.length > 0) {
-    enqueueStockSyncForProducts(affectedProductIds).catch(() => {})
-  }
 
   return { success: true }
 }
@@ -718,7 +707,6 @@ export async function restockProductInventory(
       metadata: { productId, quantity, returnNumber, newStock },
     })
 
-    enqueueStockSyncForProducts([productId]).catch(() => {})
 
     return { success: true, newStock }
   })
@@ -877,7 +865,6 @@ export async function adjustInventory(
       },
     })
 
-    enqueueStockSyncForProducts([productId]).catch(() => {})
 
     return {
       success: true,

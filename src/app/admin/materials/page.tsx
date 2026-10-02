@@ -1,753 +1,485 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
-import { useToastStore } from '@/store/toastStore'
+import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
-import { getMaterialReadinessStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
 
-interface MaterialStockItem {
+interface Filament {
   id: string
-  storeId?: string | null
   materialName: string
   color: string | null
   quantityGrams: number
   minimumQuantityGrams: number
-  location?: string | null
+  location: string | null
   isActive: boolean
+  pricePerKgTl: number | null
+  totalValueTl: number | null
+  reservedGrams: number
+  freeGrams: number
+  status: 'OK' | 'LOW' | 'OUT'
+}
+
+interface Movement {
+  id: string
+  type: string
+  quantityGrams: number
+  previousQuantityGrams: number
+  newQuantityGrams: number
+  reason: string
+  createdBy: string
   createdAt: string
-  updatedAt: string
-  pricePerKgTl?: number | null
-  totalValueTl?: number | null
 }
 
-interface MaterialReadinessItem {
-  materialName: string
-  color: string | null
-  availableGrams: number
-  requiredGrams: number
-  minimumGrams: number
-  remainingGrams: number
-  missingGrams: number
-  status: 'READY' | 'LOW' | 'BLOCKED' | 'UNKNOWN'
-  stockId?: string | null
-  pricePerKgTl?: number | null
-  estimatedRequiredCostTl?: number | null
-  affectedProductsCount: number
-  isBlocked: boolean
+const STATUS = {
+  OK: { text: 'Yeterli', cls: 'badgeSuccess' },
+  LOW: { text: 'Az', cls: 'badgeWarning' },
+  OUT: { text: 'Bitti', cls: 'badgeDanger' },
+} as const
+
+const MOVEMENT_LABEL: Record<string, string> = {
+  PURCHASE: 'Alım',
+  MANUAL_ADJUSTMENT: 'Düzeltme',
+  PRODUCTION_CONSUMPTION: 'Üretim',
+  WASTE: 'Fire',
+  RETURN: 'İade',
 }
 
-interface MaterialReadinessSummary {
-  totalMaterialGrams: number
-  totalMaterialValueTl: number
-  criticalMaterialCount: number
-  blockingMaterialCount: number
-  todayRequiredGrams: number
-  productionDemandCount: number
-  producibleCount: number
-  blockedCount: number
-  materials: MaterialReadinessItem[]
-  blockers: Array<{
-    productId: string
-    productName: string
-    sku: string
-    productionQuantity: number
-    materialName: string
-    color: string | null
-    requiredGrams: number
-    availableGrams: number
-    missingGrams: number
-    status: 'READY' | 'LOW' | 'BLOCKED' | 'UNKNOWN'
-    actionUrl: string
-  }>
+function g(value: number): string {
+  return Math.abs(value) >= 1000
+    ? `${(value / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} kg`
+    : `${value.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} g`
 }
+
+const EMPTY = { materialName: 'PLA', color: '', quantityKg: '1', minimumKg: '0.5', pricePerKgTl: '', location: '' }
 
 export default function MaterialsPage() {
-  const { token, user, canFetch } = useAuthStore()
-  const { addToast } = useToastStore()
-
-  const [stocks, setStocks] = useState<MaterialStockItem[]>([])
-  const [readiness, setReadiness] = useState<MaterialReadinessSummary | null>(null)
+  const { token, canFetch } = useAuthStore()
+  const [items, setItems] = useState<Filament[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState<string>('ALL')
+  const [showInactive, setShowInactive] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  // Adjustment Modal State
-  const [adjustModalStock, setAdjustModalStock] = useState<MaterialStockItem | null>(null)
-  const [adjustDelta, setAdjustDelta] = useState<number | ''>('')
-  const [adjustType, setAdjustType] = useState<'PURCHASE' | 'MANUAL_ADJUSTMENT'>('MANUAL_ADJUSTMENT')
-  const [adjustReason, setAdjustReason] = useState<string>('')
-  const [adjustReference, setAdjustReference] = useState<string>('')
-  const [submittingAdjust, setSubmittingAdjust] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState(EMPTY)
+  const [editItem, setEditItem] = useState<Filament | null>(null)
+  const [editForm, setEditForm] = useState({ minimumKg: '', pricePerKgTl: '', location: '' })
+  const [adjustItem, setAdjustItem] = useState<Filament | null>(null)
+  const [adjustForm, setAdjustForm] = useState({ type: 'PURCHASE', amount: '', unit: 'kg', reason: '' })
+  const [historyItem, setHistoryItem] = useState<Filament | null>(null)
+  const [movements, setMovements] = useState<Movement[]>([])
 
-  // New Material Modal State
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newMaterialName, setNewMaterialName] = useState('PLA')
-  const [newColor, setNewColor] = useState('')
-  const [newQuantityGrams, setNewQuantityGrams] = useState<number | ''>(1000)
-  const [newMinGrams, setNewMinGrams] = useState<number | ''>(1000)
-  const [newPricePerKg, setNewPricePerKg] = useState<number | ''>(350)
-  const [newLocation, setNewLocation] = useState('')
-  const [submittingCreate, setSubmittingCreate] = useState(false)
+  const headers = useCallback(
+    (json = false): Record<string, string> => ({
+      Authorization: `Bearer ${token}`,
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+    }),
+    [token]
+  )
 
-  const canManage = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
-
-  const loadData = useCallback(async () => {
+  const load = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
-    try {
-      const [stocksRes, readinessRes] = await Promise.all([
-        fetch('/api/admin/materials', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/admin/materials/readiness', { headers: { Authorization: `Bearer ${token}` } }),
-      ])
-
-      const stocksData = await stocksRes.json()
-      const readinessData = await readinessRes.json()
-
-      if (!stocksData.success) {
-        throw new Error(stocksData.error || 'Malzeme stokları yüklenemedi.')
-      }
-      if (!readinessData.success) {
-        throw new Error(readinessData.error || 'Malzeme hazır oluş durumu yüklenemedi.')
-      }
-
-      setStocks(stocksData.materials || [])
-      setReadiness(readinessData)
-    } catch (err: any) {
-      addToast(err.message || 'Veriler yüklenirken hata oluştu.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [token, canFetch, addToast])
+    fetch('/api/admin/materials', { headers: headers() })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.success) throw new Error(data.error)
+        setItems(data.materials)
+      })
+      .catch((err) => toast.error(err.message || 'Filamentler yüklenemedi.'))
+      .finally(() => setLoading(false))
+  }, [canFetch, headers])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    load()
+  }, [load])
 
-  // Handle Adjustment Submit
-  const handleConfirmAdjust = async (e: React.FormEvent) => {
+  async function request(url: string, method: string, body: unknown, success: string): Promise<boolean> {
+    setSaving(true)
+    try {
+      const res = await fetch(url, { method, headers: headers(true), body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Kaydedilemedi.')
+      toast.success(success)
+      load()
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Kaydedilemedi.')
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function submitAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!adjustModalStock || adjustDelta === '' || adjustDelta === 0) return
-    if (!adjustReason.trim()) {
-      addToast('Lütfen düzeltme gerekçesini belirtin.', 'error')
+    const ok = await request(
+      '/api/admin/materials',
+      'POST',
+      {
+        materialName: addForm.materialName,
+        color: addForm.color,
+        quantityGrams: Number(addForm.quantityKg || 0) * 1000,
+        minimumQuantityGrams: Number(addForm.minimumKg || 0) * 1000,
+        pricePerKgTl: addForm.pricePerKgTl === '' ? null : Number(addForm.pricePerKgTl),
+        location: addForm.location,
+      },
+      'Filament eklendi.'
+    )
+    if (ok) {
+      setAddOpen(false)
+      setAddForm(EMPTY)
+    }
+  }
+
+  async function submitEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editItem) return
+    const ok = await request(
+      `/api/admin/materials/${editItem.id}`,
+      'PUT',
+      {
+        minimumQuantityGrams: Number(editForm.minimumKg || 0) * 1000,
+        pricePerKgTl: editForm.pricePerKgTl === '' ? null : Number(editForm.pricePerKgTl),
+        location: editForm.location,
+      },
+      'Kaydedildi.'
+    )
+    if (ok) setEditItem(null)
+  }
+
+  async function submitAdjust(e: React.FormEvent) {
+    e.preventDefault()
+    if (!adjustItem) return
+    const raw = Number(adjustForm.amount)
+    if (!Number.isFinite(raw) || raw === 0) {
+      toast.error('Miktar girin.')
       return
     }
+    const gramsAmount = adjustForm.unit === 'kg' ? raw * 1000 : raw
+    // Purchase adds, waste removes; correction takes the sign as typed.
+    const delta = adjustForm.type === 'PURCHASE' ? Math.abs(gramsAmount) : adjustForm.type === 'WASTE' ? -Math.abs(gramsAmount) : gramsAmount
+    const reason = adjustForm.reason.trim() || (adjustForm.type === 'PURCHASE' ? 'Yeni makara' : adjustForm.type === 'WASTE' ? 'Fire' : 'Tartım düzeltmesi')
+    const ok = await request(
+      `/api/admin/materials/${adjustItem.id}/adjust`,
+      'POST',
+      { deltaGrams: delta, type: adjustForm.type, reason },
+      `${adjustItem.materialName}${adjustItem.color ? ` ${adjustItem.color}` : ''}: ${delta > 0 ? '+' : ''}${g(delta)}`
+    )
+    if (ok) setAdjustItem(null)
+  }
 
-    setSubmittingAdjust(true)
+  async function openHistory(item: Filament) {
+    setHistoryItem(item)
+    setMovements([])
     try {
-      const idempotencyKey = `adj-${adjustModalStock.id}-${Date.now()}`
-      const deltaNumber = Number(adjustDelta)
-
-      const res = await fetch(`/api/admin/materials/${adjustModalStock.id}/adjust`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deltaGrams: deltaNumber,
-          type: adjustType,
-          reason: adjustReason.trim(),
-          reference: adjustReference.trim() || undefined,
-          idempotencyKey,
-        }),
-      })
-
+      const res = await fetch(`/api/admin/materials/${item.id}/movements`, { headers: headers() })
       const data = await res.json()
-      if (!data.success) {
-        addToast(data.error || 'Stok güncellenemedi.', 'error')
-      } else {
-        addToast(`Malzeme stoğu güncellendi (${deltaNumber > 0 ? '+' : ''}${deltaNumber} g).`, 'success')
-        setAdjustModalStock(null)
-        setAdjustDelta('')
-        setAdjustReason('')
-        setAdjustReference('')
-        loadData()
-      }
-    } catch {
-      addToast('İşlem sırasında bağlantı hatası oluştu.', 'error')
-    } finally {
-      setSubmittingAdjust(false)
+      if (!data.success) throw new Error(data.error)
+      setMovements(data.movements)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Hareketler yüklenemedi.')
     }
   }
 
-  // Handle Create Material Submit
-  const handleCreateMaterial = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMaterialName.trim()) return
-
-    setSubmittingCreate(true)
-    try {
-      const res = await fetch('/api/admin/materials', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          materialName: newMaterialName.trim(),
-          color: newColor.trim() || undefined,
-          quantityGrams: Number(newQuantityGrams) || 0,
-          minimumQuantityGrams: Number(newMinGrams) || 0,
-          pricePerKgTl: Number(newPricePerKg) || undefined,
-          location: newLocation.trim() || undefined,
-        }),
-      })
-
-      const data = await res.json()
-      if (!data.success) {
-        addToast(data.error || 'Malzeme eklenemedi.', 'error')
-      } else {
-        addToast('Yeni hammadde stoğu başarıyla oluşturuldu.', 'success')
-        setShowCreateModal(false)
-        setNewColor('')
-        setNewLocation('')
-        loadData()
-      }
-    } catch {
-      addToast('Malzeme kaydı sırasında hata oluştu.', 'error')
-    } finally {
-      setSubmittingCreate(false)
-    }
-  }
-
-  // Filtered stocks
-  const filteredStocks = useMemo(() => {
-    return stocks.filter((s) => {
-      const matchSearch =
-        s.materialName.toLowerCase().includes(search.toLowerCase()) ||
-        (s.color && s.color.toLowerCase().includes(search.toLowerCase())) ||
-        (s.location && s.location.toLowerCase().includes(search.toLowerCase()))
-      if (!matchSearch) return false
-
-      if (filterType !== 'ALL' && s.materialName.toUpperCase() !== filterType) return false
-      return true
-    })
-  }, [stocks, search, filterType])
-
-  // Computed metrics
-  const totalWeightKg = useMemo(() => {
-    const totalGrams = stocks.reduce((acc, s) => acc + s.quantityGrams, 0)
-    return (totalGrams / 1000).toFixed(1)
-  }, [stocks])
-
-  const criticalCount = useMemo(() => {
-    return stocks.filter((s) => s.quantityGrams <= s.minimumQuantityGrams).length
-  }, [stocks])
-
-  const blockersList = readiness?.blockers || []
+  const visible = items.filter((i) => showInactive || i.isActive)
+  const active = items.filter((i) => i.isActive)
+  const totalValue = active.reduce((s, i) => s + (i.totalValueTl ?? 0), 0)
 
   return (
-    <div className={styles.page}>
-      {/* Header */}
-      <div className={styles.header}>
+    <div className={styles.adminPage}>
+      <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.title}>Hammadde & Filament Yönetimi</h1>
-          <p className={styles.subtitle}>
-            3D baskı filament stokları, üretim malzeme hazırlığı (readiness) ve atölye sarfiyatı.
+          <h1 className={styles.pageTitle}>Filament & Malzeme</h1>
+          <p className={styles.pageSubtitle}>
+            Makara stokları gram olarak tutulur. Baskı işleri bitince kullanılan filament otomatik düşülür; açık işlerin
+            ihtiyacı &quot;ayrılan&quot; olarak gösterilir.
           </p>
         </div>
-
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            className={styles.secondaryBtn}
-            onClick={() => loadData()}
-            disabled={loading}
-          >
-            Yenile
-          </button>
-          {canManage && (
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              onClick={() => setShowCreateModal(true)}
-            >
-              + Yeni Malzeme Ekle
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Metrics Strip */}
-      <div className={styles.metricsStrip}>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Kayıtlı Malzeme</div>
-          <div className={styles.metricValue}>{stocks.length}</div>
-          <div className={styles.metricSub}>Aktif filament ve reçine profilleri</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Toplam Stok Ağırlığı</div>
-          <div className={styles.metricValue} style={{ fontFamily: 'var(--font-mono)' }}>
-            {totalWeightKg} <span style={{ fontSize: 14, fontWeight: 500 }}>kg</span>
-          </div>
-          <div className={styles.metricSub}>Atölye net hammadde hacmi</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Kritik Seviye</div>
-          <div className={styles.metricValue} style={{ color: criticalCount > 0 ? 'var(--warning)' : 'inherit' }}>
-            {criticalCount}
-          </div>
-          <div className={styles.metricSub}>Minimum eşiğin altına düşenler</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Üretim Darboğazı</div>
-          <div className={styles.metricValue} style={{ color: blockersList.length > 0 ? 'var(--danger)' : 'var(--success)' }}>
-            {blockersList.length}
-          </div>
-          <div className={styles.metricSub}>{blockersList.length > 0 ? 'Eksik filament nedeniyle bloke emir' : 'Tüm emirler üretilebilir'}</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Bugünkü Sarfiyat Talebi</div>
-          <div className={styles.metricValue} style={{ color: 'var(--zuu-blue, #0284c7)', fontFamily: 'var(--font-mono)' }}>
-            {readiness?.todayRequiredGrams ? (readiness.todayRequiredGrams / 1000).toFixed(2) : '0.00'} <span style={{ fontSize: 14, fontWeight: 500 }}>kg</span>
-          </div>
-          <div className={styles.metricSub}>Kuyruktaki siparişler için gereken</div>
-        </div>
-      </div>
-
-      {/* Blocker Alert Banner (if any product is blocked due to missing filament) */}
-      {blockersList.length > 0 && (
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 6,
-            padding: '14px 18px',
-            marginBottom: 20,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className={styles.tabDot} style={{ background: '#dc2626', width: 6, height: 6, borderRadius: '50%', display: 'inline-block' }} />
-              <span>{blockersList.length} adet üretim emri yetersiz hammadde sebebiyle bekliyor</span>
-            </div>
-            <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 4 }}>
-              Örn: {blockersList[0].productName} ({blockersList[0].materialName} / {blockersList[0].color || 'Doğal'}) için {blockersList[0].missingGrams} g ek filament gerekiyor.
-            </div>
-          </div>
-          <Link
-            href="/admin/production"
-            className={`${styles.btn} ${styles.btnSecondary}`}
-            style={{ fontSize: 12, padding: '4px 10px', borderColor: '#fca5a5', color: '#991b1b' }}
-          >
-            Üretim Masasına Git &rarr;
+          <Link href="/admin/production" className={styles.secondaryButton}>
+            Üretim
           </Link>
-        </div>
-      )}
-
-      {/* Filters Bar */}
-      <div className={styles.filterBar}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            type="search"
-            placeholder="Malzeme adı, renk veya raf no ara..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={styles.searchBox}
-            style={{ width: 280 }}
-          />
-
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className={styles.searchBox}
-            style={{ fontSize: 12 }}
-          >
-            <option value="ALL">Tüm Polimer Tipleri</option>
-            <option value="PLA">PLA</option>
-            <option value="PETG">PETG</option>
-            <option value="ABS">ABS</option>
-            <option value="TPU">TPU</option>
-            <option value="RESIN">Reçine</option>
-          </select>
-        </div>
-
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          Kayıtlı: <strong>{filteredStocks.length}</strong> / {stocks.length} malzeme
+          <button className={styles.primaryButton} onClick={() => setAddOpen(true)}>
+            + Filament ekle
+          </button>
         </div>
       </div>
 
-      {/* Materials Table */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+        {[
+          ['Toplam', g(active.reduce((s, i) => s + Math.max(0, i.quantityGrams), 0))],
+          ['Açık işlere ayrılan', g(active.reduce((s, i) => s + i.reservedGrams, 0))],
+          ['Az / biten', `${active.filter((i) => i.status !== 'OK').length}`],
+          ['Stok değeri', totalValue > 0 ? `${totalValue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} TL` : '—'],
+        ].map(([label, value]) => (
+          <div key={label} className={styles.tableCard} style={{ padding: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <label style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+        <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        Kullanılmayanları da göster
+      </label>
+
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            Malzeme verileri yükleniyor...
-          </div>
-        ) : filteredStocks.length === 0 ? (
-          <div className={styles.emptyState}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-              Malzeme kaydı bulunamadı.
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              Arama kriterlerine uygun hammadde bulunamadı. Yeni bir hammadde kaydı oluşturabilirsiniz.
-            </div>
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+        ) : visible.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            Henüz filament yok. &quot;+ Filament ekle&quot; ile elinizdeki makaraları girin.
           </div>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Malzeme / Polimer</th>
-                  <th>Renk & Varyant</th>
-                  <th style={{ textAlign: 'right' }}>Mevcut Miktar</th>
-                  <th style={{ textAlign: 'right' }}>Kritik Eşik</th>
-                  <th>Hazırlık (Readiness)</th>
-                  <th>Birim Maliyet / Değer</th>
-                  <th>Depo / Raf</th>
-                  <th style={{ textAlign: 'right' }}>İşlem</th>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Filament</th>
+                <th>Stok</th>
+                <th>Ayrılan</th>
+                <th>Boşta</th>
+                <th>Minimum</th>
+                <th>Durum</th>
+                <th style={{ textAlign: 'right' }}>İşlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((i) => (
+                <tr key={i.id} style={{ opacity: i.isActive ? 1 : 0.5 }}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>
+                      {i.materialName}
+                      {i.color ? ` ${i.color}` : ''}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {i.pricePerKgTl !== null ? `${i.pricePerKgTl} TL/kg` : 'fiyat yok'}
+                      {i.location ? ` · ${i.location}` : ''}
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: 700 }}>{g(i.quantityGrams)}</td>
+                  <td style={{ fontSize: 13 }}>{i.reservedGrams > 0 ? g(i.reservedGrams) : '—'}</td>
+                  <td style={{ fontSize: 13, color: i.freeGrams < 0 ? '#dc2626' : undefined, fontWeight: i.freeGrams < 0 ? 700 : undefined }}>
+                    {g(i.freeGrams)}
+                  </td>
+                  <td style={{ fontSize: 13 }}>{g(i.minimumQuantityGrams)}</td>
+                  <td>
+                    <span className={`${styles.badge} ${styles[STATUS[i.status].cls]}`}>{STATUS[i.status].text}</span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <button
+                        className={styles.primaryButton}
+                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        onClick={() => {
+                          setAdjustItem(i)
+                          setAdjustForm({ type: 'PURCHASE', amount: '1', unit: 'kg', reason: '' })
+                        }}
+                      >
+                        Makara ekle / düş
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        onClick={() => {
+                          setEditItem(i)
+                          setEditForm({
+                            minimumKg: String(i.minimumQuantityGrams / 1000),
+                            pricePerKgTl: i.pricePerKgTl === null ? '' : String(i.pricePerKgTl),
+                            location: i.location ?? '',
+                          })
+                        }}
+                      >
+                        Düzenle
+                      </button>
+                      <button className={styles.secondaryButton} style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => openHistory(i)}>
+                        Hareketler
+                      </button>
+                      <button
+                        className={styles.secondaryButton}
+                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        disabled={saving}
+                        onClick={() =>
+                          request(`/api/admin/materials/${i.id}`, 'PUT', { isActive: !i.isActive }, i.isActive ? 'Kullanım dışı bırakıldı.' : 'Tekrar kullanımda.')
+                        }
+                      >
+                        {i.isActive ? 'Kullanma' : 'Kullan'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredStocks.map((s) => {
-                  const isLow = s.quantityGrams <= s.minimumQuantityGrams
-                  const readinessData = readiness?.materials?.find(
-                    (m) =>
-                      m.materialName.toLowerCase() === s.materialName.toLowerCase() &&
-                      (m.color || '').toLowerCase() === (s.color || '').toLowerCase()
-                  )
-                  const readinessStatus = readinessData ? readinessData.status : isLow ? 'LOW' : 'READY'
-                  const statusCfg = getMaterialReadinessStatusConfig(readinessStatus)
-
-                  return (
-                    <tr key={s.id}>
-                      <td>
-                        <Link
-                          href={`/admin/materials/${s.id}`}
-                          style={{ fontWeight: 600, color: 'var(--text-primary)', textDecoration: 'none' }}
-                        >
-                          {s.materialName}
-                        </Link>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                          #{s.id.slice(0, 8)}
-                        </div>
-                      </td>
-
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: '50%',
-                              background: s.color ? s.color.toLowerCase() : '#ccc',
-                              border: '1px solid var(--border)',
-                              display: 'inline-block',
-                            }}
-                          />
-                          <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
-                            {s.color || 'Doğal / Standart'}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-                        <span style={{ fontWeight: 700, color: isLow ? 'var(--warning)' : 'var(--text-primary)' }}>
-                          {s.quantityGrams.toLocaleString('tr-TR')} g
-                        </span>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          ({(s.quantityGrams / 1000).toFixed(2)} kg)
-                        </div>
-                      </td>
-
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-                        {s.minimumQuantityGrams.toLocaleString('tr-TR')} g
-                      </td>
-
-                      <td>
-                        <span className={`${styles.badge} ${statusCfg.badgeClass}`}>
-                          {statusCfg.label}
-                        </span>
-                      </td>
-
-                      <td style={{ fontSize: 12 }}>
-                        {s.pricePerKgTl ? (
-                          <div>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                              ₺{s.pricePerKgTl}
-                            </span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}> /kg</span>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              Toplam: ₺{(((s.quantityGrams / 1000) * s.pricePerKgTl)).toFixed(0)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
-                        )}
-                      </td>
-
-                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        {s.location ? (
-                          <span style={{ fontFamily: 'var(--font-mono)', background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 3 }}>
-                            {s.location}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>Atölye Rafı</span>
-                        )}
-                      </td>
-
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'inline-flex', gap: 6 }}>
-                          {canManage && (
-                            <button
-                              type="button"
-                              className={styles.secondaryBtn}
-                              style={{ padding: '3px 8px', fontSize: 11 }}
-                              onClick={() => {
-                                setAdjustModalStock(s)
-                                setAdjustDelta('')
-                                setAdjustReason('')
-                                setAdjustReference('')
-                              }}
-                            >
-                              Giriş / Çıkış
-                            </button>
-                          )}
-                          <Link
-                            href={`/admin/materials/${s.id}`}
-                            className={styles.secondaryBtn}
-                            style={{ padding: '3px 8px', fontSize: 11, textDecoration: 'none' }}
-                          >
-                            Tarihçe &rarr;
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* Manual Quantity Adjustment Modal */}
-      {adjustModalStock && (
-        <Modal
-          isOpen={!!adjustModalStock}
-          onClose={() => setAdjustModalStock(null)}
-          ariaLabel="Malzeme Stok Düzeltmesi"
-        >
-          <form onSubmit={handleConfirmAdjust} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Malzeme Miktarını Güncelle
+      <Modal isOpen={addOpen} onClose={() => !saving && setAddOpen(false)} ariaLabel="Filament ekle" maxWidth={480}>
+        <form onSubmit={submitAdd} style={{ padding: '8px 4px' }}>
+          <h3 style={{ marginTop: 0 }}>Filament ekle</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Tür</label>
+              <input className={styles.formInput} list="material-types" value={addForm.materialName} onChange={(e) => setAddForm({ ...addForm, materialName: e.target.value })} required />
+              <datalist id="material-types">
+                {['PLA', 'PLA+', 'PETG', 'TPU', 'ABS', 'ASA', 'Reçine'].map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Renk</label>
+              <input className={styles.formInput} placeholder="Ör. Siyah" value={addForm.color} onChange={(e) => setAddForm({ ...addForm, color: e.target.value })} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Elimdeki miktar (kg)</label>
+              <input type="number" min={0} step="0.01" className={styles.formInput} value={addForm.quantityKg} onChange={(e) => setAddForm({ ...addForm, quantityKg: e.target.value })} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Uyarı eşiği (kg)</label>
+              <input type="number" min={0} step="0.01" className={styles.formInput} value={addForm.minimumKg} onChange={(e) => setAddForm({ ...addForm, minimumKg: e.target.value })} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Kilo fiyatı (TL, isteğe bağlı)</label>
+              <input type="number" min={0} step="0.01" className={styles.formInput} value={addForm.pricePerKgTl} onChange={(e) => setAddForm({ ...addForm, pricePerKgTl: e.target.value })} />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Yer (isteğe bağlı)</label>
+              <input className={styles.formInput} placeholder="Ör. Raf A" value={addForm.location} onChange={(e) => setAddForm({ ...addForm, location: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+            <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setAddOpen(false)} disabled={saving}>
+              Vazgeç
+            </button>
+            <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={saving}>
+              Ekle
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={Boolean(adjustItem)} onClose={() => !saving && setAdjustItem(null)} ariaLabel="Filament ekle / düş" maxWidth={440}>
+        {adjustItem && (
+          <form onSubmit={submitAdjust} style={{ padding: '8px 4px' }}>
+            <h3 style={{ marginTop: 0 }}>
+              {adjustItem.materialName}
+              {adjustItem.color ? ` ${adjustItem.color}` : ''}: {g(adjustItem.quantityGrams)}
             </h3>
-
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-              <strong>{adjustModalStock.materialName} ({adjustModalStock.color || 'Standart'})</strong> için fiziksel stok girişi veya sarfiyat düzeltmesi yapıyorsunuz.
-              Mevcut Stok: <strong>{adjustModalStock.quantityGrams} g</strong>
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Hareket Tipi
-                </label>
-                <select
-                  value={adjustType}
-                  onChange={(e) => setAdjustType(e.target.value as any)}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 12 }}
-                >
-                  <option value="PURCHASE">Satın Alma Girişi (Purchase)</option>
-                  <option value="MANUAL_ADJUSTMENT">Manuel Düzeltme (Sayım / Fire)</option>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>İşlem</label>
+              <select className={styles.select} value={adjustForm.type} onChange={(e) => setAdjustForm({ ...adjustForm, type: e.target.value })}>
+                <option value="PURCHASE">Yeni makara / alım (+)</option>
+                <option value="WASTE">Fire, bozuk makara (−)</option>
+                <option value="MANUAL_ADJUSTMENT">Tartım düzeltmesi (+/−)</option>
+              </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Miktar</label>
+                <input type="number" step="0.01" className={styles.formInput} value={adjustForm.amount} onChange={(e) => setAdjustForm({ ...adjustForm, amount: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Birim</label>
+                <select className={styles.select} value={adjustForm.unit} onChange={(e) => setAdjustForm({ ...adjustForm, unit: e.target.value })}>
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
                 </select>
               </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Değişim (Gram) (+ / -)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Örn: +1000 veya -250"
-                  value={adjustDelta}
-                  onChange={(e) => setAdjustDelta(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                  required
-                />
-              </div>
             </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                Açıklama / Gerekçe (Zorunlu)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Örn: Yeni makara açıldı / test baskısı fire..."
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                className={styles.searchBox}
-                style={{ width: '100%', fontSize: 12, resize: 'vertical' }}
-                required
-              />
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Açıklama (isteğe bağlı)</label>
+              <input className={styles.formInput} value={adjustForm.reason} onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })} />
             </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                Fatura / İrsaliye No (Opsiyonel)
-              </label>
-              <input
-                type="text"
-                placeholder="Örn: IRS-2026-089"
-                value={adjustReference}
-                onChange={(e) => setAdjustReference(e.target.value)}
-                className={styles.searchBox}
-                style={{ width: '100%', fontSize: 12 }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setAdjustModalStock(null)}
-                disabled={submittingAdjust}
-              >
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setAdjustItem(null)} disabled={saving}>
                 Vazgeç
               </button>
-              <button
-                type="submit"
-                className={styles.primaryBtn}
-                disabled={submittingAdjust || adjustDelta === '' || !adjustReason.trim()}
-              >
-                {submittingAdjust ? 'Kaydediliyor...' : 'Stoku Güncelle'}
+              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={saving}>
+                Kaydet
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
 
-      {/* New Material Modal */}
-      {showCreateModal && (
-        <Modal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          ariaLabel="Yeni Hammadde Ekle"
-        >
-          <form onSubmit={handleCreateMaterial} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Yeni Hammadde / Filament Tanımla
+      <Modal isOpen={Boolean(editItem)} onClose={() => !saving && setEditItem(null)} ariaLabel="Filament düzenle" maxWidth={420}>
+        {editItem && (
+          <form onSubmit={submitEdit} style={{ padding: '8px 4px' }}>
+            <h3 style={{ marginTop: 0 }}>
+              {editItem.materialName}
+              {editItem.color ? ` ${editItem.color}` : ''}
             </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Polimer / Malzeme Tipi *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Örn: PLA, PETG, TPU"
-                  value={newMaterialName}
-                  onChange={(e) => setNewMaterialName(e.target.value)}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13 }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Renk / Varyant
-                </label>
-                <input
-                  type="text"
-                  placeholder="Örn: Mat Siyah, Şeffaf Sarı"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13 }}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Uyarı eşiği (kg)</label>
+              <input type="number" min={0} step="0.01" className={styles.formInput} value={editForm.minimumKg} onChange={(e) => setEditForm({ ...editForm, minimumKg: e.target.value })} />
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Başlangıç Stoğu (Gram)
-                </label>
-                <input
-                  type="number"
-                  placeholder="1000"
-                  value={newQuantityGrams}
-                  onChange={(e) => setNewQuantityGrams(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Kritik Eşik (Gram)
-                </label>
-                <input
-                  type="number"
-                  placeholder="1000"
-                  value={newMinGrams}
-                  onChange={(e) => setNewMinGrams(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Kilo fiyatı (TL)</label>
+              <input type="number" min={0} step="0.01" className={styles.formInput} value={editForm.pricePerKgTl} onChange={(e) => setEditForm({ ...editForm, pricePerKgTl: e.target.value })} />
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Kg Başına Maliyet (TL)
-                </label>
-                <input
-                  type="number"
-                  placeholder="350"
-                  value={newPricePerKg}
-                  onChange={(e) => setNewPricePerKg(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13, fontFamily: 'var(--font-mono)' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Depo / Raf Kodu
-                </label>
-                <input
-                  type="text"
-                  placeholder="Örn: RAF-A1-02"
-                  value={newLocation}
-                  onChange={(e) => setNewLocation(e.target.value)}
-                  className={styles.searchBox}
-                  style={{ width: '100%', fontSize: 13 }}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Yer</label>
+              <input className={styles.formInput} value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={() => setShowCreateModal(false)}
-                disabled={submittingCreate}
-              >
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setEditItem(null)} disabled={saving}>
                 Vazgeç
               </button>
-              <button
-                type="submit"
-                className={styles.primaryBtn}
-                disabled={submittingCreate || !newMaterialName.trim()}
-              >
-                {submittingCreate ? 'Oluşturuluyor...' : 'Hammaddeyi Kaydet'}
+              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={saving}>
+                Kaydet
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+        )}
+      </Modal>
+
+      <Modal isOpen={Boolean(historyItem)} onClose={() => setHistoryItem(null)} ariaLabel="Filament hareketleri" maxWidth={720}>
+        {historyItem && (
+          <div style={{ padding: '8px 4px' }}>
+            <h3 style={{ marginTop: 0 }}>
+              {historyItem.materialName}
+              {historyItem.color ? ` ${historyItem.color}` : ''}: hareketler
+            </h3>
+            <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+              <table className={styles.table} style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Tür</th>
+                    <th>Değişim</th>
+                    <th>Kalan</th>
+                    <th>Açıklama</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movements.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ fontSize: 12 }}>{new Date(m.createdAt).toLocaleString('tr-TR')}</td>
+                      <td style={{ fontSize: 12 }}>{MOVEMENT_LABEL[m.type] ?? m.type}</td>
+                      <td style={{ fontWeight: 700, color: m.quantityGrams > 0 ? '#059669' : '#dc2626' }}>
+                        {m.quantityGrams > 0 ? '+' : ''}
+                        {g(m.quantityGrams)}
+                      </td>
+                      <td style={{ fontSize: 12 }}>{g(m.newQuantityGrams)}</td>
+                      <td style={{ fontSize: 12 }}>{m.reason}</td>
+                    </tr>
+                  ))}
+                  {movements.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                        Hareket yok.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

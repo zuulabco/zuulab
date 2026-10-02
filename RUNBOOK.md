@@ -8,7 +8,8 @@
   customer accounts, support, returns/refunds, admin panel.
 - In progress: Uyumsoft e-invoicing (Phase 4), Sürat Kargo (Phase 5), marketplace stock/price
   product upload (Phase 7e; stores, listings, Trendyol order import and stock/price push are live),
-  warehouse/production modules (Phase 8, still on sample data).
+  Inventory, production (3D print restocking) and filament stock run on the database;
+  warehouse (WMS) and product-economics screens are switched off in the admin.
 
 ---
 
