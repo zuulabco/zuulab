@@ -147,9 +147,8 @@ export class AuthSyncError extends Error {
  * Finds or creates User in PostgreSQL (or fallback memory outside production).
  *
  * Attaching a Firebase identity to an existing record by email is the account-takeover
- * surface, so it is only allowed when Firebase has verified the email, or when the
- * record is an unlinked guest CUSTOMER created at checkout. Privileged or already
- * linked accounts are never reachable through an unverified email.
+ * surface, so it is only allowed when Firebase has verified the email. That covers
+ * guest checkout records too: they hold order history and addresses.
  */
 export async function syncOrCreateUser(payload: {
   firebaseUid: string
@@ -179,11 +178,12 @@ export async function syncOrCreateUser(payload: {
         }).first()
 
         if (byEmail) {
-          const isUnlinkedGuest = !byEmail.firebaseUid && (byEmail.role || 'CUSTOMER') === 'CUSTOMER'
-          if (!emailVerified && !isUnlinkedGuest) {
+          // An existing record (guest orders, addresses, or another login) is only
+          // handed to a Firebase identity that has proven it owns the address.
+          if (!emailVerified) {
             throw new AuthSyncError(
               'EMAIL_NOT_VERIFIED',
-              'Bu e-posta adresi başka bir hesaba bağlı. Devam etmek için e-posta adresinizi doğrulayın.'
+              'Bu e-posta adresiyle daha önce sipariş verilmiş. Hesabınızı bağlamak için e-postanıza gönderdiğimiz doğrulama bağlantısına tıklayıp tekrar giriş yapın.'
             )
           }
           existing = byEmail

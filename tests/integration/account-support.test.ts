@@ -18,6 +18,7 @@ const { db } = await import('@/prisma/db')
 const addresses = await import('@/lib/services/address.service')
 const support = await import('@/lib/services/support.service')
 const { checkRateLimit } = await import('@/lib/security/rate-limiter')
+const auth = await import('@/lib/services/auth.service')
 
 const RUN = `itacc${Date.now().toString(36)}`
 let customer: { id: string; email: string; name: string; role: 'CUSTOMER' }
@@ -51,6 +52,7 @@ afterAll(async () => {
     await run(db.raw.sql`DELETE FROM addresses WHERE user_id = ${id}`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM users WHERE id = ${id}`.affectedCount().build())
   }
+  await run(db.raw.sql`DELETE FROM users WHERE email = ${`${RUN}-guest@example.com`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM rate_limits WHERE key LIKE ${`test:${RUN}%`}`.affectedCount().build())
   await db.close()
 }, 60_000)
@@ -134,5 +136,25 @@ describe('rate limiter', () => {
     const key = `test:${RUN}:concurrent`
     const results = await Promise.all(Array.from({ length: 10 }, () => checkRateLimit(key, 5, 60)))
     expect(results.filter((r) => r.allowed).length).toBe(5)
+  }, 60_000)
+})
+
+describe('account linking', () => {
+  it('attaches a guest checkout record only to a verified email, and only once', async () => {
+    const email = `${RUN}-guest@example.com`
+    const guest = await auth.getOrCreateGuestUser({ email, fullName: 'Misafir Alıcı' })
+
+    await expect(
+      auth.syncOrCreateUser({ firebaseUid: `${RUN}-uid-a`, email, emailVerified: false })
+    ).rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
+
+    const linked = await auth.syncOrCreateUser({ firebaseUid: `${RUN}-uid-a`, email, emailVerified: true })
+    expect(linked.id).toBe(guest.id)
+    expect(linked.firebaseUid).toBe(`${RUN}-uid-a`)
+
+    // Another identity claiming the same, now linked, address without verification is refused.
+    await expect(
+      auth.syncOrCreateUser({ firebaseUid: `${RUN}-uid-b`, email, emailVerified: false })
+    ).rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED' })
   }, 60_000)
 })

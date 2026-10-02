@@ -170,3 +170,84 @@ export async function currentStockFor(lines: Array<{ productId: string; variantI
   return (line: { productId: string; variantId?: string | null }) =>
     line.variantId ? variantStock.get(line.variantId) ?? 0 : productStock.get(line.productId) ?? 0
 }
+
+// ─────────────────────────────────────────────────────────────
+// Returns & exchanges
+// ─────────────────────────────────────────────────────────────
+
+async function writeLedger(
+  tx: Tx,
+  params: { productId: string; changeQuantity: number; type: 'RETURN_RESTOCK' | 'MANUAL_ADJUSTMENT'; reason: string; idempotencyKey: string }
+) {
+  const [row] = (await tx.query(
+    db.raw.sql`SELECT sku, stock FROM products WHERE id = ${params.productId}`
+      .returnsRow({ sku: 'pg/text@1', stock: 'pg/int4@1' } as never)
+      .build()
+  )) as unknown as Array<{ sku: string; stock: number }>
+  if (!row) return
+  await tx.orm.public.InventoryTransaction.create({
+    productId: params.productId,
+    sku: row.sku,
+    changeQuantity: params.changeQuantity,
+    previousStock: row.stock - params.changeQuantity,
+    newStock: row.stock,
+    previousReserved: 0,
+    newReserved: 0,
+    type: params.type,
+    reason: params.reason,
+    idempotencyKey: params.idempotencyKey,
+  })
+}
+
+/**
+ * Puts inspected, sellable returned units back on the shelf. The ledger's unique
+ * idempotency key makes a repeated call for the same return item a no-op.
+ */
+export async function restockReturnedUnits(params: {
+  productId: string
+  quantity: number
+  returnNumber: string
+  returnItemId: string
+}): Promise<boolean> {
+  const key = `RETURN_RESTOCK:${params.returnItemId}`
+  if (await db.orm.public.InventoryTransaction.where({ idempotencyKey: key }).first()) return false
+  try {
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        db.raw.sql`UPDATE products SET stock = stock + ${params.quantity}, updated_at = now() WHERE id = ${params.productId}`.affectedCount().build()
+      )
+      await writeLedger(tx, {
+        productId: params.productId,
+        changeQuantity: params.quantity,
+        type: 'RETURN_RESTOCK',
+        reason: `İade stoğa alındı (${params.returnNumber})`,
+        idempotencyKey: key,
+      })
+    })
+  } catch (err) {
+    if (/unique|duplicate key|23505/i.test(String((err as Error)?.message ?? err) + JSON.stringify(err ?? {}))) return false
+    throw err
+  }
+  refreshCatalogStock()
+  return true
+}
+
+/** Takes stock for an exchange replacement; throws InsufficientStockError if not available. */
+export async function takeExchangeUnits(params: {
+  productId: string
+  quantity: number
+  returnNumber: string
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    const line = { productId: params.productId, variantId: null, quantity: params.quantity }
+    if (!(await decrement(tx, line, false))) throw new InsufficientStockError(line)
+    await writeLedger(tx, {
+      productId: params.productId,
+      changeQuantity: -params.quantity,
+      type: 'MANUAL_ADJUSTMENT',
+      reason: `Değişim ürünü ayrıldı (${params.returnNumber})`,
+      idempotencyKey: `EXCHANGE:${params.returnNumber}:${params.productId}`,
+    })
+  })
+  refreshCatalogStock()
+}

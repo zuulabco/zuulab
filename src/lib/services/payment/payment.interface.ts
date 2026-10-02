@@ -72,5 +72,9 @@ export interface PaymentProvider {
   name: PaymentProviderName
   createSession(request: PaymentSessionRequest): Promise<PaymentSessionResult>
   verifyWebhook(payload: Record<string, unknown>, signature?: string): Promise<WebhookVerificationResult>
-  refund(paymentId: string, amount: number): Promise<{ success: boolean; refundId?: string }>
+  refund(
+    merchantOid: string,
+    amount: number,
+    referenceNo?: string
+  ): Promise<{ success: boolean; refundId?: string; outcome?: 'SUCCEEDED' | 'FAILED' | 'UNKNOWN'; error?: string }>
 }

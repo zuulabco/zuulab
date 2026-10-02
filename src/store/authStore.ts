@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   firebaseSignOut,
   isFirebaseClientConfigured,
   type FirebaseUser,
@@ -227,6 +228,11 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const credential = await createUserWithEmailAndPassword(auth, email, pass)
+          // Proves ownership of the address; needed to attach orders placed earlier
+          // as a guest with the same email (see syncOrCreateUser).
+          await sendEmailVerification(credential.user, {
+            url: `${window.location.origin}/hesap`,
+          }).catch((err) => console.warn('[authStore] Verification email failed:', err))
           const token = await credential.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token, { name })

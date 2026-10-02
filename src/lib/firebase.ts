@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signOut as firebaseSignOut,
   type Auth,
   type User as FirebaseUser,
@@ -43,6 +44,7 @@ export {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   firebaseSignOut,
 }
 export type { FirebaseUser }

@@ -33,6 +33,7 @@ const { PayTRPaymentProvider } = await import('@/lib/services/payment/paytr.prov
 const inventoryAdmin = await import('@/lib/services/inventory-admin.service')
 const reviews = await import('@/lib/services/reviews.service')
 const { loadSnapshot } = await import('@/lib/services/catalog/catalog.service')
+const returns = await import('@/lib/services/returns/returns.service')
 
 const RUN = `itest${Date.now().toString(36)}`
 let productId = ''
@@ -121,6 +122,7 @@ afterAll(async () => {
   const run = (plan: Parameters<ReturnType<typeof db.runtime>["execute"]>[0]) => db.runtime().execute(plan)
   if (userId) {
     await run(db.raw.sql`DELETE FROM reviews WHERE user_id = ${userId}`.affectedCount().build())
+    await run(db.raw.sql`DELETE FROM return_requests WHERE user_id = ${userId}`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM coupon_usages WHERE user_id = ${userId}`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id = ${userId})`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM orders WHERE user_id = ${userId}`.affectedCount().build())
@@ -334,4 +336,64 @@ describe('reviews', () => {
     expect(p?.reviewCount).toBe(1)
     expect(p?.rating).toBe(4)
   }, 60_000)
+})
+
+describe('returns and refunds', () => {
+  it('runs a return end to end: restock once, refund through PayTR, never refund more than paid', async () => {
+    await setStock(5)
+    const order = await newOrder()
+    await pay(order.orderNumber)
+    await callback(order.orderNumber, 'SUCCESS')
+    for (const status of ['PREPARING', 'SHIPPED', 'DELIVERED']) {
+      expect((await updateOrderStatus(order.orderNumber, status, 'test')).success).toBe(true)
+    }
+    expect(await stock()).toBe(4)
+
+    const paidOrder = await findOrderByNumber(order.orderNumber)
+    const ret = await returns.createReturnRequest({
+      orderNumber: order.orderNumber,
+      userId,
+      type: 'RETURN',
+      reason: 'EXPECTATION_NOT_MET',
+      items: [{ orderItemId: paidOrder!.items[0].id, productId, quantity: 1 }],
+    })
+    expect(ret.status).toBe('REQUESTED')
+    expect(ret.refundAmount).toBe(100)
+    expect((await findOrderByNumber(order.orderNumber))!.status).toBe('RETURN_REQUESTED')
+
+    // A second request for the same order is refused while one is open.
+    await expect(returns.createReturnRequest({
+      orderNumber: order.orderNumber, userId, type: 'RETURN', reason: 'OTHER',
+      items: [{ productId, quantity: 1 }],
+    })).rejects.toThrow(/devam eden/)
+
+    await returns.approveReturnRequest({ returnNumber: ret.returnNumber, adminUserId: 'admin' })
+    await returns.receiveReturnPackage({ returnNumber: ret.returnNumber, adminUserId: 'admin' })
+    expect((await findOrderByNumber(order.orderNumber))!.status).toBe('RETURNED')
+
+    const item = (await returns.getReturnRequestByNumber(ret.returnNumber))!.items[0]
+    const resolutions = [{ itemId: item.id, condition: 'UNUSED', inspectionResult: 'OK', resolution: 'RESTOCK' as const }]
+    await returns.inspectReturnItems({ returnNumber: ret.returnNumber, itemResolutions: resolutions })
+    expect(await stock()).toBe(5)
+    // Inspecting again does not restock twice.
+    await returns.inspectReturnItems({ returnNumber: ret.returnNumber, itemResolutions: resolutions })
+    expect(await stock()).toBe(5)
+
+    const refunded = await returns.processRefundForReturn({ returnNumber: ret.returnNumber, adminUserId: 'admin' })
+    expect(refunded.status).toBe('COMPLETED')
+    expect(refunded.refundStatus).toBe('COMPLETED')
+    expect((await findOrderByNumber(order.orderNumber))!.status).toBe('PARTIALLY_REFUNDED')
+    const again = await returns.processRefundForReturn({ returnNumber: ret.returnNumber })
+    expect(again.refundRef).toBe(refunded.refundRef)
+
+    // A forged second return worth more than the remaining paid amount is refused.
+    const raw = await db.orm.public.ReturnRequest.where({ returnNumber: ret.returnNumber }).first()
+    const forged = await db.orm.public.ReturnRequest.create({
+      returnNumber: `${ret.returnNumber}X`, orderId: raw!.orderId, userId, type: 'RETURN' as never,
+      status: 'INSPECTED', reason: 'test', photoUrls: [], refundAmount: '9999.00' as never, refundStatus: 'PENDING',
+    })
+    // The payment is now fully refunded, so it is refused either as exceeding the paid
+    // amount or as having no refundable payment left.
+    await expect(returns.processRefundForReturn({ returnNumber: forged.returnNumber })).rejects.toThrow(/aşıyor|iade edilebilecek/)
+  }, 120_000)
 })

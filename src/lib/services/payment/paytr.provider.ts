@@ -416,47 +416,68 @@ export class PayTRPaymentProvider implements PaymentProvider {
   /**
    * PayTR Refund API call
    */
+  /**
+   * PayTR Refund API (https://dev.paytr.com/en/iade-api).
+   *
+   * `return_amount` is in TL with a dot decimal ("10.25"), NOT kuruş: sending
+   * kuruş would refund 100x the intended amount. `reference_no` identifies this
+   * refund on PayTR's side.
+   *
+   * A network error or timeout is reported as `outcome: 'UNKNOWN'`: PayTR may
+   * have executed the refund, so the caller must not retry automatically.
+   */
   async refund(
-    paymentId: string,
-    amount: number
-  ): Promise<{ success: boolean; refundId?: string }> {
+    merchantOid: string,
+    amount: number,
+    referenceNo?: string
+  ): Promise<{ success: boolean; refundId?: string; outcome: 'SUCCEEDED' | 'FAILED' | 'UNKNOWN'; error?: string }> {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { success: false, outcome: 'FAILED', error: 'Geçersiz iade tutarı.' }
+    }
+    const returnAmount = (Math.round(amount * 100) / 100).toFixed(2)
+
     if (!this.isLiveConfigured) {
       if (!isPayTRSimulationAllowed(false)) {
         console.error('[paytr.provider] Refund requested without PayTR credentials configured.')
-        return { success: false }
+        return { success: false, outcome: 'FAILED', error: 'PayTR yapılandırılmamış.' }
       }
-      return {
-        success: true,
-        refundId: `ref_paytr_${Date.now()}`,
-      }
+      return { success: true, outcome: 'SUCCEEDED', refundId: referenceNo || `SIMREF${Date.now()}` }
     }
 
-    try {
-      const returnAmountKurus = Math.round(amount * 100)
-      const paytrToken = crypto
-        .createHmac('sha256', this.merchantKey)
-        .update(`${this.merchantId}${paymentId}${returnAmountKurus}${this.merchantSalt}`)
-        .digest('base64')
+    const paytrToken = crypto
+      .createHmac('sha256', this.merchantKey)
+      .update(`${this.merchantId}${merchantOid}${returnAmount}${this.merchantSalt}`)
+      .digest('base64')
 
+    const body = new URLSearchParams({
+      merchant_id: this.merchantId,
+      merchant_oid: merchantOid,
+      return_amount: returnAmount,
+      paytr_token: paytrToken,
+    })
+    if (referenceNo) body.set('reference_no', referenceNo.replace(/[^A-Za-z0-9]/g, '').slice(0, 64))
+
+    let data: { status?: string; reference_no?: string; err_no?: string; err_msg?: string }
+    try {
       const res = await fetch('https://www.paytr.com/odeme/iade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          merchant_id: this.merchantId,
-          merchant_oid: paymentId,
-          return_amount: returnAmountKurus.toString(),
-          paytr_token: paytrToken,
-        }).toString(),
+        body: body.toString(),
+        signal: AbortSignal.timeout(20_000),
       })
-
-      const data = (await res.json()) as { status: string; is_test?: number; err_msg?: string }
-      return {
-        success: data.status === 'success',
-        refundId: data.status === 'success' ? `ref_${paymentId}` : undefined,
-      }
+      data = await res.json()
     } catch (err) {
-      console.error('[paytr.provider] Refund error:', err)
-      return { success: false }
+      console.error('[paytr.provider] Refund request outcome unknown:', err)
+      return { success: false, outcome: 'UNKNOWN', error: 'PayTR yanıtı alınamadı; iade durumu PayTR panelinden kontrol edilmeli.' }
+    }
+
+    if (data.status === 'success') {
+      return { success: true, outcome: 'SUCCEEDED', refundId: data.reference_no || referenceNo || merchantOid }
+    }
+    return {
+      success: false,
+      outcome: 'FAILED',
+      error: `${data.err_no ?? ''} ${data.err_msg ?? 'PayTR iadeyi reddetti.'}`.trim(),
     }
   }
 
