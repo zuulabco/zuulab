@@ -468,6 +468,16 @@ export interface ImportResult {
  * price at the lowest current marketplace price; the admin reviews and activates.
  */
 export async function importListingsAsProducts(listingIds: string[], adminUserId: string): Promise<ImportResult> {
+  // Products without their images are not worth creating: check storage first.
+  const storage = await cloudinaryService.checkConnection()
+  if (!storage.ok) {
+    throw new MarketplaceError({
+      message: `Görseller kopyalanamayacağı için aktarım başlatılmadı. ${storage.error}`,
+      code: 'NOT_CONFIGURED',
+      provider: 'TRENDYOL',
+    })
+  }
+
   const wanted = new Set(listingIds)
   const all = (await db.orm.public.MarketplaceListing.where({ archived: false }).all()) as ListingRow[]
   const selected = all.filter((l) => wanted.has(l.id))

@@ -54,6 +54,22 @@ export class CloudinaryService {
     return this.isConfigured
   }
 
+  /** Makes an authenticated read, so wrong keys are caught before any upload. */
+  async checkConnection(): Promise<{ ok: boolean; error?: string }> {
+    if (!this.isConfigured) return { ok: false, error: 'Cloudinary yapılandırılmamış (CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET).' }
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${this.cloudName}/usage`, {
+        headers: { Authorization: `Basic ${Buffer.from(`${this.apiKey}:${this.apiSecret}`).toString('base64')}` },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (res.ok) return { ok: true }
+      const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } }
+      return { ok: false, error: `Cloudinary bilgileri geçersiz (${res.status}${data.error?.message ? `: ${data.error.message}` : ''}).` }
+    } catch (err) {
+      return { ok: false, error: `Cloudinary'ye ulaşılamadı: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  }
+
   /**
    * Copies an image from a public URL into Cloudinary (Cloudinary fetches it). Never
    * simulated: without live credentials it fails, so callers can tell.
@@ -165,21 +181,12 @@ export class CloudinaryService {
       }
     }
 
-    // High-fidelity sandbox/mock simulation
-    const hash = crypto.createHash('md5').update(`${options.fileName}-${Date.now()}`).digest('hex').slice(0, 10)
-    const simulatedPublicId = `zuulab_upload_${hash}`
-    const extension = options.fileType.split('/')[1] || 'webp'
-    const simulatedUrl = `https://res.cloudinary.com/zuulab/image/upload/v1711234567/products/${simulatedPublicId}.${extension}`
-
+    // No fake URLs: an image that was not stored must not look uploaded.
     return {
-      success: true,
-      url: simulatedUrl,
-      publicId: simulatedPublicId,
-      width: 1200,
-      height: 800,
-      format: extension,
-      sizeBytes: options.fileSize,
-      isSimulated: true,
+      success: false,
+      error: this.isConfigured
+        ? 'Dosya içeriği alınamadı.'
+        : 'Görsel depolama (Cloudinary) yapılandırılmamış; görsel yüklenemedi.',
     }
   }
 }

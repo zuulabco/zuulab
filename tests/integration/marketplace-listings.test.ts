@@ -12,6 +12,11 @@ vi.mock('@/lib/services/admin.service', () => ({
 }))
 
 process.env.MARKETPLACE_CREDENTIALS_KEY ||= crypto.randomBytes(32).toString('base64')
+// Cloudinary is stubbed below; these only make the service consider itself configured.
+process.env.CLOUDINARY_CLOUD_NAME = 'test-cloud'
+process.env.CLOUDINARY_API_KEY = '987654321098765'
+process.env.CLOUDINARY_API_SECRET = 'test-secret'
+let storageWorks = true
 
 const { db } = await import('@/prisma/db')
 const mkt = await import('@/lib/services/marketplace/marketplace.service')
@@ -62,6 +67,11 @@ beforeAll(async () => {
     'fetch',
     vi.fn(async (input: string | URL) => {
       const url = String(input)
+      if (url.includes('api.cloudinary.com') && url.endsWith('/usage')) {
+        return storageWorks
+          ? new Response('{}', { status: 200 })
+          : new Response(JSON.stringify({ error: { message: 'api_secret mismatch' } }), { status: 401 })
+      }
       if (url.includes('api.cloudinary.com')) {
         return new Response(JSON.stringify({ error: { message: 'test: no upload' } }), { status: 400 })
       }
@@ -128,6 +138,18 @@ describe('marketplace listings', () => {
     expect(updatedLamp.quantity).toBe(7)
     expect(Number(updatedLamp.targetSalePrice)).toBe(1999)
     expect(after.find((r) => r.barcode === `${RUN}-a3`)!.archived).toBe(true)
+  })
+
+  it('refuses to import when image storage does not work, creating nothing', async () => {
+    const lampA = (await listings.getListings({ filter: 'UNMAPPED' })).find((l) => l.barcode === `${RUN}-a1`)!
+    storageWorks = false
+    try {
+      await expect(listings.importListingsAsProducts([lampA.id], ADMIN)).rejects.toMatchObject({ code: 'NOT_CONFIGURED' })
+    } finally {
+      storageWorks = true
+    }
+    const linked = await db.orm.public.MarketplaceListing.where({ id: lampA.id }).first()
+    expect(linked!.productId).toBeNull()
   })
 
   it('imports one draft product per model code and links every store', async () => {

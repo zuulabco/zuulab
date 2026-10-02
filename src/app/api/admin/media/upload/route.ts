@@ -54,47 +54,12 @@ export async function POST(request: Request) {
         asset,
         isSimulated: uploadResult.isSimulated,
       })
-    } else {
-      // JSON payload upload metadata test
-      const body = await request.json().catch(() => ({}))
-      const { fileName, fileType, fileSize } = body
-
-      if (!fileName || !fileType || typeof fileSize !== 'number') {
-        return NextResponse.json(
-          { success: false, error: 'Geçersiz parametreler: fileName, fileType, fileSize gereklidir.' },
-          { status: 400 }
-        )
-      }
-
-      const uploadResult = await cloudinaryService.uploadImage({
-        fileName,
-        fileType,
-        fileSize,
-      })
-
-      if (!uploadResult.success) {
-        return NextResponse.json({ success: false, error: uploadResult.error }, { status: 400 })
-      }
-
-      const asset = await adminAddMediaAsset(
-        {
-          name: fileName,
-          url: uploadResult.url!,
-          size: `${Math.round(fileSize / 1024)} KB`,
-          type: fileType,
-          dimensions: `${uploadResult.width || 1200}x${uploadResult.height || 800}`,
-        },
-        user.email
-      )
-
-      return NextResponse.json({
-        success: true,
-        message: 'Görsel kaydedildi.',
-        url: uploadResult.url,
-        asset,
-        isSimulated: uploadResult.isSimulated,
-      })
     }
+
+    return NextResponse.json(
+      { success: false, error: 'Dosya multipart/form-data olarak gönderilmelidir.' },
+      { status: 415 }
+    )
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN') || error.message?.includes('UNAUTHORIZED')
     return NextResponse.json(
