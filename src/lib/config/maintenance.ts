@@ -75,44 +75,31 @@ export function normalizeIp(ip: string | null | undefined): string {
 }
 
 /**
- * Extracts client IP from request headers with priority:
- * 1. x-vercel-forwarded-for (authoritative Vercel edge header, tamper-proof against upstream proxies)
- * 2. cf-connecting-ip (Cloudflare edge proxy header)
- * 3. x-real-ip (standard reverse proxy header)
- * 4. x-forwarded-for (first IP in chain represents the initial client)
+ * The client IP, from headers the hosting edge sets itself.
+ *
+ * Vercel overwrites x-real-ip / x-forwarded-for / x-vercel-forwarded-for with the
+ * real client address, so a visitor cannot forge them there. cf-connecting-ip is
+ * only set by Cloudflare: without Cloudflare in front, anyone can send it, which
+ * would let a request pick its own IP (bypassing maintenance mode and every IP-based
+ * rate limit). It is therefore trusted only when TRUST_CLOUDFLARE_IP=1.
  */
 export function getClientIp(headers: Headers): string {
-  // 1. Vercel authoritative edge IP (extracts first IP if multiple are chained)
-  const vercelForwarded = headers.get('x-vercel-forwarded-for')
-  if (vercelForwarded && vercelForwarded.trim()) {
-    const first = vercelForwarded.split(',')[0]
-    if (first && first.trim()) {
-      return normalizeIp(first)
-    }
+  const first = (value: string | null) => {
+    const ip = value?.split(',')[0]?.trim()
+    return ip ? normalizeIp(ip) : ''
   }
 
-  // 2. Cloudflare connecting IP
-  const cfIp = headers.get('cf-connecting-ip')
-  if (cfIp && cfIp.trim()) {
-    return normalizeIp(cfIp)
+  if (process.env.TRUST_CLOUDFLARE_IP === '1') {
+    const cf = first(headers.get('cf-connecting-ip'))
+    if (cf) return cf
   }
 
-  // 3. X-Real-IP
-  const realIp = headers.get('x-real-ip')
-  if (realIp && realIp.trim()) {
-    return normalizeIp(realIp)
-  }
-
-  // 4. X-Forwarded-For (client is leftmost IP)
-  const forwardedFor = headers.get('x-forwarded-for')
-  if (forwardedFor && forwardedFor.trim()) {
-    const first = forwardedFor.split(',')[0]
-    if (first && first.trim()) {
-      return normalizeIp(first)
-    }
-  }
-
-  return '127.0.0.1'
+  return (
+    first(headers.get('x-real-ip')) ||
+    first(headers.get('x-forwarded-for')) ||
+    first(headers.get('x-vercel-forwarded-for')) ||
+    '127.0.0.1'
+  )
 }
 
 /**
