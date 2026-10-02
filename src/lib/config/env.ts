@@ -170,6 +170,13 @@ export function validateEnvironment(): EnvValidationResult {
     if (!process.env.TRENDYOL_WEBHOOK_SECRET || !process.env.HEPSIBURADA_WEBHOOK_SECRET) {
       warnings.push('TRENDYOL_WEBHOOK_SECRET / HEPSIBURADA_WEBHOOK_SECRET not set; those marketplace webhooks will be rejected.')
     }
+    const credentialsKey = process.env.MARKETPLACE_CREDENTIALS_KEY?.trim() ?? ''
+    const keyBytes = /^[0-9a-fA-F]{64}$/.test(credentialsKey)
+      ? 32
+      : Buffer.from(credentialsKey, 'base64').length
+    if (keyBytes !== 32) {
+      warnings.push('MARKETPLACE_CREDENTIALS_KEY is missing or not 32 bytes (base64/hex); marketplace API keys cannot be saved or used.')
+    }
   }
 
   // 11. LIVE-READINESS

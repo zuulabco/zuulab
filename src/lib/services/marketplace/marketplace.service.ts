@@ -20,7 +20,10 @@ import type {
 import { MarketplaceProviderFactory } from './provider.factory'
 import { MarketplaceError } from './marketplace-error'
 import { logAuditEvent } from '../admin.service'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
+import { db } from '@/prisma/db'
+import { dbNumeric } from '@/lib/db/numeric'
+import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
+import { openSecret, sealSecret } from '@/lib/security/secret-box'
 import {
   reserveInventory,
   releaseInventoryReservation,
@@ -29,203 +32,18 @@ import {
 } from '../inventory.service'
 
 // ─────────────────────────────────────────────────────────────
-// IN-MEMORY STORAGE & INITIAL SEED (2 HB + 2 TY + DIRECT)
+// IN-MEMORY STATE (mappings, orders, jobs move to the database in the next steps)
 // ─────────────────────────────────────────────────────────────
 
-const inMemoryStores: Map<string, MarketplaceStore> = new Map([
-  [
-    'store-hb-1',
-    {
-      id: 'store-hb-1',
-      provider: 'HEPSIBURADA',
-      name: 'Hepsiburada Mağaza 1',
-      code: 'hb-store-1',
-      displayName: 'ZUULAB 3D - Hepsiburada Ana',
-      externalMerchantId: 'hb-merch-001',
-      environment: 'STAGE',
-      status: 'ACTIVE',
-      lastSuccessfulSync: null,
-      lastFailedSync: null,
-      lastError: null,
-      lastConnectionCheck: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-hb-2',
-    {
-      id: 'store-hb-2',
-      provider: 'HEPSIBURADA',
-      name: 'Hepsiburada Mağaza 2',
-      code: 'hb-store-2',
-      displayName: 'ZUULAB Living - Hepsiburada Yan',
-      externalMerchantId: 'hb-merch-002',
-      environment: 'STAGE',
-      status: 'ACTIVE',
-      lastSuccessfulSync: null,
-      lastFailedSync: null,
-      lastError: null,
-      lastConnectionCheck: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-ty-1',
-    {
-      id: 'store-ty-1',
-      provider: 'TRENDYOL',
-      name: 'Trendyol Mağaza 1',
-      code: 'ty-store-1',
-      displayName: 'ZUULAB Design - Trendyol Ana',
-      externalMerchantId: 'ty-supp-1001',
-      environment: 'STAGE',
-      status: 'ACTIVE',
-      lastSuccessfulSync: null,
-      lastFailedSync: null,
-      lastError: null,
-      lastConnectionCheck: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-ty-2',
-    {
-      id: 'store-ty-2',
-      provider: 'TRENDYOL',
-      name: 'Trendyol Mağaza 2',
-      code: 'ty-store-2',
-      displayName: 'ZUULAB Art - Trendyol Butik',
-      externalMerchantId: 'ty-supp-1002',
-      environment: 'STAGE',
-      status: 'ACTIVE',
-      lastSuccessfulSync: null,
-      lastFailedSync: null,
-      lastError: null,
-      lastConnectionCheck: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-])
-
-const inMemoryCredentials: Map<string, MarketplaceCredential> = new Map([
-  [
-    'store-hb-1',
-    {
-      id: 'cred-hb-1',
-      storeId: 'store-hb-1',
-      apiKeyMasked: '••••••••••••',
-      apiKeyEncrypted: 'mock-enc-hb1-key',
-      apiSecretMasked: '••••••••••••',
-      apiSecretEncrypted: 'mock-enc-hb1-secret',
-      version: 1,
-      lastRotatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-hb-2',
-    {
-      id: 'cred-hb-2',
-      storeId: 'store-hb-2',
-      apiKeyMasked: '••••••••••••',
-      apiKeyEncrypted: 'mock-enc-hb2-key',
-      apiSecretMasked: '••••••••••••',
-      apiSecretEncrypted: 'mock-enc-hb2-secret',
-      version: 1,
-      lastRotatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-ty-1',
-    {
-      id: 'cred-ty-1',
-      storeId: 'store-ty-1',
-      apiKeyMasked: '••••••••••••',
-      apiKeyEncrypted: 'mock-enc-ty1-key',
-      apiSecretMasked: '••••••••••••',
-      apiSecretEncrypted: 'mock-enc-ty1-secret',
-      version: 1,
-      lastRotatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-  [
-    'store-ty-2',
-    {
-      id: 'cred-ty-2',
-      storeId: 'store-ty-2',
-      apiKeyMasked: '••••••••••••',
-      apiKeyEncrypted: 'mock-enc-ty2-key',
-      apiSecretMasked: '••••••••••••',
-      apiSecretEncrypted: 'mock-enc-ty2-secret',
-      version: 1,
-      lastRotatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ],
-])
-
 const inMemoryMappings: Map<string, MarketplaceProductMapping> = new Map()
-
-// Seed default SKU mappings for sample products
-if (inMemoryMappings.size === 0) {
-  const p1 = MOCK_PRODUCTS[0]
-  const p2 = MOCK_PRODUCTS[1]
-
-  if (p1) {
-    inMemoryMappings.set('map-1', {
-      id: 'map-1',
-      storeId: 'store-hb-1',
-      productId: p1.id,
-      productName: p1.name,
-      productSku: p1.sku,
-      productBarcode: (p1 as any).barcode || '868000100001',
-      externalProductId: 'HB-PROD-001',
-      externalSku: `${p1.sku}-HB`,
-      externalBarcode: (p1 as any).barcode || '868000100001',
-      externalVariantId: null,
-      status: 'MAPPED',
-      lastSyncedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-  if (p2) {
-    inMemoryMappings.set('map-2', {
-      id: 'map-2',
-      storeId: 'store-ty-1',
-      productId: p2.id,
-      productName: p2.name,
-      productSku: p2.sku,
-      productBarcode: (p2 as any).barcode || '868000100002',
-      externalProductId: 'TY-PROD-002',
-      externalSku: `${p2.sku}-TY`,
-      externalBarcode: (p2 as any).barcode || '868000100002',
-      externalVariantId: null,
-      status: 'MAPPED',
-      lastSyncedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })
-  }
-}
-
 const inMemoryOrders: Map<string, MarketplaceOrder> = new Map()
 const inMemorySyncJobs: Map<string, MarketplaceSyncJob> = new Map()
 
 // ─────────────────────────────────────────────────────────────
-// STORE MANAGEMENT SERVICES
+// STORE MANAGEMENT SERVICES (marketplace_stores / marketplace_credentials)
 // ─────────────────────────────────────────────────────────────
+
+export const SUPPORTED_MARKETPLACES = ['TRENDYOL', 'HEPSIBURADA'] as const
 
 export interface CreateStoreInput {
   provider: MarketplaceProviderType
@@ -236,6 +54,10 @@ export interface CreateStoreInput {
   environment?: MarketplaceEnvironment
   apiKey?: string
   apiSecret?: string
+  stockSyncEnabled?: boolean
+  priceSyncEnabled?: boolean
+  orderImportEnabled?: boolean
+  priceMarkupPercent?: number
 }
 
 export interface UpdateStoreInput {
@@ -243,6 +65,10 @@ export interface UpdateStoreInput {
   displayName?: string
   status?: MarketplaceStoreStatus
   environment?: MarketplaceEnvironment
+  stockSyncEnabled?: boolean
+  priceSyncEnabled?: boolean
+  orderImportEnabled?: boolean
+  priceMarkupPercent?: number
 }
 
 export interface RotateCredentialsInput {
@@ -250,22 +76,154 @@ export interface RotateCredentialsInput {
   apiSecret: string
 }
 
-export async function getMarketplaceStores(): Promise<MarketplaceStore[]> {
-  return Array.from(inMemoryStores.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
-}
-
-export async function getMarketplaceStoreById(
+type StoreRow = {
   id: string
-): Promise<MarketplaceStore | null> {
-  return inMemoryStores.get(id) || null
+  provider: string
+  name: string
+  externalSellerId: string
+  environment: string
+  status: string
+  stockSyncEnabled: boolean
+  priceSyncEnabled: boolean
+  orderImportEnabled: boolean
+  priceMarkupPercent: unknown
+  lastConnectionAt: unknown
+  lastOrderSyncAt: unknown
+  lastError: string | null
+  createdAt: unknown
+  updatedAt: unknown
 }
 
-export async function getStoreCredentialById(
-  storeId: string
-): Promise<MarketplaceCredential | null> {
-  return inMemoryCredentials.get(storeId) || null
+type CredentialSummary = { apiKeyHint: string; version: number } | null
+
+function toStore(row: StoreRow, credential: CredentialSummary): MarketplaceStore {
+  const lastOrderSync = dbTimestampToIso(row.lastOrderSyncAt)
+  return {
+    id: row.id,
+    provider: row.provider as MarketplaceProviderType,
+    name: row.name,
+    code: row.id,
+    displayName: row.name,
+    externalMerchantId: row.externalSellerId,
+    environment: row.environment as MarketplaceEnvironment,
+    status: row.status as MarketplaceStoreStatus,
+    lastSuccessfulSync: lastOrderSync,
+    lastSyncCheckpoint: lastOrderSync,
+    lastFailedSync: null,
+    lastError: row.lastError,
+    lastConnectionCheck: dbTimestampToIso(row.lastConnectionAt),
+    stockSyncEnabled: row.stockSyncEnabled,
+    priceSyncEnabled: row.priceSyncEnabled,
+    orderImportEnabled: row.orderImportEnabled,
+    priceMarkupPercent: Number(row.priceMarkupPercent ?? 0),
+    hasCredentials: Boolean(credential),
+    credentialHint: credential ? `••••${credential.apiKeyHint}` : null,
+    credentialVersion: credential?.version ?? null,
+    createdAt: dbTimestampToIso(row.createdAt) ?? '',
+    updatedAt: dbTimestampToIso(row.updatedAt) ?? '',
+  }
+}
+
+function storeNotFound(id: string): MarketplaceError {
+  return new MarketplaceError({ message: `Mağaza bulunamadı: ${id}`, code: 'NOT_FOUND', provider: 'TRENDYOL' })
+}
+
+function validationError(message: string, provider: MarketplaceProviderType = 'TRENDYOL'): MarketplaceError {
+  return new MarketplaceError({ message, code: 'VALIDATION_ERROR', provider })
+}
+
+function normalizeMarkup(value: unknown, provider: MarketplaceProviderType): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0 || n > 100) {
+    throw validationError('Fiyat farkı yüzdesi 0 ile 100 arasında olmalıdır.', provider)
+  }
+  return Math.round(n * 100) / 100
+}
+
+function normalizeEnvironment(value: unknown): MarketplaceEnvironment {
+  return value === 'STAGE' ? 'STAGE' : 'PRODUCTION'
+}
+
+function keyHint(apiKey: string): string {
+  return apiKey.slice(-4)
+}
+
+async function credentialSummaries(storeIds: string[]): Promise<Map<string, { apiKeyHint: string; version: number }>> {
+  if (storeIds.length === 0) return new Map()
+  const rows = await db.orm.public.MarketplaceCredential.where((c) => c.storeId.in(storeIds))
+    .select('storeId', 'apiKeyHint', 'version')
+    .all()
+  return new Map(rows.map((r) => [r.storeId, { apiKeyHint: r.apiKeyHint, version: r.version }]))
+}
+
+export async function getMarketplaceStores(): Promise<MarketplaceStore[]> {
+  const rows = (await db.orm.public.MarketplaceStore.orderBy((s) => s.name.asc()).all()) as StoreRow[]
+  const creds = await credentialSummaries(rows.map((r) => r.id))
+  return rows.map((r) => toStore(r, creds.get(r.id) ?? null))
+}
+
+export async function getMarketplaceStoreById(id: string): Promise<MarketplaceStore | null> {
+  if (!id) return null
+  const row = (await db.orm.public.MarketplaceStore.where({ id }).first()) as StoreRow | null
+  if (!row) return null
+  const creds = await credentialSummaries([row.id])
+  return toStore(row, creds.get(row.id) ?? null)
+}
+
+/**
+ * Decrypted credentials for outgoing API calls. Server-only: never return this
+ * object from an API route.
+ */
+export async function getStoreCredentialById(storeId: string): Promise<MarketplaceCredential | null> {
+  const row = await db.orm.public.MarketplaceCredential.where({ storeId }).first()
+  if (!row) return null
+  let apiKey: string
+  let apiSecret: string
+  try {
+    apiKey = openSecret(row.apiKeyEncrypted)
+    apiSecret = openSecret(row.apiSecretEncrypted)
+  } catch (err) {
+    throw new MarketplaceError({
+      message:
+        'Mağaza API anahtarları çözülemedi. MARKETPLACE_CREDENTIALS_KEY tanımlı mı ve anahtarlar bu değerle mi kaydedildi? Gerekirse anahtarları yeniden girin.',
+      code: 'NOT_CONFIGURED',
+      provider: 'TRENDYOL',
+      rawError: err instanceof Error ? err.message : undefined,
+    })
+  }
+  const rotatedAt = dbTimestampToIso(row.rotatedAt) ?? ''
+  return {
+    id: row.id,
+    storeId: row.storeId,
+    apiKeyMasked: `••••${row.apiKeyHint}`,
+    apiKeyEncrypted: row.apiKeyEncrypted,
+    apiSecretMasked: '••••••••',
+    apiSecretEncrypted: row.apiSecretEncrypted,
+    apiKey,
+    apiSecret,
+    version: row.version,
+    lastRotatedAt: rotatedAt,
+    createdAt: rotatedAt,
+    updatedAt: rotatedAt,
+  }
+}
+
+async function writeCredential(storeId: string, apiKey: string, apiSecret: string): Promise<number> {
+  const sealed = {
+    apiKeyEncrypted: sealSecret(apiKey),
+    apiSecretEncrypted: sealSecret(apiSecret),
+    apiKeyHint: keyHint(apiKey),
+    rotatedAt: toDbTimestamp(),
+  }
+  const existing = await db.orm.public.MarketplaceCredential.where({ storeId }).first()
+  if (existing) {
+    const version = existing.version + 1
+    await db.orm.public.MarketplaceCredential.where({ storeId }).update({ ...sealed, version } as never)
+    return version
+  }
+  await db.orm.public.MarketplaceCredential.create({ storeId, ...sealed, version: 1 } as never)
+  return 1
 }
 
 export async function createMarketplaceStore(
@@ -273,89 +231,54 @@ export async function createMarketplaceStore(
   adminUserId: string
 ): Promise<MarketplaceStore> {
   const provider = input.provider
+  if (!SUPPORTED_MARKETPLACES.includes(provider as (typeof SUPPORTED_MARKETPLACES)[number])) {
+    throw validationError(`Desteklenmeyen pazaryeri: ${provider}`)
+  }
+  const name = input.name?.trim()
   const externalMerchantId = input.externalMerchantId?.trim()
-  const environment = input.environment || 'STAGE'
+  const environment = normalizeEnvironment(input.environment)
+  if (!name) throw validationError('Mağaza adı zorunludur.', provider)
+  if (!externalMerchantId) throw validationError('Satıcı ID (Trendyol) / Merchant ID (Hepsiburada) zorunludur.', provider)
 
-  if (!externalMerchantId) {
-    throw new MarketplaceError({
-      message: 'Pazaryeri Satıcı / Tedarikçi ID alanı zorunludur.',
-      code: 'VALIDATION_ERROR',
-      provider,
-    })
+  const apiKey = input.apiKey?.trim()
+  const apiSecret = input.apiSecret?.trim()
+  if (Boolean(apiKey) !== Boolean(apiSecret)) {
+    throw validationError('API anahtarı ve gizli anahtar birlikte girilmelidir.', provider)
   }
 
-  // Duplicate merchant protection: Prevent duplicate store registration with same (provider, externalMerchantId, environment)
-  const existing = Array.from(inMemoryStores.values()).find(
-    (s) =>
-      s.provider === provider &&
-      s.externalMerchantId === externalMerchantId &&
-      s.environment === environment
-  )
-
+  const existing = await db.orm.public.MarketplaceStore.where({ provider, externalSellerId: externalMerchantId, environment }).first()
   if (existing) {
-    throw new MarketplaceError({
-      message: `Bu ${provider} satıcı ID (${externalMerchantId}) ve ortam (${environment}) için zaten kayıtlı bir mağaza mevcut: "${existing.name}".`,
-      code: 'VALIDATION_ERROR',
-      provider,
-    })
+    throw validationError(
+      `Bu ${provider} satıcı ID (${externalMerchantId}) ve ortam (${environment}) için zaten kayıtlı bir mağaza var: "${existing.name}".`,
+      provider
+    )
   }
 
-  const id = `store-${provider.toLowerCase().substring(0, 2)}-${Date.now()}`
-  const code =
-    input.code ||
-    `${provider.toLowerCase()}-${Date.now().toString(36).substring(4)}`
-  const now = new Date().toISOString()
-
-  const newStore: MarketplaceStore = {
-    id,
+  const markup = normalizeMarkup(input.priceMarkupPercent, provider) ?? 0
+  const created = await db.orm.public.MarketplaceStore.create({
     provider,
-    name: input.name.trim(),
-    code,
-    displayName: input.displayName?.trim() || input.name.trim(),
-    externalMerchantId,
+    name,
+    externalSellerId: externalMerchantId,
     environment,
     status: 'ACTIVE',
-    lastSuccessfulSync: null,
-    lastFailedSync: null,
-    lastError: null,
-    lastConnectionCheck: null,
-    createdAt: now,
-    updatedAt: now,
-  }
+    stockSyncEnabled: Boolean(input.stockSyncEnabled),
+    priceSyncEnabled: Boolean(input.priceSyncEnabled),
+    orderImportEnabled: input.orderImportEnabled ?? true,
+    priceMarkupPercent: dbNumeric(markup),
+  } as never)
+  const id = (created as { id: string }).id
 
-  inMemoryStores.set(id, newStore)
-
-  // Store credentials securely with masking
-  if (input.apiKey && input.apiSecret) {
-    const cred: MarketplaceCredential = {
-      id: `cred-${id}`,
-      storeId: id,
-      apiKeyMasked: '••••••••••••',
-      apiKeyEncrypted: `enc_${Buffer.from(input.apiKey).toString('base64')}`,
-      apiSecretMasked: '••••••••••••',
-      apiSecretEncrypted: `enc_${Buffer.from(input.apiSecret).toString('base64')}`,
-      version: 1,
-      lastRotatedAt: now,
-      createdAt: now,
-      updatedAt: now,
-    }
-    inMemoryCredentials.set(id, cred)
-  }
+  if (apiKey && apiSecret) await writeCredential(id, apiKey, apiSecret)
 
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.store.created',
     entity: 'MarketplaceStore',
     entityId: id,
-    metadata: {
-      provider,
-      name: newStore.name,
-      externalMerchantId,
-      environment,
-    },
+    metadata: { provider, name, externalMerchantId, environment, credentials: Boolean(apiKey) },
   })
 
-  return newStore
+  return (await getMarketplaceStoreById(id))!
 }
 
 export async function updateMarketplaceStore(
@@ -363,26 +286,42 @@ export async function updateMarketplaceStore(
   input: UpdateStoreInput,
   adminUserId: string
 ): Promise<MarketplaceStore> {
-  const store = inMemoryStores.get(id)
-  if (!store) {
-    throw new MarketplaceError({
-      message: `Mağaza bulunamadı: ${id}`,
-      code: 'NOT_FOUND',
-      provider: 'HEPSIBURADA',
-    })
+  const store = await getMarketplaceStoreById(id)
+  if (!store) throw storeNotFound(id)
+
+  const changes: Record<string, unknown> = {}
+  if (input.name !== undefined) {
+    const name = input.name.trim()
+    if (!name) throw validationError('Mağaza adı boş olamaz.', store.provider)
+    changes.name = name
+  }
+  if (input.status !== undefined) {
+    if (!['ACTIVE', 'INACTIVE'].includes(input.status)) throw validationError('Geçersiz mağaza durumu.', store.provider)
+    changes.status = input.status
+  }
+  if (input.environment !== undefined) {
+    const environment = normalizeEnvironment(input.environment)
+    if (environment !== store.environment) {
+      const clash = await db.orm.public.MarketplaceStore.where({
+        provider: store.provider,
+        externalSellerId: store.externalMerchantId,
+        environment,
+      }).first()
+      if (clash) throw validationError(`Bu satıcı ID için ${environment} ortamında zaten bir mağaza var.`, store.provider)
+      changes.environment = environment
+    }
+  }
+  if (input.stockSyncEnabled !== undefined) changes.stockSyncEnabled = Boolean(input.stockSyncEnabled)
+  if (input.priceSyncEnabled !== undefined) changes.priceSyncEnabled = Boolean(input.priceSyncEnabled)
+  if (input.orderImportEnabled !== undefined) changes.orderImportEnabled = Boolean(input.orderImportEnabled)
+  const markup = normalizeMarkup(input.priceMarkupPercent, store.provider)
+  if (markup !== undefined) changes.priceMarkupPercent = dbNumeric(markup)
+
+  if (Object.keys(changes).length > 0) {
+    await db.orm.public.MarketplaceStore.where({ id }).update(changes as never)
   }
 
-  const updated: MarketplaceStore = {
-    ...store,
-    name: input.name?.trim() || store.name,
-    displayName: input.displayName?.trim() || store.displayName,
-    status: input.status || store.status,
-    environment: input.environment || store.environment,
-    updatedAt: new Date().toISOString(),
-  }
-
-  inMemoryStores.set(id, updated)
-
+  const updated = (await getMarketplaceStoreById(id))!
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.store.updated',
@@ -390,12 +329,15 @@ export async function updateMarketplaceStore(
     entityId: id,
     metadata: {
       provider: updated.provider,
-      name: updated.name,
+      changed: Object.keys(changes),
       status: updated.status,
       environment: updated.environment,
+      stockSyncEnabled: updated.stockSyncEnabled,
+      priceSyncEnabled: updated.priceSyncEnabled,
+      orderImportEnabled: updated.orderImportEnabled,
+      priceMarkupPercent: updated.priceMarkupPercent,
     },
   })
-
   return updated
 }
 
@@ -404,31 +346,21 @@ export async function setStoreStatus(
   status: MarketplaceStoreStatus,
   adminUserId: string
 ): Promise<MarketplaceStore> {
-  const store = inMemoryStores.get(id)
-  if (!store) {
-    throw new MarketplaceError({
-      message: `Mağaza bulunamadı: ${id}`,
-      code: 'NOT_FOUND',
-      provider: 'HEPSIBURADA',
-    })
-  }
+  return updateMarketplaceStore(id, { status }, adminUserId)
+}
 
-  store.status = status
-  store.updatedAt = new Date().toISOString()
-  inMemoryStores.set(id, store)
-
+export async function deleteMarketplaceStore(id: string, adminUserId: string): Promise<void> {
+  const store = await getMarketplaceStoreById(id)
+  if (!store) throw storeNotFound(id)
+  // Credentials go with the store (ON DELETE CASCADE).
+  await db.runtime().execute(db.raw.sql`DELETE FROM marketplace_stores WHERE id = ${id}`.affectedCount().build())
   await logAuditEvent({
     userId: adminUserId,
-    action:
-      status === 'ACTIVE'
-        ? 'marketplace.store.enabled'
-        : 'marketplace.store.disabled',
+    action: 'marketplace.store.deleted',
     entity: 'MarketplaceStore',
     entityId: id,
-    metadata: { provider: store.provider, status },
+    metadata: { provider: store.provider, name: store.name, externalMerchantId: store.externalMerchantId },
   })
-
-  return store
 }
 
 export async function rotateStoreCredentials(
@@ -436,95 +368,63 @@ export async function rotateStoreCredentials(
   input: RotateCredentialsInput,
   adminUserId: string
 ): Promise<{ success: boolean; version: number }> {
-  const store = inMemoryStores.get(id)
-  if (!store) {
-    throw new MarketplaceError({
-      message: `Mağaza bulunamadı: ${id}`,
-      code: 'NOT_FOUND',
-      provider: 'HEPSIBURADA',
-    })
+  const store = await getMarketplaceStoreById(id)
+  if (!store) throw storeNotFound(id)
+
+  const apiKey = input.apiKey?.trim()
+  const apiSecret = input.apiSecret?.trim()
+  if (!apiKey || !apiSecret) {
+    throw validationError('Yeni API anahtarı ve API gizli anahtarı zorunludur.', store.provider)
   }
 
-  if (!input.apiKey || !input.apiSecret) {
-    throw new MarketplaceError({
-      message: 'Yeni API anahtarı ve API gizli anahtarı zorunludur.',
-      code: 'VALIDATION_ERROR',
-      provider: store.provider,
-    })
-  }
+  const version = await writeCredential(id, apiKey, apiSecret)
+  // New keys deserve a fresh connection test; clear the old result.
+  await db.orm.public.MarketplaceStore.where({ id }).update({ lastError: null, lastConnectionAt: null } as never)
 
-  const existingCred = inMemoryCredentials.get(id)
-  const newVersion = (existingCred?.version || 0) + 1
-  const now = new Date().toISOString()
-
-  const updatedCred: MarketplaceCredential = {
-    id: existingCred?.id || `cred-${id}`,
-    storeId: id,
-    apiKeyMasked: '••••••••••••',
-    apiKeyEncrypted: `enc_${Buffer.from(input.apiKey).toString('base64')}`,
-    apiSecretMasked: '••••••••••••',
-    apiSecretEncrypted: `enc_${Buffer.from(input.apiSecret).toString('base64')}`,
-    version: newVersion,
-    lastRotatedAt: now,
-    createdAt: existingCred?.createdAt || now,
-    updatedAt: now,
-  }
-
-  inMemoryCredentials.set(id, updatedCred)
-
-  // Critical rule: Never log plain text secrets to AuditLog
+  // Never log secrets: only the version and the 4-character hint.
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.credentials.rotated',
     entity: 'MarketplaceCredential',
-    entityId: updatedCred.id,
-    metadata: {
-      storeId: id,
-      provider: store.provider,
-      version: newVersion,
-    },
+    entityId: id,
+    metadata: { storeId: id, provider: store.provider, version, keyHint: keyHint(apiKey) },
   })
 
-  return { success: true, version: newVersion }
+  return { success: true, version }
 }
 
 export async function testStoreConnection(
   id: string,
   adminUserId: string
 ): Promise<ConnectionTestResult> {
-  const store = inMemoryStores.get(id)
-  if (!store) {
-    throw new MarketplaceError({
-      message: `Mağaza bulunamadı: ${id}`,
-      code: 'NOT_FOUND',
-      provider: 'HEPSIBURADA',
-    })
+  const store = await getMarketplaceStoreById(id)
+  if (!store) throw storeNotFound(id)
+
+  let result: ConnectionTestResult
+  try {
+    const credential = await getStoreCredentialById(id)
+    const provider = MarketplaceProviderFactory.getProvider(store, credential ?? undefined)
+    result = await provider.testConnection()
+  } catch (err) {
+    result = {
+      success: false,
+      code: 'NOT_CONFIGURED',
+      message: err instanceof Error ? err.message : 'Bağlantı testi yapılamadı.',
+    }
   }
 
-  const credential = inMemoryCredentials.get(id)
-  const provider = MarketplaceProviderFactory.getProvider(store, credential)
-
-  const result = await provider.testConnection()
-
-  store.lastConnectionCheck = new Date().toISOString()
-  if (result.success) {
-    store.lastError = null
-  } else {
-    store.lastError = result.message
-  }
-  store.updatedAt = new Date().toISOString()
-  inMemoryStores.set(id, store)
+  await db.orm.public.MarketplaceStore.where({ id }).update({
+    lastConnectionAt: toDbTimestamp(),
+    lastError: result.success ? null : result.message.slice(0, 1000),
+    ...(result.success && store.status === 'ERROR' ? { status: 'ACTIVE' } : {}),
+  } as never)
 
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.connection.tested',
     entity: 'MarketplaceStore',
     entityId: id,
-    metadata: {
-      provider: store.provider,
-      code: result.code,
-      success: result.success,
-    },
+    metadata: { provider: store.provider, code: result.code, success: result.success },
   })
 
   return result
@@ -557,7 +457,7 @@ export async function createProductMapping(
   input: CreateMappingInput,
   adminUserId: string
 ): Promise<MarketplaceProductMapping> {
-  const store = inMemoryStores.get(input.storeId)
+  const store = await getMarketplaceStoreById(input.storeId)
   if (!store) {
     throw new MarketplaceError({
       message: `Hedef mağaza bulunamadı: ${input.storeId}`,
@@ -578,7 +478,7 @@ export async function createProductMapping(
   }
 
   // Verify internal product existence
-  const product = MOCK_PRODUCTS.find((p) => p.id === input.productId)
+  const product = await db.orm.public.Product.where({ id: input.productId }).select('id', 'name', 'sku', 'barcode').first()
   if (!product) {
     throw new MarketplaceError({
       message: `ZUULAB Ürünü bulunamadı: ${input.productId}`,
@@ -611,7 +511,7 @@ export async function createProductMapping(
     productId: product.id,
     productName: product.name,
     productSku: product.sku,
-    productBarcode: (product as any).barcode || null,
+    productBarcode: product.barcode ?? null,
     externalProductId: input.externalProductId || null,
     externalSku: input.externalSku.trim(),
     externalBarcode: input.externalBarcode || null,
@@ -817,7 +717,7 @@ export async function ingestMarketplaceOrder(
   storeId: string,
   rawPayload: any
 ): Promise<IngestOrderResult> {
-  const store = inMemoryStores.get(storeId)
+  const store = await getMarketplaceStoreById(storeId)
   if (!store) {
     throw new MarketplaceError({
       message: `Pazaryeri mağazası bulunamadı: ${storeId}`,
@@ -826,8 +726,8 @@ export async function ingestMarketplaceOrder(
     })
   }
 
-  const credential = inMemoryCredentials.get(storeId)
-  const provider = MarketplaceProviderFactory.getProvider(store, credential)
+  // Normalizing a payload is pure; credentials are not needed for it.
+  const provider = MarketplaceProviderFactory.getProvider(store)
 
   // Normalize order using provider-specific mapper
   const normalized = provider.normalizeOrder(rawPayload)
@@ -1110,7 +1010,7 @@ export async function getMarketplaceOrders(
   let list = Array.from(inMemoryOrders.values())
 
   if (filters.provider) {
-    const matchingStoreIds = Array.from(inMemoryStores.values())
+    const matchingStoreIds = (await getMarketplaceStores())
       .filter((s) => s.provider === filters.provider)
       .map((s) => s.id)
     list = list.filter((o) => matchingStoreIds.includes(o.storeId))
@@ -1247,34 +1147,14 @@ export async function updateStoreSyncCheckpoint(
     lastError?: string | null
   }
 ): Promise<MarketplaceStore | null> {
-  const store = inMemoryStores.get(storeId)
-  if (!store) return null
-
-  if (updates.lastSuccessfulSync !== undefined) {
-    store.lastSuccessfulSync = updates.lastSuccessfulSync
+  const changes: Record<string, unknown> = {}
+  const syncedUntil = updates.lastSyncCheckpoint ?? updates.lastSuccessfulSync
+  if (syncedUntil) changes.lastOrderSyncAt = toDbTimestamp(new Date(syncedUntil))
+  if (updates.lastError !== undefined) changes.lastError = updates.lastError ? updates.lastError.slice(0, 1000) : null
+  if (Object.keys(changes).length > 0) {
+    await db.orm.public.MarketplaceStore.where({ id: storeId }).update(changes as never)
   }
-  if (updates.lastAttemptedSync !== undefined) {
-    store.lastAttemptedSync = updates.lastAttemptedSync
-  }
-  if (updates.lastSyncCheckpoint !== undefined) {
-    store.lastSyncCheckpoint = updates.lastSyncCheckpoint
-  }
-  if (updates.cursor !== undefined) {
-    store.cursor = updates.cursor
-  }
-  if (updates.windowStart !== undefined) {
-    store.windowStart = updates.windowStart
-  }
-  if (updates.windowEnd !== undefined) {
-    store.windowEnd = updates.windowEnd
-  }
-  if (updates.lastError !== undefined) {
-    store.lastError = updates.lastError
-  }
-  store.updatedAt = new Date().toISOString()
-
-  inMemoryStores.set(storeId, store)
-  return store
+  return getMarketplaceStoreById(storeId)
 }
 
 // ─────────────────────────────────────────────────────────────

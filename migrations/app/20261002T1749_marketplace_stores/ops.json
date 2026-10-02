@@ -1,0 +1,200 @@
+[
+  {
+    "id": "table.marketplace_credentials",
+    "label": "Create table \"marketplace_credentials\"",
+    "summary": "Creates table \"marketplace_credentials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "marketplace_credentials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"marketplace_credentials\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_credentials\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"marketplace_credentials\"",
+        "sql": "CREATE TABLE \"public\".\"marketplace_credentials\" (\n  \"api_key_encrypted\" text NOT NULL,\n  \"api_key_hint\" text NOT NULL,\n  \"api_secret_encrypted\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"rotated_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"store_id\" text NOT NULL,\n  \"version\" int4 DEFAULT 1 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"marketplace_credentials\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_credentials\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.marketplace_stores",
+    "label": "Create table \"marketplace_stores\"",
+    "summary": "Creates table \"marketplace_stores\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "marketplace_stores"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"marketplace_stores\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_stores\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"marketplace_stores\"",
+        "sql": "CREATE TABLE \"public\".\"marketplace_stores\" (\n  \"created_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"environment\" text DEFAULT 'PRODUCTION' NOT NULL,\n  \"external_seller_id\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"last_connection_at\" timestamp(3),\n  \"last_error\" text,\n  \"last_order_sync_at\" timestamp(3),\n  \"name\" text NOT NULL,\n  \"order_import_enabled\" bool DEFAULT true NOT NULL,\n  \"price_markup_percent\" numeric(5,2) DEFAULT '0'::numeric(5,2) NOT NULL,\n  \"price_sync_enabled\" bool DEFAULT false NOT NULL,\n  \"provider\" text NOT NULL,\n  \"status\" text DEFAULT 'ACTIVE' NOT NULL,\n  \"stock_sync_enabled\" bool DEFAULT false NOT NULL,\n  \"updated_at\" timestamp(3) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"marketplace_stores\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_stores\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.marketplace_credentials.marketplace_credentials_store_id_key",
+    "label": "Create index \"marketplace_credentials_store_id_key\" on \"marketplace_credentials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "marketplace_credentials_store_id_key",
+        "table": "marketplace_credentials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"marketplace_credentials_store_id_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_credentials_store_id_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"marketplace_credentials_store_id_key\"",
+        "sql": "CREATE UNIQUE INDEX \"marketplace_credentials_store_id_key\" ON \"public\".\"marketplace_credentials\" (\"store_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"marketplace_credentials_store_id_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_credentials_store_id_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.marketplace_stores.marketplace_stores_provider_external_seller_id_environment_key",
+    "label": "Create index \"marketplace_stores_provider_external_seller_id_environment_key\" on \"marketplace_stores\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "marketplace_stores_provider_external_seller_id_environment_key",
+        "table": "marketplace_stores"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"marketplace_stores_provider_external_seller_id_environment_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_stores_provider_external_seller_id_environment_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"marketplace_stores_provider_external_seller_id_environment_key\"",
+        "sql": "CREATE UNIQUE INDEX \"marketplace_stores_provider_external_seller_id_environment_key\" ON \"public\".\"marketplace_stores\" (\"provider\", \"external_seller_id\", \"environment\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"marketplace_stores_provider_external_seller_id_environment_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_stores_provider_external_seller_id_environment_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.marketplace_credentials.marketplace_credentials_store_id_fkey",
+    "label": "Add foreign key \"marketplace_credentials_store_id_fkey\" on \"marketplace_credentials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "marketplace_credentials_store_id_fkey",
+        "table": "marketplace_credentials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"marketplace_credentials_store_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_credentials_store_id_fkey",
+          "public",
+          "\"public\".\"marketplace_credentials\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"marketplace_credentials_store_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"marketplace_credentials\"\nADD CONSTRAINT \"marketplace_credentials_store_id_fkey\"\nFOREIGN KEY (\"store_id\")\nREFERENCES \"public\".\"marketplace_stores\" (\"id\")\nON DELETE CASCADE\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"marketplace_credentials_store_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_credentials_store_id_fkey",
+          "public",
+          "\"public\".\"marketplace_credentials\""
+        ]
+      }
+    ]
+  }
+]

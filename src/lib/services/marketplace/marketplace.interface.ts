@@ -70,6 +70,16 @@ export interface MarketplaceStore {
   cursor?: string | null
   windowStart?: string | null
   windowEnd?: string | null
+  // Write switches and pricing (DB-backed stores)
+  stockSyncEnabled: boolean
+  priceSyncEnabled: boolean
+  orderImportEnabled: boolean
+  /** Marketplace price = site price * (1 + markup / 100) */
+  priceMarkupPercent: number
+  hasCredentials: boolean
+  /** Last 4 characters of the API key, never the key itself */
+  credentialHint: string | null
+  credentialVersion: number | null
   createdAt: string
   updatedAt: string
 }
@@ -81,6 +91,9 @@ export interface MarketplaceCredential {
   apiKeyEncrypted: string
   apiSecretMasked: string
   apiSecretEncrypted: string
+  /** Decrypted values, only ever held server-side for outgoing API calls. */
+  apiKey: string
+  apiSecret: string
   extraConfig?: Record<string, unknown>
   version: number
   lastRotatedAt: string

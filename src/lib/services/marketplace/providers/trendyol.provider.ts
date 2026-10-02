@@ -18,15 +18,17 @@ import type {
   ShipmentUpdateResult,
 } from '../marketplace.interface'
 import { MarketplaceError } from '../marketplace-error'
+import { connectionFailure, marketplaceFetch, marketplaceHeaders } from './marketplace-http'
 
 export class TrendyolProvider extends BaseMarketplaceProvider {
   public readonly providerType: MarketplaceProviderType = 'TRENDYOL'
   public readonly syncStrategy: MarketplaceSyncStrategy = 'CURSOR'
 
   private get baseUrl(): string {
+    // All Trendyol integration APIs are served from the API gateway.
     return this.store.environment === 'PRODUCTION'
-      ? 'https://api.trendyol.com'
-      : 'https://stageapi.trendyol.com'
+      ? 'https://apigw.trendyol.com'
+      : 'https://stageapigw.trendyol.com'
   }
 
   /**
@@ -40,40 +42,41 @@ export class TrendyolProvider extends BaseMarketplaceProvider {
   }
 
   /**
-   * Tests connection validity.
-   * If credentials are not configured or empty, returns NOT_CONFIGURED.
-   * Never reports fake success if credentials or supplierId are missing.
+   * Real read-only call: lists one approved product of the seller. Succeeds only when
+   * the seller id, API key/secret and environment all match.
    */
   public async testConnection(): Promise<ConnectionTestResult> {
     if (!this.store.externalMerchantId || !this.hasConfiguredCredentials()) {
       return {
         success: false,
         code: 'NOT_CONFIGURED',
-        message: 'Trendyol API anahtarları (API Key / API Secret) veya Satıcı ID (supplierId) tanımlanmamış.',
+        message: 'Trendyol API Key / API Secret veya Satıcı ID tanımlanmamış.',
       }
     }
 
-    const supplierId = this.store.externalMerchantId
-    if (supplierId.length < 3) {
+    const sellerId = encodeURIComponent(this.store.externalMerchantId)
+    const startedAt = Date.now()
+    try {
+      const headers = marketplaceHeaders(this.store, this.credential)
+      const res = await marketplaceFetch(
+        'TRENDYOL',
+        `${this.baseUrl}/integration/product/sellers/${sellerId}/products/approved?page=0&size=1`,
+        { method: 'GET', headers }
+      )
+      const data = (await res.json().catch(() => ({}))) as { totalElements?: number }
       return {
-        success: false,
-        code: 'INVALID_CREDENTIALS',
-        message: 'Trendyol Satıcı ID (supplierId) biçimi geçersiz.',
+        success: true,
+        latencyMs: Date.now() - startedAt,
+        code: 'SUCCESS',
+        message: `Trendyol bağlantısı başarılı (${this.store.environment}).`,
+        details: {
+          sellerId: this.store.externalMerchantId,
+          environment: this.store.environment,
+          approvedProductCount: typeof data.totalElements === 'number' ? data.totalElements : null,
+        },
       }
-    }
-
-    return {
-      success: true,
-      latencyMs: 95,
-      code: 'SUCCESS',
-      message: `Trendyol [${this.store.name}] V2 API mimarisi doğrulandı (Env: ${this.store.environment}, V2 Endpoint: Active).`,
-      details: {
-        provider: 'TRENDYOL',
-        supplierId,
-        environment: this.store.environment,
-        v2Endpoint: this.v2OrdersEndpoint,
-        strategy: 'CURSOR',
-      },
+    } catch (err) {
+      return connectionFailure(err)
     }
   }
 
@@ -345,15 +348,7 @@ export class TrendyolProvider extends BaseMarketplaceProvider {
     // Live production execution
     try {
       const endpoint = `${this.inventoryBaseUrl}/integration/inventory/sellers/${sellerId}/products/price-and-inventory`
-      const authHeader = `Basic ${Buffer.from(
-        `${this.credential?.apiKeyEncrypted}:${this.credential?.apiSecretEncrypted}`
-      ).toString('base64')}`
-
-      const headers: Record<string, string> = {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-        'User-Agent': `${sellerId} - ZuulabIntegration`,
-      }
+      const headers: Record<string, string> = marketplaceHeaders(this.store, this.credential)
 
       const storeFrontCode =
         (this.credential?.extraConfig as any)?.storeFrontCode ||
@@ -477,15 +472,7 @@ export class TrendyolProvider extends BaseMarketplaceProvider {
     // Live production execution
     try {
       const endpoint = `${this.inventoryBaseUrl}/integration/product/sellers/${sellerId}/products/batch-requests/${batchId}`
-      const authHeader = `Basic ${Buffer.from(
-        `${this.credential?.apiKeyEncrypted}:${this.credential?.apiSecretEncrypted}`
-      ).toString('base64')}`
-
-      const headers: Record<string, string> = {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-        'User-Agent': `${sellerId} - ZuulabIntegration`,
-      }
+      const headers: Record<string, string> = marketplaceHeaders(this.store, this.credential)
 
       const storeFrontCode =
         (this.credential?.extraConfig as any)?.storeFrontCode ||

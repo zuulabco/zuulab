@@ -46,150 +46,6 @@ export interface IngestionSyncResult {
 }
 
 /**
- * Generates simulated test orders for SIT / STAGE testing when real external credentials are not connected
- */
-function generateStageTestOrders(
-  provider: MarketplaceProviderType,
-  storeId: string,
-  externalMerchantId: string
-): any[] {
-  const now = new Date()
-  const dateStr = now.toISOString()
-
-  if (provider === 'HEPSIBURADA') {
-    return [
-      {
-        orderNumber: `HB-ORD-${storeId.replace('store-hb-', '')}-101`,
-        packageNumber: `HB-PKG-${storeId.replace('store-hb-', '')}-501`,
-        status: 'InPackaging',
-        customerName: 'Fatma Hepsiburada',
-        customerEmail: 'fatma.hb@example.com',
-        paymentMethod: 'Kredi Kartı',
-        orderDate: dateStr,
-        totalPrice: { amount: 650.0 },
-        currency: 'TRY',
-        cargoCompany: 'HEPSIJET',
-        shippingAddress: {
-          fullName: 'Fatma Hepsiburada',
-          address1: 'İnönü Cad. No: 44',
-          city: 'İzmir',
-          district: 'Konak',
-          phone: '05332221100',
-        },
-        items: [
-          {
-            lineItemId: `hb-item-${storeId}-1`,
-            // This SKU matches default seeded map-1 (ZUU-KD-001-HB)
-            merchantSku: storeId === 'store-hb-1' ? `${MOCK_PRODUCTS[0]?.sku || 'ZUU-KD-001'}-HB` : 'HB-ART-VASE-02',
-            productName: 'Geometrik Vazo (HB Model)',
-            quantity: 1,
-            unitPrice: 650.0,
-            status: 'InPackaging',
-          },
-        ],
-      },
-      {
-        orderNumber: `HB-ORD-${storeId.replace('store-hb-', '')}-102`,
-        packageNumber: `HB-PKG-${storeId.replace('store-hb-', '')}-502`,
-        status: 'Created',
-        customerName: 'Can Yılmaz',
-        customerEmail: 'can.yilmaz@example.com',
-        paymentMethod: 'Havale / EFT',
-        orderDate: dateStr,
-        totalPrice: { amount: 280.0 },
-        currency: 'TRY',
-        cargoCompany: 'YURTICI_KARGO',
-        shippingAddress: {
-          fullName: 'Can Yılmaz',
-          address1: 'Karanfil Sok. No: 7',
-          city: 'Bursa',
-          district: 'Nilüfer',
-          phone: '05443332211',
-        },
-        items: [
-          {
-            lineItemId: `hb-item-${storeId}-2`,
-            // Intentionally unmatched SKU to verify unmatched handling
-            merchantSku: `UNMAPPED-HB-SKU-${storeId}`,
-            productName: 'Özel Seri Baskı (Eşleşmemiş)',
-            quantity: 1,
-            unitPrice: 280.0,
-            status: 'Created',
-          },
-        ],
-      },
-    ]
-  }
-
-  // TRENDYOL (2026 V2 format: stockCode, shipmentPackageId, lineId, paymentMethod)
-  return [
-    {
-      shipmentPackageId: `TY-PKG-${storeId.replace('store-ty-', '')}-801`,
-      orderNumber: `TY-ORD-${storeId.replace('store-ty-', '')}-901`,
-      status: 'Picking',
-      customerFirstName: 'Merve',
-      customerLastName: 'Kaya',
-      customerEmail: 'merve.ty@example.com',
-      paymentMethod: 'CREDIT_CARD',
-      orderDate: dateStr,
-      grossAmount: 890.0,
-      currency: 'TRY',
-      cargoProviderName: 'TRENDYOL_EXPRESS',
-      cargoTrackingNumber: 'TYE99887766',
-      shipmentAddress: {
-        fullName: 'Merve Kaya',
-        address1: 'Bağdat Cad. No: 120',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        phone: '05556667788',
-      },
-      lines: [
-        {
-          lineId: `ty-line-${storeId}-1`,
-          // Matches seeded map-2 (ZUU-KD-002-TY) on store-ty-1
-          stockCode: storeId === 'store-ty-1' ? `${MOCK_PRODUCTS[1]?.sku || 'ZUU-KD-002'}-TY` : 'TY-ART-OBJ-01',
-          productName: 'Masaüstü Düzenleyici (TY Model)',
-          quantity: 1,
-          price: 890.0,
-          orderLineItemStatusName: 'Picking',
-        },
-      ],
-    },
-    {
-      shipmentPackageId: `TY-PKG-${storeId.replace('store-ty-', '')}-802`,
-      orderNumber: `TY-ORD-${storeId.replace('store-ty-', '')}-902`,
-      status: 'Created',
-      customerFirstName: 'Emre',
-      customerLastName: 'Öztürk',
-      customerEmail: 'emre.ozturk@example.com',
-      paymentMethod: 'DEBIT_CARD',
-      orderDate: dateStr,
-      grossAmount: 320.0,
-      currency: 'TRY',
-      cargoProviderName: 'SURAT_KARGO',
-      shipmentAddress: {
-        fullName: 'Emre Öztürk',
-        address1: 'Tunalı Hilmi Cad. No: 15',
-        city: 'Ankara',
-        district: 'Çankaya',
-        phone: '05329998877',
-      },
-      lines: [
-        {
-          lineId: `ty-line-${storeId}-2`,
-          // Intentionally unmatched SKU to verify unmatched handling
-          stockCode: `UNMAPPED-TY-SKU-${storeId}`,
-          productName: 'Bilinmeyen Özel Tasarım Parça',
-          quantity: 1,
-          price: 320.0,
-          orderLineItemStatusName: 'Created',
-        },
-      ],
-    },
-  ]
-}
-
-/**
  * Synchronizes orders for a specific marketplace store with concurrency protection,
  * rate limit exponential backoff, status normalization, and reconciliation.
  */
@@ -208,6 +64,15 @@ export async function syncStoreOrders(
       message: `Mağaza bulunamadı: ${storeId}`,
       code: 'NOT_FOUND',
       provider: 'HEPSIBURADA',
+    })
+  }
+
+  if (!options.samplePayloads || options.samplePayloads.length === 0) {
+    throw new MarketplaceError({
+      message: 'Pazaryeri sipariş içe aktarımı henüz etkin değil.',
+      code: 'NOT_IMPLEMENTED',
+      provider: store.provider,
+      isRetryable: false,
     })
   }
 
@@ -241,18 +106,7 @@ export async function syncStoreOrders(
     const windowStart = store.lastSyncCheckpoint || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
     const windowEnd = now.toISOString()
 
-    // Determine payloads to ingest:
-    // 1. Explicitly provided payloads (for tests or SIT simulations)
-    // 2. STAGE/Test environment simulated orders
-    // 3. Real live API call via provider.fetchOrders (when production credentials exist)
-    let rawOrders: any[] = []
-
-    if (options.samplePayloads && options.samplePayloads.length > 0) {
-      rawOrders = options.samplePayloads
-    } else {
-      // In stage/dev mode without live production credentials, use the stage simulation
-      rawOrders = generateStageTestOrders(store.provider, store.id, store.externalMerchantId)
-    }
+    const rawOrders: any[] = options.samplePayloads
 
     recordsRead = rawOrders.length
 
@@ -369,7 +223,7 @@ export async function syncAllActiveStores(options: {
   adminUserId?: string
 } = {}): Promise<IngestionSyncResult[]> {
   const stores = await getMarketplaceStores()
-  const activeStores = stores.filter((s) => s.status === 'ACTIVE')
+  const activeStores = stores.filter((s) => s.status === 'ACTIVE' && s.orderImportEnabled)
 
   const results: IngestionSyncResult[] = []
 

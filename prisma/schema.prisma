@@ -2364,3 +2364,48 @@ model RateLimit {
   @@index([windowEndsAt])
   @@map("rate_limits")
 }
+
+// ─────────────────────────────────────────────────────────────
+// MARKETPLACES (Trendyol, Hepsiburada) — several stores per marketplace
+// ─────────────────────────────────────────────────────────────
+model MarketplaceStore {
+  id                 String    @id @default(cuid())
+  provider           String // TRENDYOL | HEPSIBURADA
+  name               String
+  // Trendyol seller (supplier) id / Hepsiburada merchant id
+  externalSellerId   String    @map("external_seller_id")
+  environment        String    @default("PRODUCTION") // PRODUCTION | STAGE
+  status             String    @default("ACTIVE") // ACTIVE | INACTIVE | ERROR
+  // Write switches; reading (orders, products) is always allowed for ACTIVE stores.
+  stockSyncEnabled   Boolean   @default(false) @map("stock_sync_enabled")
+  priceSyncEnabled   Boolean   @default(false) @map("price_sync_enabled")
+  orderImportEnabled Boolean   @default(true) @map("order_import_enabled")
+  // Marketplace price = site price * (1 + markup/100), e.g. to cover commission.
+  priceMarkupPercent Decimal   @default(0) @db.Decimal(5, 2) @map("price_markup_percent")
+  lastConnectionAt   DateTime? @map("last_connection_at")
+  lastOrderSyncAt    DateTime? @map("last_order_sync_at")
+  lastError          String?   @map("last_error") @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  credential         MarketplaceCredential?
+
+  @@unique([provider, externalSellerId, environment])
+  @@map("marketplace_stores")
+}
+
+// API credentials, AES-256-GCM encrypted with MARKETPLACE_CREDENTIALS_KEY.
+model MarketplaceCredential {
+  id              String           @id @default(cuid())
+  storeId         String           @unique @map("store_id")
+  apiKeyEncrypted String           @map("api_key_encrypted") @db.Text
+  apiSecretEncrypted String        @map("api_secret_encrypted") @db.Text
+  // Last 4 characters of the key, to recognise it in the admin without decrypting.
+  apiKeyHint      String           @map("api_key_hint")
+  version         Int              @default(1)
+  rotatedAt       DateTime         @default(now()) @map("rotated_at")
+
+  store           MarketplaceStore @relation(fields:[storeId], references:[id], onDelete: Cascade)
+
+  @@map("marketplace_credentials")
+}

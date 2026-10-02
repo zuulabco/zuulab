@@ -133,11 +133,6 @@ export abstract class BaseMarketplaceProvider implements IMarketplaceProvider {
    */
   protected hasConfiguredCredentials(): boolean {
     if (!this.credential) return false
-    return Boolean(
-      this.credential.apiKeyEncrypted &&
-        this.credential.apiKeyEncrypted.trim().length > 0 &&
-        this.credential.apiKeyMasked &&
-        this.credential.apiKeyMasked !== 'NOT_SET'
-    )
+    return Boolean(this.credential.apiKey?.trim() && this.credential.apiSecret?.trim())
   }
 }

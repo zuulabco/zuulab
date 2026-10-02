@@ -1,795 +1,653 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
-import { getMarketplaceStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+
+type Provider = 'HEPSIBURADA' | 'TRENDYOL'
+type Environment = 'STAGE' | 'PRODUCTION'
 
 interface MarketplaceStore {
   id: string
-  provider: 'HEPSIBURADA' | 'TRENDYOL'
+  provider: Provider
   name: string
-  code: string
-  displayName: string
   externalMerchantId: string
-  environment: 'STAGE' | 'PRODUCTION'
+  environment: Environment
   status: 'ACTIVE' | 'INACTIVE' | 'ERROR' | 'PENDING'
+  stockSyncEnabled: boolean
+  priceSyncEnabled: boolean
+  orderImportEnabled: boolean
+  priceMarkupPercent: number
+  hasCredentials: boolean
+  credentialHint: string | null
+  credentialVersion: number | null
   lastSuccessfulSync: string | null
-  lastFailedSync: string | null
   lastError: string | null
   lastConnectionCheck: string | null
-  createdAt: string
+}
+
+interface ConnectionResult {
+  success: boolean
+  message: string
+  code?: string
+  latencyMs?: number
+  details?: Record<string, unknown>
+}
+
+const PROVIDER_LABEL: Record<Provider, string> = { TRENDYOL: 'Trendyol', HEPSIBURADA: 'Hepsiburada' }
+
+// Where each marketplace shows the values, and what they are called there.
+const PROVIDER_FIELDS: Record<Provider, { sellerId: string; apiKey: string; apiSecret: string; help: string }> = {
+  TRENDYOL: {
+    sellerId: 'Satıcı ID (Supplier ID)',
+    apiKey: 'API Key',
+    apiSecret: 'API Secret',
+    help: 'Trendyol Satıcı Paneli → Hesap Bilgilerim → Entegrasyon Bilgileri',
+  },
+  HEPSIBURADA: {
+    sellerId: 'Merchant ID',
+    apiKey: 'API kullanıcı adı',
+    apiSecret: 'API şifresi / servis anahtarı',
+    help: 'Hepsiburada Satıcı Paneli → Hesabım → Entegrasyon Bilgileri',
+  },
+}
+
+interface StoreForm {
+  provider: Provider
+  name: string
+  externalMerchantId: string
+  environment: Environment
+  apiKey: string
+  apiSecret: string
+  priceMarkupPercent: string
+}
+
+const EMPTY_FORM: StoreForm = {
+  provider: 'TRENDYOL',
+  name: '',
+  externalMerchantId: '',
+  environment: 'PRODUCTION',
+  apiKey: '',
+  apiSecret: '',
+  priceMarkupPercent: '0',
+}
+
+function formatDate(value: string | null): string {
+  return value ? new Date(value).toLocaleString('tr-TR') : '—'
 }
 
 export default function AdminMarketplacesPage() {
   const { token, canFetch } = useAuthStore()
   const [stores, setStores] = useState<MarketplaceStore[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterProvider, setFilterProvider] = useState<string>('ALL')
+  const [filterProvider, setFilterProvider] = useState<'ALL' | Provider>('ALL')
+  const [notification, setNotification] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
-  // Action states
   const [testingId, setTestingId] = useState<string | null>(null)
-  const [testResult, setTestResult] = useState<{
-    storeId: string
-    success: boolean
-    message: string
-    code?: string
-    details?: any
-  } | null>(null)
+  const [testResult, setTestResult] = useState<(ConnectionResult & { storeName: string }) | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  // Rotate Modal state
-  const [rotateStore, setRotateStore] = useState<MarketplaceStore | null>(null)
-  const [rotateKey, setRotateKey] = useState('')
-  const [rotateSecret, setRotateSecret] = useState('')
-  const [rotateLoading, setRotateLoading] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState<StoreForm>(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
 
-  // Add Store Modal state
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newProvider, setNewProvider] = useState<'HEPSIBURADA' | 'TRENDYOL'>('HEPSIBURADA')
-  const [newName, setNewName] = useState('')
-  const [newMerchantId, setNewMerchantId] = useState('')
-  const [newEnvironment, setNewEnvironment] = useState<'STAGE' | 'PRODUCTION'>('STAGE')
-  const [newApiKey, setNewApiKey] = useState('')
-  const [newApiSecret, setNewApiSecret] = useState('')
-  const [addLoading, setAddLoading] = useState(false)
+  const [keyStore, setKeyStore] = useState<MarketplaceStore | null>(null)
+  const [keyForm, setKeyForm] = useState({ apiKey: '', apiSecret: '' })
 
-  const [notification, setNotification] = useState<{
-    text: string
-    type: 'success' | 'error'
-  } | null>(null)
+  const [editStore, setEditStore] = useState<MarketplaceStore | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', environment: 'PRODUCTION' as Environment, priceMarkupPercent: '0' })
 
-  const loadStores = () => {
+  const authHeaders = useCallback(
+    (json = false): Record<string, string> => ({
+      Authorization: `Bearer ${token}`,
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+    }),
+    [token]
+  )
+
+  // Initial state is already 'loading'; later reloads refresh the table in place.
+  const loadStores = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
-    fetch('/api/admin/marketplaces/stores', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch('/api/admin/marketplaces/stores', { headers: authHeaders() })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.stores)) {
-          setStores(data.stores)
-        }
+        if (data.success && Array.isArray(data.stores)) setStores(data.stores)
+        else setNotification({ text: data.error || 'Mağazalar yüklenemedi.', type: 'error' })
       })
-      .catch((err) => console.error(err))
+      .catch(() => setNotification({ text: 'Mağazalar yüklenemedi.', type: 'error' }))
       .finally(() => setLoading(false))
-  }
+  }, [canFetch, authHeaders])
 
   useEffect(() => {
     loadStores()
-  }, [token, canFetch, canFetch])
+  }, [loadStores])
 
-  const handleTestConnection = async (storeId: string) => {
-    if (!canFetch) return
-    setTestingId(storeId)
-    setTestResult(null)
+  async function patchStore(store: MarketplaceStore, changes: Record<string, unknown>, successText?: string) {
+    setBusyId(store.id)
     setNotification(null)
-
     try {
-      const res = await fetch(`/api/admin/marketplaces/stores/${storeId}/test`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`/api/admin/marketplaces/stores/${store.id}`, {
+        method: 'PATCH',
+        headers: authHeaders(true),
+        body: JSON.stringify(changes),
       })
       const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Mağaza güncellenemedi.')
+      setStores((list) => list.map((s) => (s.id === store.id ? data.store : s)))
+      if (successText) setNotification({ text: successText, type: 'success' })
+      return true
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Mağaza güncellenemedi.', type: 'error' })
+      return false
+    } finally {
+      setBusyId(null)
+    }
+  }
 
-      if (data.result) {
-        setTestResult({
-          storeId,
-          success: data.result.success,
-          message: data.result.message,
-          code: data.result.code,
-          details: data.result.details,
-        })
-      } else {
-        setTestResult({
-          storeId,
-          success: false,
-          message: data.error || 'Bağlantı testi başarısız oldu.',
-          code: 'PROVIDER_ERROR',
-        })
-      }
-      loadStores()
-    } catch (err: any) {
+  async function handleTest(store: MarketplaceStore) {
+    setTestingId(store.id)
+    setTestResult(null)
+    try {
+      const res = await fetch(`/api/admin/marketplaces/stores/${store.id}/test`, { method: 'POST', headers: authHeaders() })
+      const data = await res.json()
       setTestResult({
-        storeId,
-        success: false,
-        message: err.message || 'Ağ hatası oluştu.',
-        code: 'NETWORK_ERROR',
+        storeName: store.name,
+        ...(data.result ?? { success: false, message: data.error || 'Bağlantı testi yapılamadı.', code: 'PROVIDER_ERROR' }),
       })
+      loadStores()
+    } catch {
+      setTestResult({ storeName: store.name, success: false, message: 'Ağ hatası oluştu.', code: 'NETWORK_ERROR' })
     } finally {
       setTestingId(null)
     }
   }
 
-  const handleRotateCredentials = async (e: React.FormEvent) => {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!canFetch || !rotateStore) return
-
-    setRotateLoading(true)
+    setSaving(true)
     setNotification(null)
-
-    try {
-      const res = await fetch(
-        `/api/admin/marketplaces/stores/${rotateStore.id}/rotate-credentials`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            apiKey: rotateKey,
-            apiSecret: rotateSecret,
-          }),
-        }
-      )
-      const data = await res.json()
-
-      if (data.success) {
-        setNotification({
-          text: `[${rotateStore.name}] API anahtarları v${data.version} olarak döndürüldü.`,
-          type: 'success',
-        })
-        setRotateStore(null)
-        setRotateKey('')
-        setRotateSecret('')
-        loadStores()
-      } else {
-        setNotification({
-          text: data.error || 'Anahtar döndürme başarısız oldu.',
-          type: 'error',
-        })
-      }
-    } catch (err: any) {
-      setNotification({
-        text: err.message || 'İşlem sırasında bir hata oluştu.',
-        type: 'error',
-      })
-    } finally {
-      setRotateLoading(false)
-    }
-  }
-
-  const handleAddStore = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!canFetch) return
-
-    setAddLoading(true)
-    setNotification(null)
-
     try {
       const res = await fetch('/api/admin/marketplaces/stores', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders(true),
         body: JSON.stringify({
-          provider: newProvider,
-          name: newName,
-          externalMerchantId: newMerchantId,
-          environment: newEnvironment,
-          apiKey: newApiKey || undefined,
-          apiSecret: newApiSecret || undefined,
+          provider: form.provider,
+          name: form.name,
+          externalMerchantId: form.externalMerchantId,
+          environment: form.environment,
+          apiKey: form.apiKey || undefined,
+          apiSecret: form.apiSecret || undefined,
+          priceMarkupPercent: Number(form.priceMarkupPercent || 0),
         }),
       })
       const data = await res.json()
-
-      if (data.success) {
-        setNotification({
-          text: `Yeni mağaza "${data.store.name}" başarıyla eklendi.`,
-          type: 'success',
-        })
-        setShowAddModal(false)
-        setNewName('')
-        setNewMerchantId('')
-        setNewApiKey('')
-        setNewApiSecret('')
-        loadStores()
-      } else {
-        setNotification({
-          text: data.error || 'Mağaza oluşturulamadı.',
-          type: 'error',
-        })
-      }
-    } catch (err: any) {
+      if (!data.success) throw new Error(data.error || 'Mağaza oluşturulamadı.')
+      setShowAdd(false)
+      setForm(EMPTY_FORM)
       setNotification({
-        text: err.message || 'Bağlantı hatası.',
-        type: 'error',
+        text: `"${data.store.name}" eklendi.${data.store.hasCredentials ? ' Şimdi "Bağlantı testi" ile anahtarları doğrulayın.' : ''}`,
+        type: 'success',
       })
+      loadStores()
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Mağaza oluşturulamadı.', type: 'error' })
     } finally {
-      setAddLoading(false)
+      setSaving(false)
     }
   }
 
-  const filteredStores = stores.filter((s) => {
-    if (filterProvider === 'ALL') return true
-    return s.provider === filterProvider
-  })
+  async function handleKeys(e: React.FormEvent) {
+    e.preventDefault()
+    if (!keyStore) return
+    setSaving(true)
+    setNotification(null)
+    try {
+      const res = await fetch(`/api/admin/marketplaces/stores/${keyStore.id}/rotate-credentials`, {
+        method: 'POST',
+        headers: authHeaders(true),
+        body: JSON.stringify(keyForm),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Anahtarlar kaydedilemedi.')
+      const store = keyStore
+      setKeyStore(null)
+      setKeyForm({ apiKey: '', apiSecret: '' })
+      setNotification({ text: `${store.name}: API anahtarları şifrelenerek kaydedildi. Bağlantı test ediliyor…`, type: 'success' })
+      loadStores()
+      await handleTest(store)
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Anahtarlar kaydedilemedi.', type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editStore) return
+    setSaving(true)
+    const ok = await patchStore(
+      editStore,
+      {
+        name: editForm.name,
+        environment: editForm.environment,
+        priceMarkupPercent: Number(editForm.priceMarkupPercent || 0),
+      },
+      `${editForm.name} güncellendi.`
+    )
+    setSaving(false)
+    if (ok) setEditStore(null)
+  }
+
+  async function handleDelete(store: MarketplaceStore) {
+    if (!window.confirm(`"${store.name}" mağazası ve kayıtlı API anahtarları silinsin mi?`)) return
+    setBusyId(store.id)
+    try {
+      const res = await fetch(`/api/admin/marketplaces/stores/${store.id}`, { method: 'DELETE', headers: authHeaders() })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Mağaza silinemedi.')
+      setStores((list) => list.filter((s) => s.id !== store.id))
+      setNotification({ text: `"${store.name}" silindi.`, type: 'success' })
+    } catch (err) {
+      setNotification({ text: err instanceof Error ? err.message : 'Mağaza silinemedi.', type: 'error' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const filtered = stores.filter((s) => filterProvider === 'ALL' || s.provider === filterProvider)
+  const count = (p: Provider) => stores.filter((s) => s.provider === p).length
+  const fields = PROVIDER_FIELDS[form.provider]
 
   return (
     <div className={styles.adminPage}>
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.pageTitle}>Pazaryeri Entegrasyon Merkezi</h1>
+          <h1 className={styles.pageTitle}>Pazaryeri Mağazaları</h1>
           <p className={styles.pageSubtitle}>
-            Hepsiburada ve Trendyol mağaza bağlantıları, kimlik doğrulama ve operasyonel durumlar
+            Trendyol ve Hepsiburada mağazalarınızın API bağlantıları ve senkronizasyon ayarları
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className={styles.primaryButton}
-            onClick={() => setShowAddModal(true)}
-          >
-            + Yeni Mağaza Ekle
-          </button>
-        </div>
+        <button className={styles.primaryButton} onClick={() => { setForm(EMPTY_FORM); setShowAdd(true) }}>
+          + Mağaza Ekle
+        </button>
       </div>
 
       {notification && (
         <div
-          style={{
-            padding: '12px 16px',
-            marginBottom: '16px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 500,
-            backgroundColor:
-              notification.type === 'success' ? '#064e3b' : '#7f1d1d',
-            color: notification.type === 'success' ? '#a7f3d0' : '#fecaca',
-            border: `1px solid ${
-              notification.type === 'success' ? '#059669' : '#dc2626'
-            }`,
-          }}
+          role="status"
+          className={`${styles.badge} ${notification.type === 'success' ? styles.badgeSuccess : styles.badgeDanger}`}
+          style={{ display: 'block', padding: '10px 14px', marginBottom: 16, fontSize: 13, whiteSpace: 'normal' }}
         >
           {notification.text}
         </div>
       )}
 
-      {/* Architecture Readiness Notice */}
-      <div
-        style={{
-          background: '#fffbeb',
-          border: '1px solid #fde68a',
-          borderRadius: 'var(--radius-sm)',
-          padding: '14px 16px',
-          marginBottom: '20px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <strong style={{ color: '#b45309', fontSize: '13px' }}>
-            Phase 16 — Marketplace Architecture Foundation
-          </strong>
-        </div>
-        <p style={{ margin: 0, fontSize: '12px', color: '#92400e', lineHeight: '1.5' }}>
-          ZUULAB çoklu mağaza mimarisi (2 Hepsiburada + 2 Trendyol) ve V2 OMS order contract hazırlandı.
-          Güvenlik gereği canlı API anahtarları bağlanmamış olup, operasyonel sipariş akışı ve stok senkronizasyonu
-          Phase 17+ kapsamında canlıya alınacaktır.
-        </p>
-      </div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+        API anahtarları veritabanında şifreli saklanır ve bir daha gösterilmez; yalnızca son 4 karakteri görünür.
+        Stok ve fiyat gönderimi her mağaza için ayrı ayrı açılır. Kapalıyken pazaryerine hiçbir değişiklik yazılmaz.
+      </p>
 
-      {/* Filter Tabs */}
       <div className={styles.operationalTabs}>
-        {(['ALL', 'HEPSIBURADA', 'TRENDYOL'] as const).map((tab) => (
+        {(['ALL', 'TRENDYOL', 'HEPSIBURADA'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setFilterProvider(tab)}
             className={`${styles.operationalTabItem} ${filterProvider === tab ? styles.active : ''}`}
           >
-            {tab === 'ALL'
-              ? 'Tüm Mağazalar'
-              : tab === 'HEPSIBURADA'
-              ? 'Hepsiburada (2)'
-              : 'Trendyol (2)'}
+            {tab === 'ALL' ? `Tümü (${stores.length})` : `${PROVIDER_LABEL[tab]} (${count(tab)})`}
           </button>
         ))}
       </div>
 
-      {/* Stores Table */}
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Mağaza bağlantıları yükleniyor...
-          </div>
-        ) : filteredStores.length === 0 ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Kayıtlı mağaza bulunamadı.
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            Henüz mağaza yok. &quot;+ Mağaza Ekle&quot; ile API bilgilerinizi girin.
           </div>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Pazaryeri</th>
-                <th>Mağaza / Görünüm</th>
-                <th>Satıcı ID</th>
-                <th>Ortam</th>
+                <th>Mağaza</th>
+                <th>Satıcı ID / Ortam</th>
+                <th>API Anahtarı</th>
+                <th>Bağlantı</th>
+                <th>Sipariş al</th>
+                <th>Stok gönder</th>
+                <th>Fiyat gönder</th>
+                <th>Fiyat farkı</th>
                 <th>Durum</th>
-                <th>Son Senkronizasyon</th>
-                <th>Bağlantı Kontrolü</th>
                 <th style={{ textAlign: 'right' }}>İşlemler</th>
               </tr>
             </thead>
             <tbody>
-              {filteredStores.map((store) => (
-                <tr key={store.id}>
-                  <td>
-                    <span
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        backgroundColor:
-                          store.provider === 'HEPSIBURADA'
-                            ? '#ea580c'
-                            : '#f59e0b',
-                        color: '#fff',
-                      }}
-                    >
-                      {store.provider}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {store.name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {store.displayName}
-                    </div>
-                  </td>
-                  <td>
-                    <code style={{ fontSize: '11px', color: 'var(--zuu-blue)', background: 'var(--surface-2)', padding: '2px 5px', borderRadius: 3 }}>
-                      {store.externalMerchantId}
-                    </code>
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        backgroundColor: 'var(--surface-2)',
-                        color: store.environment === 'PRODUCTION' ? '#166534' : '#854d0e',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      {store.environment}
-                    </span>
-                  </td>
-                  <td>
-                    {(() => {
-                      const statusCfg = getMarketplaceStatusConfig(store.status)
-                      return (
-                        <span className={`${styles.badge} ${styles[statusCfg.badgeClass] || styles.badgeNeutral}`}>
-                          {statusCfg.label}
-                        </span>
-                      )
-                    })()}
-                  </td>
-                  <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {store.lastSuccessfulSync ? (
-                      new Date(store.lastSuccessfulSync).toLocaleString('tr-TR')
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Henüz senkronize edilmedi</span>
-                    )}
-                  </td>
-                  <td style={{ fontSize: '11px' }}>
-                    {store.lastConnectionCheck ? (
-                      <div>
-                        <span style={{ color: '#16a34a', fontWeight: 600 }}>Hazır</span>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                          {new Date(store.lastConnectionCheck).toLocaleTimeString('tr-TR')}
-                        </div>
+              {filtered.map((store) => {
+                const busy = busyId === store.id
+                return (
+                  <tr key={store.id}>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{store.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{PROVIDER_LABEL[store.provider]}</div>
+                    </td>
+                    <td>
+                      <code style={{ fontSize: 11 }}>{store.externalMerchantId}</code>
+                      <div style={{ fontSize: 10, color: store.environment === 'PRODUCTION' ? '#166534' : '#854d0e' }}>
+                        {store.environment === 'PRODUCTION' ? 'Canlı' : 'Test (Stage)'}
                       </div>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>Test Edilmedi</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {store.hasCredentials ? (
+                        <>
+                          <code>{store.credentialHint}</code>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>v{store.credentialVersion}</div>
+                        </>
+                      ) : (
+                        <span className={`${styles.badge} ${styles.badgeWarning}`}>Girilmedi</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 11, maxWidth: 220 }}>
+                      {!store.lastConnectionCheck ? (
+                        <span style={{ color: 'var(--text-muted)' }}>Test edilmedi</span>
+                      ) : store.lastError ? (
+                        <span title={store.lastError} style={{ color: '#dc2626', fontWeight: 600 }}>
+                          Hata · {formatDate(store.lastConnectionCheck)}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                          Başarılı · {formatDate(store.lastConnectionCheck)}
+                        </span>
+                      )}
+                    </td>
+                    {(['orderImportEnabled', 'stockSyncEnabled', 'priceSyncEnabled'] as const).map((key) => (
+                      <td key={key}>
+                        <input
+                          type="checkbox"
+                          aria-label={key}
+                          checked={store[key]}
+                          disabled={busy}
+                          onChange={(e) => patchStore(store, { [key]: e.target.checked })}
+                        />
+                      </td>
+                    ))}
+                    <td style={{ fontSize: 12 }}>%{store.priceMarkupPercent.toLocaleString('tr-TR')}</td>
+                    <td>
                       <button
                         type="button"
-                        onClick={() => handleTestConnection(store.id)}
-                        disabled={testingId === store.id}
-                        className={styles.secondaryButton}
-                        style={{ padding: '3px 8px', fontSize: '11px' }}
+                        disabled={busy}
+                        onClick={() => patchStore(store, { status: store.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' })}
+                        className={`${styles.badge} ${store.status === 'ACTIVE' ? styles.badgeSuccess : styles.badgeNeutral}`}
+                        style={{ cursor: 'pointer', border: 'none' }}
+                        title="Aktif/Pasif yap"
                       >
-                        {testingId === store.id ? 'Test Ediliyor...' : 'Bağlantı Testi'}
+                        {store.status === 'ACTIVE' ? 'Aktif' : store.status === 'ERROR' ? 'Hata' : 'Pasif'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRotateStore(store)
-                          setRotateKey('')
-                          setRotateSecret('')
-                        }}
-                        className={styles.secondaryButton}
-                        style={{ padding: '3px 8px', fontSize: '11px' }}
-                      >
-                        Anahtar Döndür
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          disabled={testingId === store.id || !store.hasCredentials}
+                          onClick={() => handleTest(store)}
+                        >
+                          {testingId === store.id ? 'Test ediliyor…' : 'Bağlantı testi'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          onClick={() => { setKeyStore(store); setKeyForm({ apiKey: '', apiSecret: '' }) }}
+                        >
+                          {store.hasCredentials ? 'Anahtarları değiştir' : 'Anahtar gir'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          onClick={() => {
+                            setEditStore(store)
+                            setEditForm({
+                              name: store.name,
+                              environment: store.environment,
+                              priceMarkupPercent: String(store.priceMarkupPercent),
+                            })
+                          }}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.dangerButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          disabled={busy}
+                          onClick={() => handleDelete(store)}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Connection Test Result Modal / Drawer */}
       {testResult && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '90%',
-            }}
-          >
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: '#f8fafc' }}>
-              Bağlantı Mimarisi Doğrulama Sonucu
-            </h3>
+        <div className={styles.modalOverlay} onClick={() => setTestResult(null)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <h3 style={{ marginTop: 0 }}>Bağlantı testi: {testResult.storeName}</h3>
             <div
-              style={{
-                padding: '12px',
-                borderRadius: '6px',
-                fontSize: '13px',
-                backgroundColor: testResult.success
-                  ? 'rgba(16, 185, 129, 0.1)'
-                  : 'rgba(239, 68, 68, 0.1)',
-                border: `1px solid ${
-                  testResult.success ? '#059669' : '#dc2626'
-                }`,
-                color: testResult.success ? '#6ee7b7' : '#fca5a5',
-                marginBottom: '16px',
-              }}
+              className={`${styles.badge} ${testResult.success ? styles.badgeSuccess : styles.badgeDanger}`}
+              style={{ display: 'block', padding: 12, whiteSpace: 'normal', fontSize: 13, lineHeight: 1.5 }}
             >
-              <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                {testResult.success ? 'BAĞLANTI BAŞARILI' : 'BAĞLANTI HATASI'}
-                {testResult.code ? ` (${testResult.code})` : ''}
-              </div>
-              <div>{testResult.message}</div>
+              <strong>{testResult.success ? 'Bağlantı başarılı' : 'Bağlantı başarısız'}</strong>
+              {testResult.code ? ` (${testResult.code})` : ''}
+              {testResult.latencyMs ? ` · ${testResult.latencyMs} ms` : ''}
+              <div style={{ marginTop: 4 }}>{testResult.message}</div>
             </div>
-
             {testResult.details && (
-              <pre
-                style={{
-                  background: '#0f172a',
-                  padding: '12px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  color: '#94a3b8',
-                  overflowX: 'auto',
-                }}
-              >
+              <pre style={{ fontSize: 11, background: 'var(--surface-2)', padding: 10, borderRadius: 4, overflowX: 'auto' }}>
                 {JSON.stringify(testResult.details, null, 2)}
               </pre>
             )}
-
-            <div style={{ textAlign: 'right', marginTop: '16px' }}>
-              <button
-                className={styles.secondaryButton}
-                onClick={() => setTestResult(null)}
-              >
-                Kapat
-              </button>
+            <div style={{ textAlign: 'right', marginTop: 12 }}>
+              <button className={styles.secondaryButton} onClick={() => setTestResult(null)}>Kapat</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Rotate Credentials Modal */}
-      {rotateStore && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '480px',
-              width: '90%',
-            }}
-          >
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#f8fafc' }}>
-              API Anahtarlarını Güvenli Döndür (Rotation)
-            </h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#94a3b8' }}>
-              {rotateStore.name} ({rotateStore.provider}) için yeni API anahtarlarını giriniz.
-              Girdiğiniz anahtarlar şifrelenerek saklanır ve asla açık metin olarak loglanmaz.
+      {showAdd && (
+        <div className={styles.modalOverlay}>
+          <form className={styles.modalContent} onSubmit={handleAdd} style={{ maxWidth: 540 }}>
+            <h3 style={{ marginTop: 0 }}>Mağaza ekle</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Pazaryeri</label>
+                <select
+                  className={styles.select}
+                  value={form.provider}
+                  onChange={(e) => setForm({ ...form, provider: e.target.value as Provider })}
+                >
+                  <option value="TRENDYOL">Trendyol</option>
+                  <option value="HEPSIBURADA">Hepsiburada</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Ortam</label>
+                <select
+                  className={styles.select}
+                  value={form.environment}
+                  onChange={(e) => setForm({ ...form, environment: e.target.value as Environment })}
+                >
+                  <option value="PRODUCTION">Canlı</option>
+                  <option value="STAGE">Test (Stage)</option>
+                </select>
+              </div>
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Mağaza adı (sizin için)</label>
+              <input
+                className={styles.input}
+                required
+                placeholder="Örn: ZUULAB Trendyol Ana Mağaza"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px' }}>
+              Bilgilerin yeri: {fields.help}
             </p>
-
-            <form onSubmit={handleRotateCredentials}>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                  Yeni API Key
-                </label>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>{fields.sellerId}</label>
+              <input
+                className={styles.input}
+                required
+                inputMode="numeric"
+                value={form.externalMerchantId}
+                onChange={(e) => setForm({ ...form, externalMerchantId: e.target.value })}
+              />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>{fields.apiKey}</label>
                 <input
+                  className={styles.input}
                   type="password"
-                  required
-                  placeholder="••••••••••••••••"
-                  value={rotateKey}
-                  onChange={(e) => setRotateKey(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#0f172a',
-                    color: '#fff',
-                    fontSize: '13px',
-                  }}
+                  autoComplete="off"
+                  value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
                 />
               </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                  Yeni API Secret
-                </label>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>{fields.apiSecret}</label>
                 <input
+                  className={styles.input}
                   type="password"
-                  required
-                  placeholder="••••••••••••••••"
-                  value={rotateSecret}
-                  onChange={(e) => setRotateSecret(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#0f172a',
-                    color: '#fff',
-                    fontSize: '13px',
-                  }}
+                  autoComplete="off"
+                  value={form.apiSecret}
+                  onChange={(e) => setForm({ ...form, apiSecret: e.target.value })}
                 />
               </div>
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setRotateStore(null)}
-                  disabled={rotateLoading}
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  className={styles.primaryButton}
-                  disabled={rotateLoading}
-                >
-                  {rotateLoading ? 'Döndürülüyor...' : 'Anahtarları Güncelle'}
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Fiyat farkı (%): pazaryeri fiyatı = site fiyatı × (1 + fark/100)</label>
+              <input
+                className={styles.input}
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={form.priceMarkupPercent}
+                onChange={(e) => setForm({ ...form, priceMarkupPercent: e.target.value })}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setShowAdd(false)} disabled={saving}>
+                İptal
+              </button>
+              <button type="submit" className={styles.primaryButton} disabled={saving}>
+                {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
-      {/* Add Store Modal */}
-      {showAddModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '520px',
-              width: '90%',
-            }}
-          >
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#f8fafc' }}>
-              Yeni Pazaryeri Mağazası Ekle
-            </h3>
+      {keyStore && (
+        <div className={styles.modalOverlay}>
+          <form className={styles.modalContent} onSubmit={handleKeys} style={{ maxWidth: 480 }}>
+            <h3 style={{ marginTop: 0 }}>{keyStore.name}: API anahtarları</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {PROVIDER_FIELDS[keyStore.provider].help}. Anahtarlar şifrelenerek saklanır; kayıttan sonra bağlantı
+              otomatik test edilir.
+            </p>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>{PROVIDER_FIELDS[keyStore.provider].apiKey}</label>
+              <input
+                className={styles.input}
+                type="password"
+                autoComplete="off"
+                required
+                value={keyForm.apiKey}
+                onChange={(e) => setKeyForm({ ...keyForm, apiKey: e.target.value })}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>{PROVIDER_FIELDS[keyStore.provider].apiSecret}</label>
+              <input
+                className={styles.input}
+                type="password"
+                autoComplete="off"
+                required
+                value={keyForm.apiSecret}
+                onChange={(e) => setKeyForm({ ...keyForm, apiSecret: e.target.value })}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setKeyStore(null)} disabled={saving}>
+                İptal
+              </button>
+              <button type="submit" className={styles.primaryButton} disabled={saving}>
+                {saving ? 'Kaydediliyor…' : 'Kaydet ve test et'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-            <form onSubmit={handleAddStore}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                    Pazaryeri Sağlayıcısı
-                  </label>
-                  <select
-                    value={newProvider}
-                    onChange={(e) => setNewProvider(e.target.value as any)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '4px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#0f172a',
-                      color: '#fff',
-                      fontSize: '13px',
-                    }}
-                  >
-                    <option value="HEPSIBURADA">Hepsiburada</option>
-                    <option value="TRENDYOL">Trendyol</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                    Çalışma Ortamı
-                  </label>
-                  <select
-                    value={newEnvironment}
-                    onChange={(e) => setNewEnvironment(e.target.value as any)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '4px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#0f172a',
-                      color: '#fff',
-                      fontSize: '13px',
-                    }}
-                  >
-                    <option value="STAGE">STAGE (Test)</option>
-                    <option value="PRODUCTION">PRODUCTION</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                  Mağaza Tanım Adı
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Örn: ZUULAB Hepsiburada Mağaza 3"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#0f172a',
-                    color: '#fff',
-                    fontSize: '13px',
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                  {newProvider === 'HEPSIBURADA' ? 'Satıcı ID (merchantId)' : 'Tedarikçi ID (supplierId)'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Örn: hb-merch-003 veya 100984"
-                  value={newMerchantId}
-                  onChange={(e) => setNewMerchantId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #475569',
-                    backgroundColor: '#0f172a',
-                    color: '#fff',
-                    fontSize: '13px',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                    API Key (Opsiyonel)
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="••••••••••••••••"
-                    value={newApiKey}
-                    onChange={(e) => setNewApiKey(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '4px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#0f172a',
-                      color: '#fff',
-                      fontSize: '13px',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#cbd5e1', marginBottom: '4px' }}>
-                    API Secret (Opsiyonel)
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="••••••••••••••••"
-                    value={newApiSecret}
-                    onChange={(e) => setNewApiSecret(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '4px',
-                      border: '1px solid #475569',
-                      backgroundColor: '#0f172a',
-                      color: '#fff',
-                      fontSize: '13px',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setShowAddModal(false)}
-                  disabled={addLoading}
-                >
-                  İptal
-                </button>
-                <button
-                  type="submit"
-                  className={styles.primaryButton}
-                  disabled={addLoading}
-                >
-                  {addLoading ? 'Kaydediliyor...' : 'Mağazayı Kaydet'}
-                </button>
-              </div>
-            </form>
-          </div>
+      {editStore && (
+        <div className={styles.modalOverlay}>
+          <form className={styles.modalContent} onSubmit={handleEdit} style={{ maxWidth: 480 }}>
+            <h3 style={{ marginTop: 0 }}>Mağazayı düzenle</h3>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Mağaza adı</label>
+              <input
+                className={styles.input}
+                required
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Ortam</label>
+              <select
+                className={styles.select}
+                value={editForm.environment}
+                onChange={(e) => setEditForm({ ...editForm, environment: e.target.value as Environment })}
+              >
+                <option value="PRODUCTION">Canlı</option>
+                <option value="STAGE">Test (Stage)</option>
+              </select>
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Fiyat farkı (%)</label>
+              <input
+                className={styles.input}
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={editForm.priceMarkupPercent}
+                onChange={(e) => setEditForm({ ...editForm, priceMarkupPercent: e.target.value })}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setEditStore(null)} disabled={saving}>
+                İptal
+              </button>
+              <button type="submit" className={styles.primaryButton} disabled={saving}>
+                {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -18,6 +18,7 @@ import type {
   ShipmentUpdateResult,
 } from '../marketplace.interface'
 import { MarketplaceError } from '../marketplace-error'
+import { connectionFailure, marketplaceFetch, marketplaceHeaders } from './marketplace-http'
 
 export class HepsiburadaProvider extends BaseMarketplaceProvider {
   public readonly providerType: MarketplaceProviderType = 'HEPSIBURADA'
@@ -30,41 +31,41 @@ export class HepsiburadaProvider extends BaseMarketplaceProvider {
   }
 
   /**
-   * Tests connection validity.
-   * If credentials are not configured or empty, returns NOT_CONFIGURED.
-   * Never reports fake success if credentials or merchantId are missing.
+   * Real read-only call: lists one listing of the merchant. Succeeds only when the
+   * merchant id, API username/password and environment all match.
    */
   public async testConnection(): Promise<ConnectionTestResult> {
     if (!this.store.externalMerchantId || !this.hasConfiguredCredentials()) {
       return {
         success: false,
         code: 'NOT_CONFIGURED',
-        message: 'Hepsiburada API anahtarları veya Satıcı ID (merchantId) tanımlanmamış.',
+        message: 'Hepsiburada API kullanıcı adı / şifresi veya Merchant ID tanımlanmamış.',
       }
     }
 
-    // When real credentials are supplied in Phase 17, a live handshake ping to /merchants/{merchantId} will run.
-    // In Phase 16 without production credentials, validate structural integrity safely:
-    const merchantId = this.store.externalMerchantId
-    if (merchantId.length < 3) {
+    const merchantId = encodeURIComponent(this.store.externalMerchantId)
+    const startedAt = Date.now()
+    try {
+      const headers = marketplaceHeaders(this.store, this.credential)
+      const res = await marketplaceFetch(
+        'HEPSIBURADA',
+        `${this.inventoryBaseUrl}/listings/merchantid/${merchantId}?offset=0&limit=1`,
+        { method: 'GET', headers }
+      )
+      const data = (await res.json().catch(() => ({}))) as { totalCount?: number }
       return {
-        success: false,
-        code: 'INVALID_CREDENTIALS',
-        message: 'Hepsiburada Satıcı ID (merchantId) biçimi geçersiz.',
+        success: true,
+        latencyMs: Date.now() - startedAt,
+        code: 'SUCCESS',
+        message: `Hepsiburada bağlantısı başarılı (${this.store.environment}).`,
+        details: {
+          merchantId: this.store.externalMerchantId,
+          environment: this.store.environment,
+          listingCount: typeof data.totalCount === 'number' ? data.totalCount : null,
+        },
       }
-    }
-
-    return {
-      success: true,
-      latencyMs: 120,
-      code: 'SUCCESS',
-      message: `Hepsiburada [${this.store.name}] mağaza bağlantı mimarisi doğrulandı (Env: ${this.store.environment}).`,
-      details: {
-        provider: 'HEPSIBURADA',
-        merchantId,
-        environment: this.store.environment,
-        baseUrl: this.baseUrl,
-      },
+    } catch (err) {
+      return connectionFailure(err)
     }
   }
 
@@ -297,17 +298,9 @@ export class HepsiburadaProvider extends BaseMarketplaceProvider {
     // Live production execution
     try {
       const endpoint = `${this.inventoryBaseUrl}/listings/merchantid/${merchantId}/inventory-uploads`
-      const authHeader = `Basic ${Buffer.from(
-        `${this.credential?.apiKeyEncrypted}:${this.credential?.apiSecretEncrypted}`
-      ).toString('base64')}`
-
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          Authorization: authHeader,
-          'Content-Type': 'application/json',
-          'User-Agent': `${merchantId} - ZuulabIntegration`,
-        },
+        headers: marketplaceHeaders(this.store, this.credential),
         body: JSON.stringify(payload),
       })
 
@@ -417,16 +410,9 @@ export class HepsiburadaProvider extends BaseMarketplaceProvider {
     // Live production execution
     try {
       const endpoint = `${this.inventoryBaseUrl}/listings/merchantid/${merchantId}/inventory-uploads/id/${batchId}`
-      const authHeader = `Basic ${Buffer.from(
-        `${this.credential?.apiKeyEncrypted}:${this.credential?.apiSecretEncrypted}`
-      ).toString('base64')}`
-
       const res = await fetch(endpoint, {
         method: 'GET',
-        headers: {
-          Authorization: authHeader,
-          'User-Agent': `${merchantId} - ZuulabIntegration`,
-        },
+        headers: marketplaceHeaders(this.store, this.credential),
       })
 
       if (!res.ok) {

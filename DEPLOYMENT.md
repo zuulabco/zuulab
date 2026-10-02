@@ -50,6 +50,7 @@ Neon PostgreSQL (Prisma ORM 8)
 | `SURAT_CUSTOMER_CODE`, `SURAT_PASSWORD`, `SURAT_WEB_SERVICE_URL` | yes | Sürat Kargo web service |
 | `SHIPPING_WEBHOOK_SECRET` | yes | HMAC key for carrier webhooks; without it carrier webhooks are rejected |
 | `TRENDYOL_WEBHOOK_SECRET`, `HEPSIBURADA_WEBHOOK_SECRET` | when used | Credential the marketplace echoes on webhooks |
+| `MARKETPLACE_CREDENTIALS_KEY` | for marketplaces | 32 random bytes (`openssl rand -base64 32`); encrypts the marketplace API keys stored in the database. Changing it makes saved keys unreadable (re-enter them in the admin) |
 | `EMAIL_PROVIDER` | yes | `RESEND` in production (`MOCK` sends nothing) |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | yes | Resend key and verified sender |
 | `SUPPORT_INBOX_EMAIL` | yes | Receives new support tickets and contact-form messages |
@@ -81,6 +82,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261002T1025_coupon_limits` — coupon max discount, usage uniqueness
    - `20261002T1454_support_message_authors` — support message authors, ticket channel
    - `20261002T1456_rate_limits` — shared rate-limit counters
+   - `20261002T1749_marketplace_stores` — marketplace stores and encrypted API credentials
 
 ---
 
