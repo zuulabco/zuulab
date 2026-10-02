@@ -27,6 +27,41 @@ export default function PayTRClient() {
 
   const iframeSrc = token ? `https://www.paytr.com/odeme/guvenli/${encodeURIComponent(token)}` : ''
 
+  // PayTR redirects the top window when payment finishes, but browsers may block a
+  // cross-origin frame from doing that. The callback has already updated the order,
+  // so watch it and move the customer on ourselves.
+  useEffect(() => {
+    if (!orderNumber || isSimulated) return
+    const PAID = new Set(['PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED'])
+    const order = encodeURIComponent(orderNumber)
+    const startedAt = Date.now()
+    let stopped = false
+
+    const check = async () => {
+      if (stopped || Date.now() - startedAt > 35 * 60 * 1000) return
+      try {
+        const res = await fetch(`/api/payments/status?order=${order}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (stopped || !data.success) return
+        if (PAID.has(data.status)) {
+          stopped = true
+          window.location.replace(`/odeme/basarili?order=${order}`)
+        } else if (data.status === 'PAYMENT_FAILED') {
+          stopped = true
+          window.location.replace(`/odeme/basarisiz?order=${order}`)
+        }
+      } catch {
+        // transient network error; try again on the next tick
+      }
+    }
+
+    const interval = setInterval(check, 4000)
+    return () => {
+      stopped = true
+      clearInterval(interval)
+    }
+  }, [orderNumber, isSimulated])
+
   const handleScriptLoad = () => {
     if (window.iFrameResize && !resizerInitializedRef.current) {
       try {
@@ -160,6 +195,10 @@ export default function PayTRClient() {
           src={iframeSrc}
           id="paytriframe"
           title="PayTR 3D Secure Güvenli Ödeme Ekranı"
+          // Explicitly lets PayTR send the customer to the result page when payment
+          // finishes; without allow-top-navigation Chrome blocks that redirect. The
+          // other tokens keep PayTR and the bank's 3D Secure page fully working.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation"
           className={styles.iframe}
           scrolling="no"
           onLoad={handleIframeLoad}

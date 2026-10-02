@@ -1,6 +1,7 @@
 import 'server-only'
 import crypto from 'crypto'
 import { normalizeIp } from '@/lib/config/maintenance'
+import { getPublicOrigin } from '@/lib/config/app-url'
 import type {
   PaymentProvider,
   PaymentSessionRequest,
@@ -169,9 +170,10 @@ export class PayTRPaymentProvider implements PaymentProvider {
 
     const paymentId = `paytr_${Date.now()}_${Math.floor(Math.random() * 10000)}`
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString()
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const merchantOkUrl = request.merchantOkUrl || `${appUrl}/odeme/basarili?order=${request.orderNumber}`
-    const merchantFailUrl = request.merchantFailUrl || `${appUrl}/odeme/basarisiz?order=${request.orderNumber}`
+    const appUrl = getPublicOrigin()
+    const orderParam = encodeURIComponent(request.orderNumber)
+    const merchantOkUrl = request.merchantOkUrl || `${appUrl}/odeme/basarili?order=${orderParam}`
+    const merchantFailUrl = request.merchantFailUrl || `${appUrl}/odeme/basarisiz?order=${orderParam}`
 
     // If live PayTR credentials are configured, request token from PayTR API
     if (this.isLiveConfigured) {
@@ -351,6 +353,63 @@ export class PayTRPaymentProvider implements PaymentProvider {
       transactionRef,
       failureReason,
       rawPayload: payload,
+    }
+  }
+
+  /**
+   * PayTR Status Inquiry (https://dev.paytr.com/durum-sorgu), used to reconcile a
+   * payment whose notification never arrived.
+   *
+   * `status: "success"` describes the query; PayTR answers err_no 004 ("merchant_oid
+   * ile basarili odeme bulunamadi") when there is no successful payment. A payment is
+   * reported as paid only when the success response also carries a payment date, a
+   * TL currency and the paid total; anything else is "unknown" and must not change
+   * the order.
+   */
+  async queryPaymentStatus(
+    merchantOid: string
+  ): Promise<
+    | { state: 'PAID'; paymentTotal: number; paymentAmount: number; installmentCount?: number; raw: Record<string, unknown> }
+    | { state: 'UNKNOWN'; reason: string }
+  > {
+    if (!this.isLiveConfigured) return { state: 'UNKNOWN', reason: 'PayTR credentials not configured' }
+
+    const paytrToken = crypto
+      .createHmac('sha256', this.merchantKey)
+      .update(`${this.merchantId}${merchantOid}${this.merchantSalt}`)
+      .digest('base64')
+
+    let data: Record<string, unknown>
+    try {
+      const res = await fetch('https://www.paytr.com/odeme/durum-sorgu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ merchant_id: this.merchantId, merchant_oid: merchantOid, paytr_token: paytrToken }).toString(),
+        signal: AbortSignal.timeout(10_000),
+      })
+      data = (await res.json()) as Record<string, unknown>
+    } catch (err) {
+      return { state: 'UNKNOWN', reason: `status query failed: ${String(err)}` }
+    }
+
+    if (data.status !== 'success') {
+      return { state: 'UNKNOWN', reason: `${data.err_no ?? ''} ${data.err_msg ?? 'no successful payment'}`.trim() }
+    }
+
+    const paymentTotal = Number(data.payment_total)
+    const paymentAmount = Number(data.payment_amount)
+    const currency = String(data.currency ?? '').toUpperCase()
+    if (!data.payment_date || !Number.isFinite(paymentTotal) || paymentTotal <= 0 || (currency !== 'TL' && currency !== 'TRY')) {
+      return { state: 'UNKNOWN', reason: 'incomplete status response' }
+    }
+
+    const taksit = Number(data.taksit)
+    return {
+      state: 'PAID',
+      paymentTotal,
+      paymentAmount,
+      installmentCount: Number.isFinite(taksit) && taksit > 0 ? taksit : undefined,
+      raw: data,
     }
   }
 

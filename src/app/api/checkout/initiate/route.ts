@@ -4,6 +4,7 @@ import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { CheckoutError, createOrder, updateOrderStatus } from '@/lib/services/orders.service'
 import { cleanupExpiredReservations, initiatePayment } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
+import { getPublicOrigin } from '@/lib/config/app-url'
 import {
   createOrderAccessToken,
   ORDER_ACCESS_COOKIE_NAME,
@@ -122,6 +123,7 @@ export async function POST(request: Request) {
           phone: effectiveShippingAddress.phone,
         },
         ipAddress: clientIp,
+        returnOrigin: getPublicOrigin(request),
       })
     } catch (err) {
       // No session means the customer cannot pay; give the stock back right away.

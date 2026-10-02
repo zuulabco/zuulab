@@ -5,7 +5,8 @@ import { round2 } from '@/lib/pricing/money'
 import { dbNumeric } from '@/lib/db/numeric'
 import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
 import { getPaymentProvider } from './provider.factory'
-import { buildMerchantOid } from './paytr.provider'
+import { getPublicOrigin } from '@/lib/config/app-url'
+import { buildMerchantOid, PayTRPaymentProvider } from './paytr.provider'
 import type { PaymentProviderName, PaymentStatusName } from './payment.interface'
 import {
   PAYMENT_HOLD_MINUTES,
@@ -106,6 +107,8 @@ export async function initiatePayment(params: {
   ipAddress?: string
   attemptNumber?: number
   clientExpectedTotal?: number
+  /** Origin the customer is on; PayTR sends the browser back there after payment. */
+  returnOrigin?: string
 }) {
   const order = await findOrderByNumber(params.orderNumber)
   if (!order) {
@@ -132,9 +135,13 @@ export async function initiatePayment(params: {
   const merchantOid = buildMerchantOid(order.orderNumber, attemptNumber)
   const provider = getPaymentProvider()
 
+  const returnBase = params.returnOrigin || getPublicOrigin()
+  const orderParam = encodeURIComponent(order.orderNumber)
   const sessionResult = await provider.createSession({
     orderNumber: order.orderNumber,
     merchantOid,
+    merchantOkUrl: `${returnBase}/odeme/basarili?order=${orderParam}`,
+    merchantFailUrl: `${returnBase}/odeme/basarisiz?order=${orderParam}`,
     amount: order.totalAmount,
     currency: 'TRY',
     attemptNumber,
@@ -378,6 +385,57 @@ async function handleFailure(payment: StoredPayment, order: StoredOrder, failure
   return { success: false, message: reason, orderNumber: order.orderNumber, paymentId: payment.id }
 }
 
+const lastReconcileAt = new Map<string, number>()
+
+/**
+ * Asks PayTR whether an unpaid order was in fact paid, for when its notification
+ * never arrived (wrong notification URL, outage, redirect). A confirmed payment goes
+ * through the same success path as a callback, so it is idempotent with one.
+ * Throttled per order per instance, since the payment page polls.
+ */
+export async function reconcileOrderPayment(
+  orderNumber: string,
+  options: { minIntervalMs?: number } = {}
+): Promise<{ reconciled: boolean }> {
+  const order = await findOrderByNumber(orderNumber)
+  if (!order || !['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes(order.status)) return { reconciled: false }
+
+  const minInterval = options.minIntervalMs ?? 15_000
+  const last = lastReconcileAt.get(order.id) ?? 0
+  if (Date.now() - last < minInterval) return { reconciled: false }
+  lastReconcileAt.set(order.id, Date.now())
+
+  const provider = getPaymentProvider()
+  if (!(provider instanceof PayTRPaymentProvider)) return { reconciled: false }
+
+  const attempts = await paymentQuery()
+    .where({ orderId: order.id })
+    .orderBy((p) => p.attemptNumber.desc())
+    .limit(3)
+    .all()
+
+  for (const row of attempts) {
+    if (!row.merchantOid || !['PENDING', 'CANCELLED', 'PROCESSING'].includes(row.status)) continue
+    const result = await provider.queryPaymentStatus(row.merchantOid)
+    if (result.state !== 'PAID') continue
+
+    await logAuditEvent({
+      action: 'PAYMENT_RECONCILED',
+      entity: 'Payment',
+      entityId: row.id,
+      metadata: { orderNumber, merchantOid: row.merchantOid, paymentTotal: result.paymentTotal },
+    })
+    await handleSuccess(toStoredPayment(row), order, {
+      amount: result.paymentTotal,
+      installmentCount: result.installmentCount,
+      transactionRef: `status-query:${row.merchantOid}`,
+      rawPayload: result.raw,
+    })
+    return { reconciled: true }
+  }
+  return { reconciled: false }
+}
+
 /** Keeps the provider payload for support, minus the signature. */
 function sanitizeRaw(raw: Record<string, unknown>): Record<string, unknown> {
   const rest = { ...raw }
@@ -392,6 +450,7 @@ function sanitizeRaw(raw: Record<string, unknown>): Record<string, unknown> {
 export async function retryPayment(params: {
   orderNumber: string
   ipAddress?: string
+  returnOrigin?: string
 }) {
   const order = await findOrderByNumber(params.orderNumber)
   if (!order) {
@@ -432,6 +491,7 @@ export async function retryPayment(params: {
       phone: order.shippingAddressSnapshot.phone,
     },
     ipAddress: params.ipAddress,
+    returnOrigin: params.returnOrigin,
   })
 
   await logAuditEvent({
@@ -463,6 +523,13 @@ export async function cleanupExpiredReservations(limit = 100): Promise<{
 
   const expiredOrders: string[] = []
   for (const order of expired) {
+    // Never expire an order PayTR actually charged because its notification was lost.
+    const { reconciled } = await reconcileOrderPayment(order.orderNumber, { minIntervalMs: 0 }).catch((err) => {
+      console.warn(`[payment.service] Reconcile before expiry failed for ${order.orderNumber}:`, err)
+      return { reconciled: false }
+    })
+    if (reconciled) continue
+
     const open = await db.orm.public.Payment.where({ orderId: order.id, status: 'PENDING' }).all()
     for (const p of open) {
       if (await transitionPayment(p.id, ['PENDING'], 'CANCELLED')) {

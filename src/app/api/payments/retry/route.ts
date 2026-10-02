@@ -4,6 +4,7 @@ import { authenticateRequest } from '@/lib/services/auth.service'
 import { getOrderByNumber } from '@/lib/services/orders.service'
 import { hasOrderAccess } from '@/lib/services/session.service'
 import { getClientIp } from '@/lib/config/maintenance'
+import { getPublicOrigin } from '@/lib/config/app-url'
 
 /**
  * Payment Retry Endpoint
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     const sessionResult = await retryPayment({
       orderNumber: order.orderNumber,
       ipAddress: getClientIp(new Headers(request.headers)),
+      returnOrigin: getPublicOrigin(request),
     })
 
     return NextResponse.json({
