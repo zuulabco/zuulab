@@ -1,40 +1,39 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
+import { db } from '@/prisma/db'
+import { dbNumeric } from '@/lib/db/numeric'
+import { dbTimestampToIso } from '@/lib/db/time'
 import { logAuditEvent } from './admin.service'
-import { getMaterials, getMaterialByName, getProductCostProfile } from './product-economics.service'
-import { DailyOperationsService, type ProductionRecommendationItem } from './daily-operations.service'
-import { getProductionOrders } from './production.service'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
 import type { AuthUser } from './auth.service'
 
-// ─────────────────────────────────────────────────────────────
-// TYPES & ENUMS
-// ─────────────────────────────────────────────────────────────
+/**
+ * Filament (and other print material) stock, in grams.
+ *
+ * Every change is one locked transaction that writes a movement row; production
+ * consumption carries an idempotency key, so a job can never deduct twice. Stock may
+ * go below zero when more was used than recorded — that is shown, not hidden.
+ * "Reserved" grams are what open print jobs (planned/queued/printing) will still use.
+ */
 
-export type MaterialMovementType =
-  | 'PURCHASE'
-  | 'MANUAL_ADJUSTMENT'
-  | 'PRODUCTION_CONSUMPTION'
-  | 'WASTE'
-  | 'RETURN'
-
-export type MaterialReadinessStatus = 'READY' | 'LOW' | 'BLOCKED' | 'UNKNOWN'
+export type MaterialMovementType = 'PURCHASE' | 'MANUAL_ADJUSTMENT' | 'PRODUCTION_CONSUMPTION' | 'WASTE' | 'RETURN'
+export type MaterialStatus = 'OK' | 'LOW' | 'OUT'
 
 export interface MaterialStockItem {
   id: string
-  storeId?: string | null
-  materialProfileId?: string | null
   materialName: string
   color: string | null
   quantityGrams: number
   minimumQuantityGrams: number
-  location?: string | null
+  location: string | null
   isActive: boolean
+  pricePerKgTl: number | null
+  totalValueTl: number | null
+  /** Grams open print jobs still need */
+  reservedGrams: number
+  /** quantity − reserved */
+  freeGrams: number
+  status: MaterialStatus
   createdAt: string
   updatedAt: string
-  // Operational Economics
-  pricePerKgTl?: number | null
-  totalValueTl?: number | null
 }
 
 export interface MaterialStockMovementItem {
@@ -45,53 +44,9 @@ export interface MaterialStockMovementItem {
   previousQuantityGrams: number
   newQuantityGrams: number
   reason: string
-  reference?: string | null
-  idempotencyKey?: string | null
+  reference: string | null
   createdBy: string
   createdAt: string
-}
-
-export interface MaterialReadinessItem {
-  materialName: string
-  color: string | null
-  availableGrams: number
-  requiredGrams: number
-  minimumGrams: number
-  remainingGrams: number
-  missingGrams: number
-  status: MaterialReadinessStatus
-  stockId?: string | null
-  pricePerKgTl?: number | null
-  estimatedRequiredCostTl?: number | null
-  affectedProductsCount: number
-  isBlocked: boolean
-}
-
-export interface MaterialProductionBlocker {
-  productId: string
-  productName: string
-  sku: string
-  productionQuantity: number
-  materialName: string
-  color: string | null
-  requiredGrams: number
-  availableGrams: number
-  missingGrams: number
-  status: MaterialReadinessStatus
-  actionUrl: string
-}
-
-export interface MaterialReadinessSummary {
-  totalMaterialGrams: number
-  totalMaterialValueTl: number
-  criticalMaterialCount: number
-  blockingMaterialCount: number
-  todayRequiredGrams: number
-  productionDemandCount: number
-  producibleCount: number
-  blockedCount: number
-  materials: MaterialReadinessItem[]
-  blockers: MaterialProductionBlocker[]
 }
 
 export interface CreateMaterialStockInput {
@@ -100,16 +55,16 @@ export interface CreateMaterialStockInput {
   quantityGrams?: number
   minimumQuantityGrams?: number
   location?: string | null
-  materialProfileId?: string | null
-  reason?: string
-  idempotencyKey?: string
+  pricePerKgTl?: number | null
 }
 
 export interface UpdateMaterialStockInput {
+  materialName?: string
   color?: string | null
   minimumQuantityGrams?: number
   location?: string | null
   isActive?: boolean
+  pricePerKgTl?: number | null
 }
 
 export interface AdjustMaterialStockInput {
@@ -120,999 +75,299 @@ export interface AdjustMaterialStockInput {
   idempotencyKey?: string
 }
 
-// ─────────────────────────────────────────────────────────────
-// IN-MEMORY STORAGE (Neutral Test & Dev Fallback)
-// ─────────────────────────────────────────────────────────────
-
-const inMemoryStocks: Map<string, MaterialStockItem> = new Map()
-const inMemoryMovements: Map<string, MaterialStockMovementItem[]> = new Map()
-const seenAdjustmentIdempotencyKeys: Set<string> = new Set()
-
-// Seed default initial stocks for Zuulab workshop
-const DEFAULT_INITIAL_STOCKS: Array<Omit<MaterialStockItem, 'pricePerKgTl' | 'totalValueTl'>> = [
-  {
-    id: 'mat-stock-pla-black',
-    storeId: null,
-    materialProfileId: 'mat-pla',
-    materialName: 'PLA',
-    color: 'Black',
-    quantityGrams: 2500,
-    minimumQuantityGrams: 1500,
-    location: 'Raf A-1',
-    isActive: true,
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-09-01T00:00:00.000Z',
-  },
-  {
-    id: 'mat-stock-pla-white',
-    storeId: null,
-    materialProfileId: 'mat-pla',
-    materialName: 'PLA',
-    color: 'White',
-    quantityGrams: 2000,
-    minimumQuantityGrams: 1500,
-    location: 'Raf A-2',
-    isActive: true,
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-09-01T00:00:00.000Z',
-  },
-  {
-    id: 'mat-stock-petg-black',
-    storeId: null,
-    materialProfileId: 'mat-petg',
-    materialName: 'PETG',
-    color: 'Black',
-    quantityGrams: 1200,
-    minimumQuantityGrams: 1500,
-    location: 'Raf B-1',
-    isActive: true,
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-09-01T00:00:00.000Z',
-  },
-  {
-    id: 'mat-stock-tpu-clear',
-    storeId: null,
-    materialProfileId: 'mat-tpu',
-    materialName: 'TPU',
-    color: null,
-    quantityGrams: 650,
-    minimumQuantityGrams: 500,
-    location: 'Raf C-1',
-    isActive: true,
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-09-01T00:00:00.000Z',
-  },
-  {
-    id: 'mat-stock-abs-black',
-    storeId: null,
-    materialProfileId: 'mat-abs',
-    materialName: 'ABS',
-    color: 'Black',
-    quantityGrams: 0,
-    minimumQuantityGrams: 1000,
-    location: 'Raf B-2',
-    isActive: true,
-    createdAt: '2026-09-01T00:00:00.000Z',
-    updatedAt: '2026-09-01T00:00:00.000Z',
-  },
-]
-
-for (const s of DEFAULT_INITIAL_STOCKS) {
-  inMemoryStocks.set(s.id, { ...s })
-  inMemoryMovements.set(s.id, [
-    {
-      id: `mov-init-${s.id}`,
-      materialStockId: s.id,
-      type: 'PURCHASE',
-      quantityGrams: s.quantityGrams,
-      previousQuantityGrams: 0,
-      newQuantityGrams: s.quantityGrams,
-      reason: 'Açılış stok kaydı',
-      reference: 'INIT-2026',
-      createdBy: 'system@zuulab.com',
-      createdAt: s.createdAt,
-    },
-  ])
+export interface MaterialReadinessSummary {
+  totalMaterialGrams: number
+  totalMaterialValueTl: number
+  lowCount: number
+  outCount: number
+  materials: MaterialStockItem[]
+  /** Open print jobs whose filament will not be enough */
+  shortJobs: Array<{ productionOrderId: string; productName: string; materialName: string; color: string | null; missingGrams: number }>
 }
 
-// ─────────────────────────────────────────────────────────────
-// MATERIAL SERVICE IMPLEMENTATION
-// ─────────────────────────────────────────────────────────────
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+const MOVEMENT_TYPES: MaterialMovementType[] = ['PURCHASE', 'MANUAL_ADJUSTMENT', 'PRODUCTION_CONSUMPTION', 'WASTE', 'RETURN']
+const OPEN_JOB_STATUSES = ['PLANNED', 'QUEUED', 'IN_PROGRESS']
+
+function grams(value: unknown): number {
+  return Math.round(Number(value ?? 0) * 100) / 100
+}
+
+function actor(user: Pick<AuthUser, 'id' | 'email'> | string): string {
+  return typeof user === 'string' ? user : user.email || user.id
+}
+
+/** Grams that open print jobs will still use, per material stock. */
+async function reservedByMaterial(): Promise<Map<string, number>> {
+  const jobs = await db.orm.public.ProductionOrder.where((o) => o.status.in(OPEN_JOB_STATUSES as never))
+    .select('materialStockId', 'quantity', 'gramsPerUnit')
+    .all()
+  const map = new Map<string, number>()
+  for (const j of jobs) {
+    if (!j.materialStockId || j.gramsPerUnit === null) continue
+    map.set(j.materialStockId, (map.get(j.materialStockId) ?? 0) + j.quantity * grams(j.gramsPerUnit))
+  }
+  return map
+}
+
+type StockRow = {
+  id: string
+  materialName: string
+  color: string | null
+  quantityGrams: unknown
+  minimumQuantityGrams: unknown
+  pricePerKgTl: unknown
+  location: string | null
+  isActive: boolean
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+function toItem(row: StockRow, reserved: number): MaterialStockItem {
+  const quantity = grams(row.quantityGrams)
+  const minimum = grams(row.minimumQuantityGrams)
+  const price = row.pricePerKgTl === null || row.pricePerKgTl === undefined ? null : grams(row.pricePerKgTl)
+  const free = Math.round((quantity - reserved) * 100) / 100
+  return {
+    id: row.id,
+    materialName: row.materialName,
+    color: row.color,
+    quantityGrams: quantity,
+    minimumQuantityGrams: minimum,
+    location: row.location,
+    isActive: row.isActive,
+    pricePerKgTl: price,
+    totalValueTl: price === null ? null : Math.round((Math.max(0, quantity) / 1000) * price * 100) / 100,
+    reservedGrams: Math.round(reserved * 100) / 100,
+    freeGrams: free,
+    status: quantity <= 0 ? 'OUT' : free < minimum ? 'LOW' : 'OK',
+    createdAt: dbTimestampToIso(row.createdAt) ?? '',
+    updatedAt: dbTimestampToIso(row.updatedAt) ?? '',
+  }
+}
+
+/**
+ * Changes a material's grams inside a transaction and writes the movement.
+ * Returns null when `idempotencyKey` was already applied.
+ */
+export async function applyMaterialMovement(
+  tx: Tx,
+  params: {
+    materialStockId: string
+    deltaGrams: number
+    type: MaterialMovementType
+    reason: string
+    reference?: string | null
+    idempotencyKey?: string | null
+    createdBy: string
+  }
+): Promise<{ previous: number; next: number } | null> {
+  if (params.idempotencyKey) {
+    const seen = await tx.orm.public.MaterialStockMovement.where({ idempotencyKey: params.idempotencyKey }).first()
+    if (seen) return null
+  }
+  const [row] = (await tx.query(
+    db.raw.sql`SELECT quantity_grams::float8 AS q FROM material_stocks WHERE id = ${params.materialStockId} FOR UPDATE`
+      .returnsRow({ q: 'pg/float8@1' } as never)
+      .build()
+  )) as unknown as Array<{ q: number }>
+  if (!row) throw new Error('Malzeme bulunamadı.')
+  const previous = grams(row.q)
+  const next = Math.round((previous + params.deltaGrams) * 100) / 100
+  await tx.orm.public.MaterialStock.where({ id: params.materialStockId }).update({ quantityGrams: dbNumeric(next) } as never)
+  await tx.orm.public.MaterialStockMovement.create({
+    materialStockId: params.materialStockId,
+    type: params.type,
+    quantityGrams: dbNumeric(params.deltaGrams),
+    previousQuantityGrams: dbNumeric(previous),
+    newQuantityGrams: dbNumeric(next),
+    reason: params.reason,
+    reference: params.reference ?? null,
+    idempotencyKey: params.idempotencyKey ?? null,
+    createdBy: params.createdBy,
+  } as never)
+  return { previous, next }
+}
 
 export class MaterialService {
-  /**
-   * Normalizes color string for exact comparison (case-insensitive trim)
-   */
-  public static normalizeColor(color?: string | null): string | null {
-    if (!color) return null
-    const trimmed = color.trim()
-    return trimmed.length > 0 ? trimmed : null
+  public static async getMaterialStocks(_storeId?: string | null): Promise<MaterialStockItem[]> {
+    const [rows, reserved] = await Promise.all([db.orm.public.MaterialStock.all(), reservedByMaterial()])
+    return (rows as StockRow[])
+      .map((r) => toItem(r, reserved.get(r.id) ?? 0))
+      .sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.materialName.localeCompare(b.materialName, 'tr') || (a.color ?? '').localeCompare(b.color ?? '', 'tr'))
   }
 
-  /**
-   * Retrieves all material stocks respecting strict server-side store isolation
-   */
-  public static async getMaterialStocks(storeId?: string | null): Promise<MaterialStockItem[]> {
-    const effectiveStoreId = storeId || null
-    let stocks: MaterialStockItem[] = []
-
-    if (isDatabaseConfigured) {
-      try {
-        const records = await (db.orm.public as any).MaterialStock.where({
-          ...(effectiveStoreId ? { storeId: effectiveStoreId } : {}),
-          isActive: true,
-        }).findMany()
-
-        if (records && records.length > 0) {
-          stocks = records.map((r: any) => ({
-            id: r.id,
-            storeId: r.storeId || null,
-            materialProfileId: r.materialProfileId || null,
-            materialName: r.materialName,
-            color: r.color || null,
-            quantityGrams: Number(r.quantityGrams),
-            minimumQuantityGrams: Number(r.minimumQuantityGrams),
-            location: r.location || null,
-            isActive: Boolean(r.isActive),
-            createdAt: r.createdAt.toISOString(),
-            updatedAt: r.updatedAt.toISOString(),
-          }))
-        }
-      } catch {
-        // fallback to in-memory
-      }
-    }
-
-    if (stocks.length === 0) {
-      stocks = Array.from(inMemoryStocks.values()).filter((s) => {
-        if (!s.isActive) return false
-        if (effectiveStoreId) {
-          return s.storeId === effectiveStoreId
-        }
-        return s.storeId === null || s.storeId === undefined
-      })
-    }
-
-    // Attach operational pricing from Phase 24 MaterialProfile
-    const enriched: MaterialStockItem[] = []
-    for (const stock of stocks) {
-      const matProfile = await getMaterialByName(stock.materialName, effectiveStoreId)
-      const pricePerKgTl = matProfile ? matProfile.pricePerKgTl : null
-      const totalValueTl =
-        pricePerKgTl !== null
-          ? Math.round(((stock.quantityGrams / 1000) * pricePerKgTl) * 100) / 100
-          : null
-
-      enriched.push({
-        ...stock,
-        pricePerKgTl,
-        totalValueTl,
-      })
-    }
-
-    // Sort by materialName ASC, color ASC
-    return enriched.sort((a, b) => {
-      const cmp = a.materialName.localeCompare(b.materialName)
-      if (cmp !== 0) return cmp
-      return (a.color || '').localeCompare(b.color || '')
-    })
+  public static async getMaterialStockById(id: string, _storeId?: string | null): Promise<MaterialStockItem | null> {
+    const row = (await db.orm.public.MaterialStock.where({ id }).first()) as StockRow | null
+    if (!row) return null
+    return toItem(row, (await reservedByMaterial()).get(id) ?? 0)
   }
 
-  /**
-   * Retrieves single material stock by ID with store isolation guard
-   */
-  public static async getMaterialStockById(
-    id: string,
-    storeId?: string | null
-  ): Promise<MaterialStockItem | null> {
-    const effectiveStoreId = storeId || null
-    let stock: MaterialStockItem | null = null
-
-    if (isDatabaseConfigured) {
-      try {
-        const record = await (db.orm.public as any).MaterialStock.where({ id }).first()
-        if (record) {
-          stock = {
-            id: record.id,
-            storeId: record.storeId || null,
-            materialProfileId: record.materialProfileId || null,
-            materialName: record.materialName,
-            color: record.color || null,
-            quantityGrams: Number(record.quantityGrams),
-            minimumQuantityGrams: Number(record.minimumQuantityGrams),
-            location: record.location || null,
-            isActive: Boolean(record.isActive),
-            createdAt: record.createdAt.toISOString(),
-            updatedAt: record.updatedAt.toISOString(),
-          }
-        }
-      } catch {
-        // fallback
-      }
-    }
-
-    if (!stock) {
-      stock = inMemoryStocks.get(id) || null
-    }
-
-    if (!stock) return null
-
-    // Store isolation boundary
-    if (effectiveStoreId && stock.storeId && stock.storeId !== effectiveStoreId) {
-      return null
-    }
-
-    // Attach economics
-    const matProfile = await getMaterialByName(stock.materialName, effectiveStoreId)
-    const pricePerKgTl = matProfile ? matProfile.pricePerKgTl : null
-    const totalValueTl =
-      pricePerKgTl !== null
-        ? Math.round(((stock.quantityGrams / 1000) * pricePerKgTl) * 100) / 100
-        : null
-
-    return {
-      ...stock,
-      pricePerKgTl,
-      totalValueTl,
-    }
-  }
-
-  /**
-   * Creates a new material stock item with store context and initial movement
-   */
   public static async createMaterialStock(
     input: CreateMaterialStockInput,
-    user: AuthUser
+    user: Pick<AuthUser, 'id' | 'email'>
   ): Promise<{ success: boolean; stock?: MaterialStockItem; error?: string }> {
-    if (!input.materialName || input.materialName.trim() === '') {
-      return { success: false, error: 'Malzeme adı zorunludur.' }
-    }
+    const materialName = input.materialName?.trim()
+    if (!materialName) return { success: false, error: 'Malzeme adı zorunludur (ör. PLA).' }
+    const color = input.color?.trim() || null
+    const quantity = Number(input.quantityGrams ?? 0)
+    const minimum = Number(input.minimumQuantityGrams ?? 1000)
+    const price = input.pricePerKgTl === undefined || input.pricePerKgTl === null || input.pricePerKgTl === ('' as never) ? null : Number(input.pricePerKgTl)
+    if (!Number.isFinite(quantity) || quantity < 0) return { success: false, error: 'Başlangıç miktarı 0 veya pozitif olmalıdır.' }
+    if (!Number.isFinite(minimum) || minimum < 0) return { success: false, error: 'Minimum miktar 0 veya pozitif olmalıdır.' }
+    if (price !== null && (!Number.isFinite(price) || price < 0)) return { success: false, error: 'Kilo fiyatı geçerli bir tutar olmalıdır.' }
 
-    const quantityGrams = Number(input.quantityGrams || 0)
-    if (quantityGrams < 0) {
-      return { success: false, error: 'Malzeme miktarı negatif olamaz.' }
-    }
-
-    const minimumQuantityGrams = Number(input.minimumQuantityGrams ?? 1000)
-    if (minimumQuantityGrams < 0) {
-      return { success: false, error: 'Minimum miktar negatif olamaz.' }
-    }
-
-    // Strict store isolation from server auth context
-    const storeId = user.storeId || null
-    const normalizedColor = this.normalizeColor(input.color)
-
-    // Check duplicate
-    const existing = Array.from(inMemoryStocks.values()).find(
-      (s) =>
-        s.storeId === storeId &&
-        s.materialName.toLowerCase() === input.materialName.toLowerCase() &&
-        (s.color || '').toLowerCase() === (normalizedColor || '').toLowerCase()
+    const duplicate = (await db.orm.public.MaterialStock.where({ materialName }).all()).find(
+      (m) => (m.color ?? '').toLocaleLowerCase('tr-TR') === (color ?? '').toLocaleLowerCase('tr-TR')
     )
+    if (duplicate) return { success: false, error: `${materialName}${color ? ` ${color}` : ''} zaten kayıtlı.` }
 
-    if (existing) {
-      return {
-        success: false,
-        error: `Bu mağazada '${input.materialName}' ${normalizedColor ? `(${normalizedColor})` : ''} stoğu zaten tanımlı. Lütfen miktar güncellemesi yapın.`,
+    const id = await db.transaction(async (tx) => {
+      const created = await tx.orm.public.MaterialStock.create({
+        materialName,
+        color,
+        quantityGrams: dbNumeric(0),
+        minimumQuantityGrams: dbNumeric(minimum),
+        pricePerKgTl: price === null ? null : dbNumeric(price),
+        location: input.location?.trim() || null,
+        isActive: true,
+      } as never)
+      const stockId = (created as { id: string }).id
+      if (quantity > 0) {
+        await applyMaterialMovement(tx, {
+          materialStockId: stockId,
+          deltaGrams: quantity,
+          type: 'PURCHASE',
+          reason: 'Başlangıç stoku',
+          createdBy: actor(user),
+        })
       }
-    }
-
-    const now = new Date().toISOString()
-    const id = `mat-stock-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-
-    // Resolve materialProfileId if not provided
-    let materialProfileId = input.materialProfileId || null
-    if (!materialProfileId) {
-      const prof = await getMaterialByName(input.materialName, storeId)
-      if (prof) materialProfileId = prof.id
-    }
-
-    const newStock: MaterialStockItem = {
-      id,
-      storeId,
-      materialProfileId,
-      materialName: input.materialName.trim(),
-      color: normalizedColor,
-      quantityGrams,
-      minimumQuantityGrams,
-      location: input.location ? input.location.trim() : null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    inMemoryStocks.set(id, newStock)
-
-    // Create initial movement if quantity > 0
-    if (quantityGrams > 0) {
-      const movement: MaterialStockMovementItem = {
-        id: `mov-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        materialStockId: id,
-        type: 'PURCHASE',
-        quantityGrams,
-        previousQuantityGrams: 0,
-        newQuantityGrams: quantityGrams,
-        reason: input.reason || 'İlk stok girişi',
-        reference: input.idempotencyKey || null,
-        idempotencyKey: input.idempotencyKey || null,
-        createdBy: user.email || user.id,
-        createdAt: now,
-      }
-      inMemoryMovements.set(id, [movement])
-    } else {
-      inMemoryMovements.set(id, [])
-    }
-
-    // Audit log
-    await logAuditEvent({
-      action: 'MATERIAL_STOCK_CREATED',
-      entity: 'MaterialStock',
-      entityId: id,
-      userId: user.id || user.email,
-      metadata: {
-        storeId,
-        materialName: newStock.materialName,
-        color: newStock.color,
-        quantityGrams: newStock.quantityGrams,
-        minimumQuantityGrams: newStock.minimumQuantityGrams,
-      },
+      return stockId
     })
 
-    return { success: true, stock: newStock }
+    await logAuditEvent({ userId: user.id, action: 'MATERIAL_CREATED', entity: 'MaterialStock', entityId: id, metadata: { materialName, color, quantity } })
+    return { success: true, stock: (await this.getMaterialStockById(id))! }
   }
 
-  /**
-   * Updates non-quantity metadata of a material stock item
-   */
   public static async updateMaterialStock(
     id: string,
     input: UpdateMaterialStockInput,
-    user: AuthUser
+    user: Pick<AuthUser, 'id' | 'email'>
   ): Promise<{ success: boolean; stock?: MaterialStockItem; error?: string }> {
-    const stock = await this.getMaterialStockById(id, user.storeId)
-    if (!stock) {
-      return { success: false, error: 'Malzeme stoğu bulunamadı veya erişim yetkiniz yok.' }
+    const existing = await db.orm.public.MaterialStock.where({ id }).first()
+    if (!existing) return { success: false, error: 'Malzeme bulunamadı.' }
+    const changes: Record<string, unknown> = {}
+    if (input.materialName !== undefined) {
+      if (!input.materialName.trim()) return { success: false, error: 'Malzeme adı boş olamaz.' }
+      changes.materialName = input.materialName.trim()
     }
-
-    if (input.minimumQuantityGrams !== undefined && input.minimumQuantityGrams < 0) {
-      return { success: false, error: 'Minimum miktar negatif olamaz.' }
+    if (input.color !== undefined) changes.color = input.color?.trim() || null
+    if (input.location !== undefined) changes.location = input.location?.trim() || null
+    if (input.isActive !== undefined) changes.isActive = Boolean(input.isActive)
+    if (input.minimumQuantityGrams !== undefined) {
+      const min = Number(input.minimumQuantityGrams)
+      if (!Number.isFinite(min) || min < 0) return { success: false, error: 'Minimum miktar 0 veya pozitif olmalıdır.' }
+      changes.minimumQuantityGrams = dbNumeric(min)
     }
-
-    const updated: MaterialStockItem = {
-      ...stock,
-      color: input.color !== undefined ? this.normalizeColor(input.color) : stock.color,
-      minimumQuantityGrams:
-        input.minimumQuantityGrams !== undefined
-          ? input.minimumQuantityGrams
-          : stock.minimumQuantityGrams,
-      location: input.location !== undefined ? (input.location?.trim() || null) : stock.location,
-      isActive: input.isActive !== undefined ? input.isActive : stock.isActive,
-      updatedAt: new Date().toISOString(),
+    if (input.pricePerKgTl !== undefined) {
+      const price = input.pricePerKgTl === null || input.pricePerKgTl === ('' as never) ? null : Number(input.pricePerKgTl)
+      if (price !== null && (!Number.isFinite(price) || price < 0)) return { success: false, error: 'Kilo fiyatı geçerli bir tutar olmalıdır.' }
+      changes.pricePerKgTl = price === null ? null : dbNumeric(price)
     }
-
-    inMemoryStocks.set(id, updated)
-
-    await logAuditEvent({
-      action: 'MATERIAL_STOCK_UPDATED',
-      entity: 'MaterialStock',
-      entityId: id,
-      userId: user.id || user.email,
-      metadata: {
-        storeId: user.storeId || null,
-        ...(input as any),
-      },
-    })
-
-    return { success: true, stock: updated }
+    if (Object.keys(changes).length) await db.orm.public.MaterialStock.where({ id }).update(changes as never)
+    await logAuditEvent({ userId: user.id, action: 'MATERIAL_UPDATED', entity: 'MaterialStock', entityId: id, metadata: { changed: Object.keys(changes) } })
+    return { success: true, stock: (await this.getMaterialStockById(id))! }
   }
 
-  /**
-   * Adjusts material stock quantity idempotently, enforcing non-negative invariant and movement log
-   */
   public static async adjustMaterialStock(
     id: string,
     input: AdjustMaterialStockInput,
-    user: AuthUser
-  ): Promise<{
-    success: boolean
-    stock?: MaterialStockItem
-    movement?: MaterialStockMovementItem
-    isIdempotentRepeat?: boolean
-    error?: string
-  }> {
-    const stock = await this.getMaterialStockById(id, user.storeId)
-    if (!stock) {
-      return { success: false, error: 'Malzeme stoğu bulunamadı veya erişim yetkiniz yok.' }
-    }
+    user: Pick<AuthUser, 'id' | 'email'>
+  ): Promise<{ success: boolean; stock?: MaterialStockItem; idempotent?: boolean; error?: string }> {
+    const delta = Number(input.deltaGrams)
+    if (!Number.isFinite(delta) || delta === 0) return { success: false, error: 'Değişim miktarı sıfırdan farklı bir sayı olmalıdır.' }
+    if (!input.reason?.trim()) return { success: false, error: 'Açıklama zorunludur.' }
+    const type = MOVEMENT_TYPES.includes(input.type as MaterialMovementType)
+      ? (input.type as MaterialMovementType)
+      : delta > 0
+        ? 'PURCHASE'
+        : 'MANUAL_ADJUSTMENT'
+    if (type === 'PRODUCTION_CONSUMPTION') return { success: false, error: 'Üretim tüketimi yalnızca üretim emirlerinden yapılır.' }
+    if (!(await db.orm.public.MaterialStock.where({ id }).first())) return { success: false, error: 'Malzeme bulunamadı.' }
 
-    if (!input.reason || input.reason.trim() === '') {
-      return { success: false, error: 'Düzeltme gerekçesi belirtilmelidir.' }
-    }
-
-    const delta = Number(input.deltaGrams || 0)
-    if (delta === 0) {
-      return { success: false, error: 'Düzeltme miktarı sıfır olamaz.' }
-    }
-
-    // ── IDEMPOTENCY CHECK ──────────────────────────────────────────
-    if (input.idempotencyKey && input.idempotencyKey.trim() !== '') {
-      const key = input.idempotencyKey.trim()
-      const existingMovements = inMemoryMovements.get(id) || []
-      const found = existingMovements.find((m) => m.idempotencyKey === key)
-      if (found || seenAdjustmentIdempotencyKeys.has(key)) {
-        return {
-          success: true,
-          stock,
-          movement: found,
-          isIdempotentRepeat: true,
-        }
-      }
-      seenAdjustmentIdempotencyKeys.add(key)
-    }
-
-    // ── NON-NEGATIVE INVARIANT CHECK ───────────────────────────────
-    const previousQuantity = stock.quantityGrams
-    const newQuantity = previousQuantity + delta
-
-    if (newQuantity < 0) {
-      return {
-        success: false,
-        error: `İşlem reddedildi: Malzeme miktarı negatif olamaz. (Mevcut: ${previousQuantity}g, Talep edilen değişim: ${delta}g)`,
-      }
-    }
-
-    const now = new Date().toISOString()
-    const movementType: MaterialMovementType =
-      input.type || (delta > 0 ? 'PURCHASE' : 'MANUAL_ADJUSTMENT')
-
-    const movement: MaterialStockMovementItem = {
-      id: `mov-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      materialStockId: id,
-      type: movementType,
-      quantityGrams: Math.abs(delta),
-      previousQuantityGrams: previousQuantity,
-      newQuantityGrams: newQuantity,
-      reason: input.reason.trim(),
-      reference: input.reference ? input.reference.trim() : null,
-      idempotencyKey: input.idempotencyKey ? input.idempotencyKey.trim() : null,
-      createdBy: user.email || user.id,
-      createdAt: now,
-    }
-
-    // Update stock in memory
-    const updatedStock: MaterialStockItem = {
-      ...stock,
-      quantityGrams: newQuantity,
-      updatedAt: now,
-    }
-    inMemoryStocks.set(id, updatedStock)
-
-    // Append movement
-    const currentMovs = inMemoryMovements.get(id) || []
-    currentMovs.push(movement)
-    inMemoryMovements.set(id, currentMovs)
-
-    // Audit log
-    await logAuditEvent({
-      action: 'MATERIAL_STOCK_ADJUSTED',
-      entity: 'MaterialStock',
-      entityId: id,
-      userId: user.id || user.email,
-      metadata: {
-        storeId: user.storeId || null,
+    const applied = await db.transaction((tx) =>
+      applyMaterialMovement(tx, {
+        materialStockId: id,
         deltaGrams: delta,
-        previousQuantityGrams: previousQuantity,
-        newQuantityGrams: newQuantity,
-        type: movementType,
-        reason: movement.reason,
-        idempotencyKey: movement.idempotencyKey,
-      },
-    })
-
-    return {
-      success: true,
-      stock: updatedStock,
-      movement,
-      isIdempotentRepeat: false,
-    }
-  }
-
-  /**
-   * Retrieves movement history for a material stock item
-   */
-  public static async getMaterialMovements(
-    stockId: string,
-    storeId?: string | null
-  ): Promise<MaterialStockMovementItem[]> {
-    const stock = await this.getMaterialStockById(stockId, storeId)
-    if (!stock) return []
-
-    const movements = inMemoryMovements.get(stockId) || []
-    // Deterministic Sort: createdAt DESC
-    return [...movements].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }
-
-  /**
-   * Parses product material & color specifications with zero fuzzy guesses
-   */
-  public static parseProductMaterial(product: {
-    material?: string | null
-    name?: string | null
-    weight?: number | null
-    estimatedMaterialWeightGrams?: number | null
-  }): { materialName: string | null; color: string | null; weightGrams: number | null } {
-    let weightGrams =
-      product.estimatedMaterialWeightGrams !== undefined && product.estimatedMaterialWeightGrams !== null
-        ? Number(product.estimatedMaterialWeightGrams)
-        : product.weight !== undefined && product.weight !== null
-        ? Number(product.weight)
-        : null
-
-    if (weightGrams !== null && isNaN(weightGrams)) {
-      weightGrams = null
-    }
-
-    const rawMat = (product.material || '').trim()
-    if (!rawMat) {
-      return { materialName: null, color: null, weightGrams }
-    }
-
-    // Supported base materials
-    const KNOWN_MATERIALS = ['PLA', 'PETG', 'TPU', 'ABS', 'Standart Reçine', 'Reçine']
-    let matchedBase: string | null = null
-
-    for (const base of KNOWN_MATERIALS) {
-      if (rawMat.toUpperCase().includes(base.toUpperCase())) {
-        matchedBase = base === 'Reçine' ? 'Standart Reçine' : base
-        break
-      }
-    }
-
-    if (!matchedBase) {
-      matchedBase = rawMat.split(' ')[0]
-    }
-
-    // Check color clues from rawMat or product name
-    const KNOWN_COLORS = [
-      'Black',
-      'White',
-      'Red',
-      'Blue',
-      'Green',
-      'Yellow',
-      'Grey',
-      'Gray',
-      'Orange',
-      'Purple',
-      'Siyah',
-      'Beyaz',
-      'Kırmızı',
-      'Mavi',
-      'Yeşil',
-      'Sarı',
-      'Gri',
-      'Turuncu',
-      'Mor',
-      'Doğal',
-      'Krem',
-    ]
-
-    let matchedColor: string | null = null
-    const textToScan = `${rawMat} ${product.name || ''}`
-
-    for (const c of KNOWN_COLORS) {
-      const reg = new RegExp(`\\b${c}\\b`, 'i')
-      if (reg.test(textToScan)) {
-        // Standardize common Turkish/English color names
-        if (['Siyah', 'Black'].includes(c)) matchedColor = 'Black'
-        else if (['Beyaz', 'White'].includes(c)) matchedColor = 'White'
-        else if (['Kırmızı', 'Red'].includes(c)) matchedColor = 'Red'
-        else if (['Mavi', 'Blue'].includes(c)) matchedColor = 'Blue'
-        else if (['Yeşil', 'Green'].includes(c)) matchedColor = 'Green'
-        else if (['Sarı', 'Yellow'].includes(c)) matchedColor = 'Yellow'
-        else if (['Gri', 'Grey', 'Gray'].includes(c)) matchedColor = 'Grey'
-        else matchedColor = c
-        break
-      }
-    }
-
-    return {
-      materialName: matchedBase,
-      color: matchedColor,
-      weightGrams,
-    }
-  }
-
-  /**
-   * Computes comprehensive material readiness & production blockers
-   * Pure deterministic read model — zero mutations.
-   */
-  public static async getMaterialReadiness(
-    storeId?: string | null
-  ): Promise<MaterialReadinessSummary> {
-    const effectiveStoreId = storeId || null
-
-    // 1. Fetch current available material stocks
-    const currentStocks = await this.getMaterialStocks(effectiveStoreId)
-
-    // 2. Fetch order-driven production recommendations from Phase 28 authority
-    const recommendations = await DailyOperationsService.getProductionRecommendations(effectiveStoreId)
-
-    // 3. Aggregate requirements by materialName + color
-    // Key: `${materialName}::${color || ''}`
-    interface RequirementBucket {
-      materialName: string
-      color: string | null
-      requiredGrams: number
-      affectedProductIds: Set<string>
-      isUnknown: boolean
-      unknownReason?: string
-    }
-
-    const requirementBuckets = new Map<string, RequirementBucket>()
-
-    // Tracking items that need production
-    let productionDemandCount = 0
-    const blockedProductIds = new Set<string>()
-    const blockers: MaterialProductionBlocker[] = []
-
-    for (const rec of recommendations) {
-      if (rec.requiredProduction <= 0) continue
-      productionDemandCount++
-
-      // Look up product specification & economics
-      const prod = MOCK_PRODUCTS.find((p) => p.id === rec.productId || p.sku === rec.sku)
-      const costProfile = await getProductCostProfile(rec.productId, effectiveStoreId)
-
-      let materialName: string | null = null
-      let color: string | null = null
-      let weightGrams: number | null = null
-
-      if (costProfile && costProfile.materialName) {
-        materialName = costProfile.materialName
-        weightGrams = costProfile.estimatedMaterialWeightGrams
-        // Parse color if present
-        const parsed = this.parseProductMaterial({
-          material: costProfile.materialName,
-          name: costProfile.productName,
-          weight: costProfile.estimatedMaterialWeightGrams,
-        })
-        color = parsed.color
-      } else if (prod) {
-        const parsed = this.parseProductMaterial(prod)
-        materialName = parsed.materialName
-        color = parsed.color
-        weightGrams = parsed.weightGrams
-      }
-
-      // Check if material requirement data is complete or UNKNOWN
-      // (Section 12: "Material requirement veya stock bilgisi güvenilir değilse: UNKNOWN göster. Unknown değerleri 0 olarak kabul etme.")
-      if (!materialName || weightGrams === null || weightGrams <= 0) {
-        const bucketKey = `UNKNOWN::${rec.productId}`
-        requirementBuckets.set(bucketKey, {
-          materialName: materialName || 'Bilinmeyen Malzeme',
-          color: color || null,
-          requiredGrams: 0,
-          affectedProductIds: new Set([rec.productId]),
-          isUnknown: true,
-          unknownReason: !materialName ? 'Malzeme türü eksik' : 'Gramaj bilgisi eksik',
-        })
-        continue
-      }
-
-      // Deterministic requirement formula (Section 10):
-      // requiredMaterialGrams = productionQuantity × productMaterialGrams
-      const requiredGrams = rec.requiredProduction * weightGrams
-
-      const bucketKey = `${materialName.toUpperCase()}::${(color || '').toUpperCase()}`
-      const cur = requirementBuckets.get(bucketKey) || {
-        materialName,
-        color,
-        requiredGrams: 0,
-        affectedProductIds: new Set(),
-        isUnknown: false,
-      }
-      cur.requiredGrams += requiredGrams
-      cur.affectedProductIds.add(rec.productId)
-      requirementBuckets.set(bucketKey, cur)
-    }
-
-    // 4. Map requirements against available stocks
-    const readinessList: MaterialReadinessItem[] = []
-    let totalMaterialGrams = 0
-    let totalMaterialValueTl = 0
-    let criticalMaterialCount = 0
-    let blockingMaterialCount = 0
-    let todayRequiredGrams = 0
-
-    // Keep track of which stocks have been mapped
-    const processedStockIds = new Set<string>()
-
-    // First process requirement buckets
-    for (const [bucketKey, bucket] of requirementBuckets.entries()) {
-      if (bucket.isUnknown) {
-        readinessList.push({
-          materialName: bucket.materialName,
-          color: bucket.color,
-          availableGrams: 0,
-          requiredGrams: 0,
-          minimumGrams: 0,
-          remainingGrams: 0,
-          missingGrams: 0,
-          status: 'UNKNOWN',
-          stockId: null,
-          pricePerKgTl: null,
-          estimatedRequiredCostTl: null,
-          affectedProductsCount: bucket.affectedProductIds.size,
-          isBlocked: false,
-        })
-        continue
-      }
-
-      todayRequiredGrams += bucket.requiredGrams
-
-      // Exact material & color matching (Section 16)
-      // If bucket has color: match ONLY stock with exact same color
-      // If bucket has NO color: match stock with color === null OR first matching stock
-      const matchingStock = currentStocks.find((s) => {
-        if (s.materialName.toUpperCase() !== bucket.materialName.toUpperCase()) return false
-        if (bucket.color) {
-          return (s.color || '').toUpperCase() === bucket.color.toUpperCase()
-        }
-        return s.color === null || s.color === undefined
+        type,
+        reason: input.reason.trim(),
+        reference: input.reference ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
+        createdBy: actor(user),
       })
-
-      const availableGrams = matchingStock ? matchingStock.quantityGrams : 0
-      const minimumGrams = matchingStock ? matchingStock.minimumQuantityGrams : 1000
-      const pricePerKgTl = matchingStock ? (matchingStock.pricePerKgTl || 700) : 700
-
-      if (matchingStock) {
-        processedStockIds.add(matchingStock.id)
-      }
-
-      // Readiness classification (Section 12)
-      let status: MaterialReadinessStatus = 'READY'
-      let missingGrams = 0
-      let remainingGrams = 0
-      let isBlocked = false
-
-      if (availableGrams < bucket.requiredGrams) {
-        status = 'BLOCKED'
-        missingGrams = bucket.requiredGrams - availableGrams
-        remainingGrams = 0
-        isBlocked = true
-        blockingMaterialCount++
-      } else {
-        missingGrams = 0
-        remainingGrams = availableGrams - bucket.requiredGrams
-        if (remainingGrams < minimumGrams || availableGrams < minimumGrams) {
-          status = 'LOW'
-          criticalMaterialCount++
-        } else {
-          status = 'READY'
-        }
-      }
-
-      const estimatedRequiredCostTl = Math.round(((bucket.requiredGrams / 1000) * pricePerKgTl) * 100) / 100
-
-      readinessList.push({
-        materialName: bucket.materialName,
-        color: bucket.color,
-        availableGrams,
-        requiredGrams: bucket.requiredGrams,
-        minimumGrams,
-        remainingGrams,
-        missingGrams,
-        status,
-        stockId: matchingStock ? matchingStock.id : null,
-        pricePerKgTl,
-        estimatedRequiredCostTl,
-        affectedProductsCount: bucket.affectedProductIds.size,
-        isBlocked,
-      })
-
-      // If blocked, record production blocker items for each affected product
-      if (isBlocked) {
-        for (const prodId of bucket.affectedProductIds) {
-          blockedProductIds.add(prodId)
-          const rec = recommendations.find((r) => r.productId === prodId)
-          if (rec) {
-            blockers.push({
-              productId: rec.productId,
-              productName: rec.productName,
-              sku: rec.sku,
-              productionQuantity: rec.requiredProduction,
-              materialName: bucket.materialName,
-              color: bucket.color,
-              requiredGrams: bucket.requiredGrams,
-              availableGrams,
-              missingGrams,
-              status: 'BLOCKED',
-              actionUrl: matchingStock ? `/admin/materials/${matchingStock.id}` : '/admin/materials',
-            })
-          }
-        }
-      }
-    }
-
-    // Now include all remaining available stocks that had 0 demand today
-    for (const stock of currentStocks) {
-      totalMaterialGrams += stock.quantityGrams
-      totalMaterialValueTl += stock.totalValueTl || 0
-
-      if (processedStockIds.has(stock.id)) continue
-
-      const status: MaterialReadinessStatus =
-        stock.quantityGrams < stock.minimumQuantityGrams ? 'LOW' : 'READY'
-
-      if (status === 'LOW') {
-        criticalMaterialCount++
-      }
-
-      readinessList.push({
-        materialName: stock.materialName,
-        color: stock.color,
-        availableGrams: stock.quantityGrams,
-        requiredGrams: 0,
-        minimumGrams: stock.minimumQuantityGrams,
-        remainingGrams: stock.quantityGrams,
-        missingGrams: 0,
-        status,
-        stockId: stock.id,
-        pricePerKgTl: stock.pricePerKgTl || null,
-        estimatedRequiredCostTl: 0,
-        affectedProductsCount: 0,
-        isBlocked: false,
-      })
-    }
-
-    const blockedCount = blockedProductIds.size
-    const producibleCount = Math.max(0, productionDemandCount - blockedCount)
-
-    return {
-      totalMaterialGrams,
-      totalMaterialValueTl: Math.round(totalMaterialValueTl * 100) / 100,
-      criticalMaterialCount,
-      blockingMaterialCount,
-      todayRequiredGrams,
-      productionDemandCount,
-      producibleCount,
-      blockedCount,
-      materials: readinessList.sort((a, b) => {
-        // Prioritize BLOCKED first, then LOW, then READY, then UNKNOWN
-        const rank = { BLOCKED: 0, LOW: 1, READY: 2, UNKNOWN: 3 }
-        const rDiff = rank[a.status] - rank[b.status]
-        if (rDiff !== 0) return rDiff
-        return a.materialName.localeCompare(b.materialName)
-      }),
-      blockers,
-    }
-  }
-
-  /**
-   * Evaluates readiness for an individual production order (used in /admin/production)
-   */
-  public static async evaluateProductionOrderReadiness(
-    productionOrder: {
-      productId: string
-      productNameSnapshot: string
-      quantity: number
-      completedQuantity?: number
-    },
-    storeId?: string | null
-  ): Promise<{
-    status: MaterialReadinessStatus
-    materialName: string
-    color: string | null
-    requiredGrams: number
-    availableGrams: number
-    missingGrams: number
-    badgeLabel: string
-    isSufficient: boolean
-  }> {
-    const prod = MOCK_PRODUCTS.find((p) => p.id === productionOrder.productId)
-    const costProfile = await getProductCostProfile(productionOrder.productId, storeId)
-
-    let materialName = 'PLA'
-    let color: string | null = null
-    let weightGrams: number | null = null
-
-    if (costProfile && costProfile.materialName) {
-      materialName = costProfile.materialName
-      weightGrams = costProfile.estimatedMaterialWeightGrams
-      const parsed = this.parseProductMaterial({
-        material: costProfile.materialName,
-        name: costProfile.productName,
-        weight: costProfile.estimatedMaterialWeightGrams,
-      })
-      color = parsed.color
-    } else if (prod) {
-      const parsed = this.parseProductMaterial(prod)
-      materialName = parsed.materialName || 'PLA'
-      color = parsed.color
-      weightGrams = parsed.weightGrams
-    }
-
-    if (weightGrams === null || weightGrams <= 0) {
-      return {
-        status: 'UNKNOWN',
-        materialName,
-        color,
-        requiredGrams: 0,
-        availableGrams: 0,
-        missingGrams: 0,
-        badgeLabel: 'Malzeme: Bilinmiyor',
-        isSufficient: false,
-      }
-    }
-
-    const remainingToProduce = Math.max(
-      0,
-      productionOrder.quantity - (productionOrder.completedQuantity || 0)
     )
-    const requiredGrams = remainingToProduce * weightGrams
+    if (applied) {
+      await logAuditEvent({ userId: user.id, action: 'MATERIAL_ADJUSTED', entity: 'MaterialStock', entityId: id, metadata: { delta, type, reason: input.reason } })
+    }
+    return { success: true, stock: (await this.getMaterialStockById(id))!, idempotent: applied === null }
+  }
 
-    const stocks = await this.getMaterialStocks(storeId)
-    const matchingStock = stocks.find((s) => {
-      if (s.materialName.toUpperCase() !== materialName.toUpperCase()) return false
-      if (color) {
-        return (s.color || '').toUpperCase() === color.toUpperCase()
-      }
-      return true
-    })
+  public static async getMaterialMovements(id: string, _storeId?: string | null): Promise<MaterialStockMovementItem[]> {
+    const rows = await db.orm.public.MaterialStockMovement.where({ materialStockId: id })
+      .orderBy((m) => m.createdAt.desc())
+      .limit(200)
+      .all()
+    return rows.map((m) => ({
+      id: m.id,
+      materialStockId: m.materialStockId,
+      type: m.type as MaterialMovementType,
+      quantityGrams: grams(m.quantityGrams),
+      previousQuantityGrams: grams(m.previousQuantityGrams),
+      newQuantityGrams: grams(m.newQuantityGrams),
+      reason: m.reason,
+      reference: m.reference,
+      createdBy: m.createdBy,
+      createdAt: dbTimestampToIso(m.createdAt) ?? '',
+    }))
+  }
 
-    const availableGrams = matchingStock ? matchingStock.quantityGrams : 0
+  /** Material overview for dashboards: low/empty filaments and open jobs that will run short. */
+  public static async getMaterialReadiness(_storeId?: string | null): Promise<MaterialReadinessSummary> {
+    const materials = await this.getMaterialStocks()
+    const active = materials.filter((m) => m.isActive)
+    const byId = new Map(materials.map((m) => [m.id, m]))
 
-    if (availableGrams < requiredGrams) {
-      const missingGrams = requiredGrams - availableGrams
-      return {
-        status: 'BLOCKED',
-        materialName,
-        color,
-        requiredGrams,
-        availableGrams,
-        missingGrams,
-        badgeLabel: `Malzeme: ⚠ ${missingGrams}g eksik`,
-        isSufficient: false,
+    // Walk open jobs oldest first; each takes from what is left of its filament.
+    const jobs = await db.orm.public.ProductionOrder.where((o) => o.status.in(OPEN_JOB_STATUSES as never))
+      .orderBy((o) => o.createdAt.asc())
+      .all()
+    const left = new Map(materials.map((m) => [m.id, m.quantityGrams]))
+    const shortJobs: MaterialReadinessSummary['shortJobs'] = []
+    for (const j of jobs) {
+      if (!j.materialStockId || j.gramsPerUnit === null) continue
+      const need = j.quantity * grams(j.gramsPerUnit)
+      const available = left.get(j.materialStockId) ?? 0
+      left.set(j.materialStockId, available - need)
+      if (available < need) {
+        const m = byId.get(j.materialStockId)
+        shortJobs.push({
+          productionOrderId: j.id,
+          productName: j.productNameSnapshot,
+          materialName: m?.materialName ?? '—',
+          color: m?.color ?? null,
+          missingGrams: Math.round((need - Math.max(0, available)) * 100) / 100,
+        })
       }
     }
 
     return {
-      status: 'READY',
-      materialName,
-      color,
-      requiredGrams,
-      availableGrams,
-      missingGrams: 0,
-      badgeLabel: 'Malzeme: ✓ Hazır',
-      isSufficient: true,
-    }
-  }
-
-  /**
-   * Resets in-memory stocks for testing neutrality
-   */
-  public static resetInMemoryStorage(): void {
-    inMemoryStocks.clear()
-    inMemoryMovements.clear()
-    seenAdjustmentIdempotencyKeys.clear()
-
-    for (const s of DEFAULT_INITIAL_STOCKS) {
-      inMemoryStocks.set(s.id, { ...s })
-      inMemoryMovements.set(s.id, [
-        {
-          id: `mov-init-${s.id}`,
-          materialStockId: s.id,
-          type: 'PURCHASE',
-          quantityGrams: s.quantityGrams,
-          previousQuantityGrams: 0,
-          newQuantityGrams: s.quantityGrams,
-          reason: 'Açılış stok kaydı',
-          reference: 'INIT-2026',
-          createdBy: 'system@zuulab.com',
-          createdAt: s.createdAt,
-        },
-      ])
+      totalMaterialGrams: Math.round(active.reduce((s, m) => s + Math.max(0, m.quantityGrams), 0) * 100) / 100,
+      totalMaterialValueTl: Math.round(active.reduce((s, m) => s + (m.totalValueTl ?? 0), 0) * 100) / 100,
+      lowCount: active.filter((m) => m.status === 'LOW').length,
+      outCount: active.filter((m) => m.status === 'OUT').length,
+      materials: active,
+      shortJobs,
     }
   }
 }

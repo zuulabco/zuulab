@@ -24,7 +24,30 @@ export interface InventoryMovement {
   reason: string
   changedBy: string
   createdAt: string
+  /** Ledger type and its Turkish label */
+  type?: string
+  typeLabel?: string
+  orderNumber?: string | null
 }
+
+const LEDGER_LABEL: Record<string, string> = {
+  DIRECT_ORDER_RESERVATION: 'Site siparişi',
+  DIRECT_ORDER_COMMIT: 'Site siparişi',
+  DIRECT_ORDER_RELEASE: 'Sipariş iptali / ödenmedi',
+  MARKETPLACE_ORDER_RESERVATION: 'Pazaryeri siparişi',
+  MARKETPLACE_ORDER_COMMIT: 'Pazaryeri siparişi',
+  MARKETPLACE_ORDER_RELEASE: 'Pazaryeri iptali',
+  ORDER_CANCELLATION: 'Sipariş iptali',
+  RETURN_RESTOCK: 'İade',
+  MANUAL_ADJUSTMENT: 'Elle düzeltme',
+  INITIAL_STOCK: 'Başlangıç stoku',
+  MARKETPLACE_RECONCILIATION: 'Pazaryeri düzeltmesi',
+  CYCLE_COUNT_ADJUSTMENT: 'Sayım',
+  PRODUCTION_STOCK: 'Üretim',
+}
+
+/** Machine prefixes written by adjustments ("RESTOCK: reason"); other reasons are shown whole. */
+const REASON_PREFIX = /^(RESTOCK|MANUAL_ADJUSTMENT|SALE|RETURN|CORRECTION|COUNT): /
 
 const TRANSACTION_TYPE: Record<InventoryMovement['movementType'], 'MANUAL_ADJUSTMENT' | 'RETURN_RESTOCK' | 'INITIAL_STOCK' | 'CYCLE_COUNT_ADJUSTMENT'> = {
   RESTOCK: 'MANUAL_ADJUSTMENT',
@@ -295,7 +318,6 @@ export async function adminGetInventoryMovements(productId?: string): Promise<In
 
   return rows.map((r) => {
     const meta = (r.metadata ?? {}) as { changedBy?: string; movementType?: InventoryMovement['movementType'] }
-    const [, ...reasonParts] = (r.reason ?? '').split(': ')
     return {
       id: r.id,
       productId: r.productId,
@@ -304,9 +326,12 @@ export async function adminGetInventoryMovements(productId?: string): Promise<In
       newStock: r.newStock,
       quantityChange: r.changeQuantity,
       movementType: meta.movementType ?? (r.type === 'RETURN_RESTOCK' ? 'RETURN' : 'MANUAL_ADJUSTMENT'),
-      reason: reasonParts.join(': ') || r.reason || '',
+      reason: (r.reason ?? '').replace(REASON_PREFIX, ''),
       changedBy: meta.changedBy ?? 'system',
       createdAt: dbTimestampToIso(r.createdAt) ?? '',
+      type: r.type,
+      typeLabel: LEDGER_LABEL[r.type] ?? r.type,
+      orderNumber: r.orderNumber ?? null,
     }
   })
 }

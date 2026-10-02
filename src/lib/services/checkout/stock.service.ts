@@ -75,6 +75,60 @@ async function transitionStockState(
   return false
 }
 
+type OrderMove = 'HOLD' | 'SALE' | 'RELEASE'
+
+/**
+ * Writes the inventory ledger row for one order line that just moved stock, in the
+ * same transaction, so the movement history always matches the stock column.
+ */
+async function ledgerForOrderLine(tx: Tx, orderId: string, line: StockLine, change: number, move: OrderMove): Promise<void> {
+  const [order] = (await tx.query(
+    db.raw.sql`SELECT order_number, channel FROM orders WHERE id = ${orderId}`
+      .returnsRow({ order_number: 'pg/text@1', channel: 'pg/text@1' } as never)
+      .build()
+  )) as unknown as Array<{ order_number: string; channel: string }>
+  const [product] = (await tx.query(
+    db.raw.sql`SELECT sku, stock FROM products WHERE id = ${line.productId}`
+      .returnsRow({ sku: 'pg/text@1', stock: 'pg/int4@1' } as never)
+      .build()
+  )) as unknown as Array<{ sku: string; stock: number }>
+  if (!order || !product) return
+  let current = product.stock
+  if (line.variantId) {
+    const [variant] = (await tx.query(
+      db.raw.sql`SELECT stock FROM product_variants WHERE id = ${line.variantId}`
+        .returnsRow({ stock: 'pg/int4@1' } as never)
+        .build()
+    )) as unknown as Array<{ stock: number }>
+    if (variant) current = variant.stock
+  }
+  const marketplace = order.channel !== 'DIRECT'
+  const type =
+    move === 'RELEASE'
+      ? marketplace ? 'MARKETPLACE_ORDER_RELEASE' : 'DIRECT_ORDER_RELEASE'
+      : marketplace ? 'MARKETPLACE_ORDER_COMMIT' : move === 'HOLD' ? 'DIRECT_ORDER_RESERVATION' : 'DIRECT_ORDER_COMMIT'
+  const reason =
+    move === 'RELEASE'
+      ? `Stok geri alındı: ${order.order_number} (iptal / ödenmedi)`
+      : move === 'HOLD'
+        ? `Sipariş için ayrıldı: ${order.order_number}`
+        : `Satış: ${order.order_number}`
+  await tx.orm.public.InventoryTransaction.create({
+    productId: line.productId,
+    sku: product.sku,
+    changeQuantity: change,
+    previousStock: current - change,
+    newStock: current,
+    previousReserved: 0,
+    newReserved: 0,
+    type,
+    reason,
+    orderNumber: order.order_number,
+    idempotencyKey: `ORDER_STOCK:${orderId}:${move}:${line.productId}:${line.variantId ?? ''}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+    metadata: (line.variantId ? { variantId: line.variantId, channel: order.channel } : { channel: order.channel }) as never,
+  } as never)
+}
+
 /**
  * Takes stock for a new order inside its creation transaction. Throws
  * InsufficientStockError (rolling the whole order back) if any line cannot be met.
@@ -82,6 +136,7 @@ async function transitionStockState(
 export async function holdStockForNewOrder(tx: Tx, orderId: string, lines: StockLine[]): Promise<void> {
   for (const line of sorted(lines)) {
     if (!(await decrement(tx, line, false))) throw new InsufficientStockError(line)
+    await ledgerForOrderLine(tx, orderId, line, -line.quantity, 'HOLD')
   }
   await transitionStockState(tx, orderId, ['NONE'], 'HELD')
 }
@@ -114,6 +169,7 @@ export async function commitOrderStock(orderId: string): Promise<{ reacquired: b
           oversold = true
           await decrement(tx, line, true)
         }
+        await ledgerForOrderLine(tx, orderId, line, -line.quantity, 'SALE')
       }
       return { reacquired: true, oversold }
     }
@@ -136,6 +192,7 @@ export async function releaseOrderStock(
     if (!(await transitionStockState(tx, orderId, from, 'RELEASED'))) return false
     for (const line of sorted(await orderLines(tx, orderId))) {
       await increment(tx, line)
+      await ledgerForOrderLine(tx, orderId, line, line.quantity, 'RELEASE')
     }
     return true
   })
@@ -152,6 +209,7 @@ export async function reacquireOrderStock(orderId: string): Promise<void> {
     if (!(await transitionStockState(tx, orderId, ['RELEASED', 'NONE'], 'HELD'))) return
     for (const line of sorted(await orderLines(tx, orderId))) {
       if (!(await decrement(tx, line, false))) throw new InsufficientStockError(line)
+      await ledgerForOrderLine(tx, orderId, line, -line.quantity, 'HOLD')
     }
   })
   refreshCatalogStock()

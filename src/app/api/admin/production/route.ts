@@ -5,20 +5,17 @@ import { MaterialService } from '@/lib/services/material.service'
 
 export async function GET(request: Request) {
   try {
-    const user = await requirePermission(request, 'PRODUCTION_VIEW')
+    await requirePermission(request, 'PRODUCTION_VIEW')
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') as any
     const orders = await getProductionOrders(status ? { status } : undefined)
-    const enrichedOrders = await Promise.all(
-      orders.map(async (o) => {
-        const readiness = await MaterialService.evaluateProductionOrderReadiness(o, user.storeId)
-        return {
-          ...o,
-          materialReadiness: readiness,
-        }
-      })
-    )
-    return NextResponse.json({ success: true, orders: enrichedOrders })
+    // Jobs whose filament will not be enough (open jobs, oldest first take what is left).
+    const { shortJobs } = await MaterialService.getMaterialReadiness()
+    const short = new Map(shortJobs.map((j) => [j.productionOrderId, j.missingGrams]))
+    return NextResponse.json({
+      success: true,
+      orders: orders.map((o) => ({ ...o, materialMissingGrams: short.get(o.id) ?? 0 })),
+    })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')
     const isAuth = error.message?.includes('UNAUTHORIZED')
@@ -30,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const user = await requirePermission(request, 'PRODUCTION_MANAGE')
     const body = await request.json()
-    const { productId, quantity, priority, printerReference, notes } = body
+    const { productId, quantity, priority, printerReference, notes, materialStockId, gramsPerUnit } = body
     if (!productId || !quantity) {
       return NextResponse.json({ success: false, error: 'productId ve quantity zorunludur.' }, { status: 400 })
     }
@@ -40,6 +37,8 @@ export async function POST(request: Request) {
       priority: priority || 'NORMAL',
       printerReference: printerReference || undefined,
       notes: notes || undefined,
+      materialStockId: materialStockId === undefined ? undefined : materialStockId || null,
+      gramsPerUnit: gramsPerUnit === undefined || gramsPerUnit === '' ? undefined : gramsPerUnit === null ? null : Number(gramsPerUnit),
       createdBy: user.id,
     })
     if (!result.success) {

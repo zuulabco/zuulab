@@ -1,0 +1,170 @@
+[
+  {
+    "id": "column.public.production_orders.grams_per_unit",
+    "label": "Add column \"grams_per_unit\" to \"production_orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "grams_per_unit",
+        "table": "production_orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"grams_per_unit\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "grams_per_unit"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"grams_per_unit\"",
+        "sql": "ALTER TABLE \"public\".\"production_orders\" ADD COLUMN \"grams_per_unit\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"grams_per_unit\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "grams_per_unit"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.production_orders.material_consumed_grams",
+    "label": "Add column \"material_consumed_grams\" to \"production_orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "material_consumed_grams",
+        "table": "production_orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"material_consumed_grams\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "material_consumed_grams"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"material_consumed_grams\"",
+        "sql": "ALTER TABLE \"public\".\"production_orders\" ADD COLUMN \"material_consumed_grams\" numeric(12,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"material_consumed_grams\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "material_consumed_grams"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.production_orders.material_stock_id",
+    "label": "Add column \"material_stock_id\" to \"production_orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "material_stock_id",
+        "table": "production_orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"material_stock_id\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "material_stock_id"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"material_stock_id\"",
+        "sql": "ALTER TABLE \"public\".\"production_orders\" ADD COLUMN \"material_stock_id\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"material_stock_id\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "production_orders",
+          "material_stock_id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.production_orders.production_orders_material_stock_id_fkey",
+    "label": "Add foreign key \"production_orders_material_stock_id_fkey\" on \"production_orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "production_orders_material_stock_id_fkey",
+        "table": "production_orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"production_orders_material_stock_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "production_orders_material_stock_id_fkey",
+          "public",
+          "\"public\".\"production_orders\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"production_orders_material_stock_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"production_orders\"\nADD CONSTRAINT \"production_orders_material_stock_id_fkey\"\nFOREIGN KEY (\"material_stock_id\")\nREFERENCES \"public\".\"material_stocks\" (\"id\")\nON DELETE SET NULL\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"production_orders_material_stock_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "production_orders_material_stock_id_fkey",
+          "public",
+          "\"public\".\"production_orders\""
+        ]
+      }
+    ]
+  }
+]

@@ -46,8 +46,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       stock: result.stock,
-      movement: result.movement,
-      isIdempotentRepeat: result.isIdempotentRepeat || false,
+      isIdempotentRepeat: result.idempotent || false,
     })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')

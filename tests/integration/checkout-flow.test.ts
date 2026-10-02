@@ -309,8 +309,12 @@ describe('admin stock adjustments', () => {
     expect(down.newStock).toBe(0)
 
     const movements = await inventoryAdmin.adminGetInventoryMovements(productId)
-    expect(movements.length).toBe(7)
+    const manual = movements.filter((m) => m.reason.startsWith('test '))
+    expect(manual.length).toBe(7)
     expect(movements[0].reason).toBe('test clamp')
+    // The checkout tests above moved stock through orders; those moves are in the ledger too.
+    expect(movements.some((m) => m.reason.startsWith('Sipariş için ayrıldı'))).toBe(true)
+    expect(movements.some((m) => m.reason.startsWith('Stok geri alındı'))).toBe(true)
   }, 60_000)
 })
 

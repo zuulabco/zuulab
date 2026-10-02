@@ -4998,6 +4998,17 @@
                   }
                 }
               },
+              "pricePerKgTl": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                }
+              },
               "quantityGrams": {
                 "nullable": false,
                 "type": {
@@ -5042,6 +5053,21 @@
                   "model": "MaterialStockMovement",
                   "namespace": "public"
                 }
+              },
+              "productionOrders": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "materialStockId"
+                  ]
+                },
+                "to": {
+                  "model": "ProductionOrder",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -5069,6 +5095,9 @@
                 },
                 "minimumQuantityGrams": {
                   "column": "minimum_quantity_grams"
+                },
+                "pricePerKgTl": {
+                  "column": "price_per_kg_tl"
                 },
                 "quantityGrams": {
                   "column": "quantity_grams"
@@ -7922,8 +7951,37 @@
                   "kind": "scalar"
                 }
               },
+              "gramsPerUnit": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                }
+              },
               "id": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "materialConsumedGrams": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                }
+              },
+              "materialStockId": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
@@ -8030,6 +8088,22 @@
               }
             },
             "relations": {
+              "materialStock": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "materialStockId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "MaterialStock",
+                  "namespace": "public"
+                }
+              },
               "product": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -8067,8 +8141,17 @@
                 "failedQuantity": {
                   "column": "failed_quantity"
                 },
+                "gramsPerUnit": {
+                  "column": "grams_per_unit"
+                },
                 "id": {
                   "column": "id"
+                },
+                "materialConsumedGrams": {
+                  "column": "material_consumed_grams"
+                },
+                "materialStockId": {
+                  "column": "material_stock_id"
                 },
                 "notes": {
                   "column": "notes"
@@ -20088,6 +20171,15 @@
                     "scale": 2
                   }
                 },
+                "price_per_kg_tl": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                },
                 "quantity_grams": {
                   "codecId": "pg/numeric@1",
                   "default": {
@@ -21616,10 +21708,33 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "grams_per_unit": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "material_consumed_grams": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                },
+                "material_stock_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
                 },
                 "notes": {
                   "codecId": "pg/text@1",
@@ -21734,6 +21849,24 @@
                     ],
                     "namespaceId": "public",
                     "tableName": "products"
+                  }
+                },
+                {
+                  "onDelete": "setNull",
+                  "onUpdate": "cascade",
+                  "source": {
+                    "columns": [
+                      "material_stock_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "production_orders"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "material_stocks"
                   }
                 }
               ],
@@ -28803,7 +28936,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "732f38ac913863b73f8e6e187a534bf21ffe437311be873e130c22f8d16b90a4"
+    "storageHash": "5a4e5b15e17b99f0e2fa41e601fc2051fb07a92d0f103d1f967b39585586b4a6"
   },
   "execution": {
     "executionHash": "6340d282ec657572b17fcb3a67ec4d99b6a7992e828c63df85c2cad1f73b608f",

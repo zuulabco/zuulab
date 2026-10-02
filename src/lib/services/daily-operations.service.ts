@@ -9,7 +9,7 @@ import {
 import { getAllOrders, type StoredOrder } from './orders.service'
 import { ShippingService } from './shipping/shipping.service'
 import { BulkShippingService, type ShippingDailyStats } from './shipping/bulk-shipping.service'
-import { MaterialService, type MaterialReadinessSummary } from './material.service'
+import { MaterialService } from './material.service'
 
 export type PriorityLevel = 'P0' | 'P1' | 'P2' | 'P3'
 export type PriorityLevelLabel = 'ACİL' | 'BUGÜN' | 'KRİTİK STOK' | 'NORMAL'
@@ -141,7 +141,44 @@ export interface TodayOperationsData {
       actionUrl: string
     }
   >
-  materials: MaterialReadinessSummary
+  materials: TodayMaterials
+}
+
+/** Filament view for the daily page: low/empty filaments and print jobs that will run short. */
+export interface TodayMaterials {
+  totalMaterialGrams: number
+  totalMaterialValueTl: number
+  criticalMaterialCount: number
+  blockingMaterialCount: number
+  todayRequiredGrams: number
+  productionDemandCount: number
+  producibleCount: number
+  blockedCount: number
+  materials: Array<{
+    materialName: string
+    color: string | null
+    availableGrams: number
+    requiredGrams: number
+    minimumGrams: number
+    remainingGrams: number
+    missingGrams: number
+    status: 'READY' | 'LOW' | 'BLOCKED' | 'UNKNOWN'
+    stockId: string | null
+    isBlocked: boolean
+  }>
+  blockers: Array<{
+    productId: string
+    productName: string
+    sku: string
+    productionQuantity: number
+    materialName: string
+    color: string | null
+    requiredGrams: number
+    availableGrams: number
+    missingGrams: number
+    status: 'BLOCKED'
+    actionUrl: string
+  }>
 }
 
 export class DailyOperationsService {
@@ -697,7 +734,47 @@ export class DailyOperationsService {
       })
     }
 
-    const materials = await MaterialService.getMaterialReadiness(storeId)
+    const readiness = await MaterialService.getMaterialReadiness(storeId)
+    const openJobs = activeProd.active
+    const shortById = new Map(readiness.shortJobs.map((j) => [j.productionOrderId, j]))
+    const materials: TodayMaterials = {
+      totalMaterialGrams: readiness.totalMaterialGrams,
+      totalMaterialValueTl: readiness.totalMaterialValueTl,
+      criticalMaterialCount: readiness.lowCount + readiness.outCount,
+      blockingMaterialCount: new Set(readiness.shortJobs.map((j) => `${j.materialName}:${j.color ?? ''}`)).size,
+      todayRequiredGrams: Math.round(readiness.materials.reduce((s, m) => s + m.reservedGrams, 0) * 100) / 100,
+      productionDemandCount: openJobs.length,
+      producibleCount: openJobs.filter((j) => !shortById.has(j.id)).length,
+      blockedCount: readiness.shortJobs.length,
+      materials: readiness.materials.map((m) => ({
+        materialName: m.materialName,
+        color: m.color,
+        availableGrams: m.quantityGrams,
+        requiredGrams: m.reservedGrams,
+        minimumGrams: m.minimumQuantityGrams,
+        remainingGrams: m.freeGrams,
+        missingGrams: Math.max(0, -m.freeGrams),
+        status: m.status === 'OK' ? 'READY' : m.status === 'LOW' ? 'LOW' : 'BLOCKED',
+        stockId: m.id,
+        isBlocked: m.freeGrams < 0,
+      })),
+      blockers: readiness.shortJobs.map((j) => {
+        const job = openJobs.find((o) => o.id === j.productionOrderId)
+        return {
+          productId: job?.productId ?? '',
+          productName: j.productName,
+          sku: job?.sku ?? '',
+          productionQuantity: job?.quantity ?? 0,
+          materialName: j.materialName,
+          color: j.color,
+          requiredGrams: j.missingGrams,
+          availableGrams: 0,
+          missingGrams: j.missingGrams,
+          status: 'BLOCKED' as const,
+          actionUrl: '/admin/materials',
+        }
+      }),
+    }
 
     return {
       date,

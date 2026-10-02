@@ -1,0 +1,44 @@
+[
+  {
+    "id": "column.public.material_stocks.price_per_kg_tl",
+    "label": "Add column \"price_per_kg_tl\" to \"material_stocks\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "price_per_kg_tl",
+        "table": "material_stocks"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"price_per_kg_tl\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "material_stocks",
+          "price_per_kg_tl"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"price_per_kg_tl\"",
+        "sql": "ALTER TABLE \"public\".\"material_stocks\" ADD COLUMN \"price_per_kg_tl\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"price_per_kg_tl\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "material_stocks",
+          "price_per_kg_tl"
+        ]
+      }
+    ]
+  }
+]

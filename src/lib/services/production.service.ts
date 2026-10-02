@@ -1,18 +1,25 @@
 import 'server-only'
+import { db } from '@/prisma/db'
+import { dbNumeric } from '@/lib/db/numeric'
+import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
+import { refreshCatalogStock } from '@/lib/cache/catalog-cache'
 import { logAuditEvent } from './admin.service'
-import { adjustInventory, getInventoryStatus } from './inventory.service'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
-import { db, isDatabaseConfigured } from '@/prisma/db'
+import { applyMaterialMovement } from './material.service'
 
-export type ProductionStatus =
-  | 'PLANNED'
-  | 'QUEUED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'STOCKED'
-  | 'FAILED'
-  | 'CANCELLED'
+/**
+ * 3D print jobs that restock products (ZUULAB sells from stock).
+ *
+ *   PLANNED/QUEUED ──start──▶ IN_PROGRESS ──complete──▶ COMPLETED ──stock──▶ STOCKED
+ *                                   │                       (all failed → FAILED)
+ *                                   └──fail──▶ FAILED        any open ──cancel──▶ CANCELLED
+ *
+ * Each transition is a compare-and-set on the status, so a double click or a retried
+ * request applies it once. Completing deducts the filament used (printed pieces ×
+ * grams per piece) and stocking adds the good pieces to the product's stock; both
+ * write ledger rows under idempotency keys.
+ */
 
+export type ProductionStatus = 'PLANNED' | 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED' | 'STOCKED' | 'FAILED' | 'CANCELLED'
 export type ProductionPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 
 export interface ProductionOrder {
@@ -28,6 +35,12 @@ export interface ProductionOrder {
   priority: ProductionPriority
   printerReference: string | null
   notes: string | null
+  materialStockId: string | null
+  materialLabel: string | null
+  gramsPerUnit: number | null
+  /** quantity × grams per piece; null when either is unknown */
+  requiredGrams: number | null
+  materialConsumedGrams: number | null
   stockedIdempotencyKey: string | null
   createdBy: string
   startedAt: string | null
@@ -43,10 +56,13 @@ export interface CreateProductionOrderInput {
   priority?: ProductionPriority
   printerReference?: string
   notes?: string
+  materialStockId?: string | null
+  gramsPerUnit?: number | null
   createdBy: string
 }
 
 export interface CompleteProductionInput {
+  /** Pieces printed, good and failed together */
   completedQuantity: number
   failedQuantity?: number
   notes?: string
@@ -94,23 +110,7 @@ export interface LowStockProduct {
   hasActiveProduction: boolean
 }
 
-// ─────────────────────────────────────────────────────────────
-// IN-MEMORY STORAGE & HELPERS
-// ─────────────────────────────────────────────────────────────
-
-const inMemoryProductionOrders: Map<string, ProductionOrder> = new Map()
-
-function generateId(): string {
-  return 'prod-' + Date.now() + '-' + Math.floor(Math.random() * 10000)
-}
-
-function nowTs(): string {
-  return new Date().toISOString()
-}
-
-// ─────────────────────────────────────────────────────────────
-// STATE MACHINE TRANSITION RULES
-// ─────────────────────────────────────────────────────────────
+type Result = { success: boolean; order?: ProductionOrder; error?: string }
 
 const ALLOWED_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
   PLANNED: ['QUEUED', 'IN_PROGRESS', 'CANCELLED'],
@@ -122,702 +122,412 @@ const ALLOWED_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
   CANCELLED: [],
 }
 
+const STATUS_LABEL: Record<ProductionStatus, string> = {
+  PLANNED: 'Planlandı',
+  QUEUED: 'Sırada',
+  IN_PROGRESS: 'Basılıyor',
+  COMPLETED: 'Tamamlandı',
+  STOCKED: 'Stoğa alındı',
+  FAILED: 'Başarısız',
+  CANCELLED: 'İptal',
+}
+
 export function canTransition(from: ProductionStatus, to: ProductionStatus): boolean {
-  const allowed = ALLOWED_TRANSITIONS[from] || []
-  return allowed.includes(to)
+  return (ALLOWED_TRANSITIONS[from] || []).includes(to)
+}
+
+const OPEN: ProductionStatus[] = ['PLANNED', 'QUEUED', 'IN_PROGRESS']
+
+function num(value: unknown): number | null {
+  return value === null || value === undefined ? null : Math.round(Number(value) * 100) / 100
+}
+
+type Row = {
+  id: string
+  productId: string
+  productNameSnapshot: string
+  skuSnapshot: string
+  quantity: number
+  completedQuantity: number
+  acceptedQuantity: number
+  failedQuantity: number
+  status: string
+  priority: string
+  printerReference: string | null
+  notes: string | null
+  materialStockId: string | null
+  gramsPerUnit: unknown
+  materialConsumedGrams: unknown
+  stockedIdempotencyKey: string | null
+  createdBy: string
+  startedAt: unknown
+  completedAt: unknown
+  stockedAt: unknown
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+async function materialLabels(ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map()
+  const rows = await db.orm.public.MaterialStock.where((m) => m.id.in(ids)).select('id', 'materialName', 'color').all()
+  return new Map(rows.map((m) => [m.id, `${m.materialName}${m.color ? ` ${m.color}` : ''}`]))
+}
+
+function toOrder(row: Row, labels: Map<string, string>): ProductionOrder {
+  const gramsPerUnit = num(row.gramsPerUnit)
+  return {
+    id: row.id,
+    productId: row.productId,
+    productNameSnapshot: row.productNameSnapshot,
+    skuSnapshot: row.skuSnapshot,
+    quantity: row.quantity,
+    completedQuantity: row.completedQuantity,
+    acceptedQuantity: row.acceptedQuantity,
+    failedQuantity: row.failedQuantity,
+    status: row.status as ProductionStatus,
+    priority: row.priority as ProductionPriority,
+    printerReference: row.printerReference,
+    notes: row.notes,
+    materialStockId: row.materialStockId,
+    materialLabel: row.materialStockId ? labels.get(row.materialStockId) ?? null : null,
+    gramsPerUnit,
+    requiredGrams: gramsPerUnit === null ? null : Math.round(row.quantity * gramsPerUnit * 100) / 100,
+    materialConsumedGrams: num(row.materialConsumedGrams),
+    stockedIdempotencyKey: row.stockedIdempotencyKey,
+    createdBy: row.createdBy,
+    startedAt: dbTimestampToIso(row.startedAt),
+    completedAt: dbTimestampToIso(row.completedAt),
+    stockedAt: dbTimestampToIso(row.stockedAt),
+    createdAt: dbTimestampToIso(row.createdAt) ?? '',
+    updatedAt: dbTimestampToIso(row.updatedAt) ?? '',
+  }
+}
+
+async function load(id: string): Promise<ProductionOrder | null> {
+  const row = (await db.orm.public.ProductionOrder.where({ id }).first()) as Row | null
+  if (!row) return null
+  return toOrder(row, await materialLabels(row.materialStockId ? [row.materialStockId] : []))
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** Moves the job from one of `from` to `to` with extra column changes; false if another request already moved it. */
+async function transition(tx: Tx, id: string, from: ProductionStatus[], to: ProductionStatus, extra: Record<string, unknown> = {}): Promise<boolean> {
+  const current = await tx.orm.public.ProductionOrder.where({ id }).select('status').first()
+  if (!current || !from.includes(current.status as ProductionStatus)) return false
+  const { affectedRows } = await tx.execute(
+    db.raw.sql`UPDATE production_orders SET status = ${to}::"ProductionStatus", updated_at = now()
+      WHERE id = ${id} AND status = ${current.status}::"ProductionStatus"`
+      .affectedCount()
+      .build()
+  )
+  if (affectedRows !== 1) return false
+  if (Object.keys(extra).length) await tx.orm.public.ProductionOrder.where({ id }).update(extra as never)
+  return true
+}
+
+function transitionError(order: ProductionOrder, to: ProductionStatus): string {
+  return `Bu iş "${STATUS_LABEL[order.status]}" durumunda; "${STATUS_LABEL[to]}" yapılamaz.`
+}
+
+function appendNote(existing: string | null, note: string | undefined | null): string | null {
+  if (!note?.trim()) return existing
+  return existing ? `${existing} | ${note.trim()}` : note.trim()
 }
 
 // ─────────────────────────────────────────────────────────────
-// CORE PRODUCTION OPERATIONS
+// Operations
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Creates a new production order.
- */
-export async function createProductionOrder(
-  input: CreateProductionOrderInput
-): Promise<{ success: boolean; order?: ProductionOrder; error?: string }> {
-  if (!input.productId) {
-    return { success: false, error: 'Ürün ID zorunludur.' }
-  }
-  if (!input.quantity || input.quantity <= 0) {
-    return { success: false, error: 'Geçerli bir üretim miktarı girilmelidir (en az 1).' }
-  }
+export async function createProductionOrder(input: CreateProductionOrderInput): Promise<Result> {
+  if (!input.productId) return { success: false, error: 'Ürün seçilmelidir.' }
+  const quantity = Number(input.quantity)
+  if (!Number.isInteger(quantity) || quantity <= 0) return { success: false, error: 'Adet en az 1 olmalıdır.' }
+  const product = await db.orm.public.Product.where({ id: input.productId })
+    .select('id', 'name', 'sku', 'printerReference', 'estimatedMaterialWeightGrams')
+    .first()
+  if (!product) return { success: false, error: 'Ürün bulunamadı.' }
 
-  // Look up product snapshot
-  let productName = 'Bilinmeyen Ürün'
-  let sku = 'SKU-UNKNOWN'
-  let printerRef = input.printerReference || null
-
-  if (isDatabaseConfigured) {
-    try {
-      const prod = await db.orm.public.Product.where({ id: input.productId }).first()
-      if (prod) {
-        productName = prod.name
-        sku = prod.sku
-        if (!printerRef && (prod as any).printerReference) {
-          printerRef = (prod as any).printerReference
-        }
-      }
-    } catch {
-      // fallback to mock
-    }
+  // Filament: as chosen, else the one the product's previous job used.
+  let materialStockId = input.materialStockId || null
+  if (!materialStockId && input.materialStockId === undefined) {
+    const previous = await db.orm.public.ProductionOrder.where({ productId: product.id })
+      .orderBy((o) => o.createdAt.desc())
+      .select('materialStockId')
+      .first()
+    materialStockId = previous?.materialStockId ?? null
+  }
+  if (materialStockId && !(await db.orm.public.MaterialStock.where({ id: materialStockId }).select('id').first())) {
+    return { success: false, error: 'Seçilen filament bulunamadı.' }
+  }
+  const gramsPerUnit =
+    input.gramsPerUnit !== undefined && input.gramsPerUnit !== null && String(input.gramsPerUnit) !== ''
+      ? Number(input.gramsPerUnit)
+      : product.estimatedMaterialWeightGrams ?? null
+  if (gramsPerUnit !== null && (!Number.isFinite(gramsPerUnit) || gramsPerUnit < 0)) {
+    return { success: false, error: 'Parça başı gram geçerli bir sayı olmalıdır.' }
   }
 
-  if (productName === 'Bilinmeyen Ürün') {
-    const mockProd = MOCK_PRODUCTS.find((p) => p.id === input.productId)
-    if (mockProd) {
-      productName = mockProd.name
-      sku = mockProd.sku
-      if (!printerRef && (mockProd as any).printerReference) {
-        printerRef = (mockProd as any).printerReference
-      }
-    }
-  }
-
-  const id = generateId()
-  const now = nowTs()
-
-  const order: ProductionOrder = {
-    id,
-    productId: input.productId,
-    productNameSnapshot: productName,
-    skuSnapshot: sku,
-    quantity: input.quantity,
-    completedQuantity: 0,
-    acceptedQuantity: 0,
-    failedQuantity: 0,
+  const created = await db.orm.public.ProductionOrder.create({
+    productId: product.id,
+    productNameSnapshot: product.name,
+    skuSnapshot: product.sku,
+    quantity,
     status: 'PLANNED',
     priority: input.priority || 'NORMAL',
-    printerReference: printerRef,
-    notes: input.notes || null,
-    stockedIdempotencyKey: null,
+    printerReference: input.printerReference?.trim() || product.printerReference || null,
+    notes: input.notes?.trim() || null,
+    materialStockId,
+    gramsPerUnit: gramsPerUnit === null ? null : dbNumeric(gramsPerUnit),
     createdBy: input.createdBy,
-    startedAt: null,
-    completedAt: null,
-    stockedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  }
-
-  inMemoryProductionOrders.set(id, order)
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.create({
-        id: order.id,
-        productId: order.productId,
-        productNameSnapshot: order.productNameSnapshot,
-        skuSnapshot: order.skuSnapshot,
-        quantity: order.quantity,
-        completedQuantity: order.completedQuantity,
-        acceptedQuantity: order.acceptedQuantity,
-        failedQuantity: order.failedQuantity,
-        status: order.status,
-        priority: order.priority,
-        printerReference: order.printerReference,
-        notes: order.notes,
-        createdBy: order.createdBy,
-      })
-    } catch (err) {
-      console.warn('[production.service] DB save failed:', err)
-    }
-  }
+  } as never)
+  const id = (created as { id: string }).id
 
   await logAuditEvent({
     action: 'PRODUCTION_ORDER_CREATED',
     entity: 'ProductionOrder',
     entityId: id,
     userId: input.createdBy,
-    metadata: {
-      productId: input.productId,
-      quantity: input.quantity,
-      priority: order.priority,
-      printerReference: order.printerReference,
-    },
+    metadata: { productId: product.id, quantity, materialStockId, gramsPerUnit },
   })
+  return { success: true, order: (await load(id))! }
+}
 
-  return { success: true, order }
+export async function startProductionOrder(orderId: string, userId?: string): Promise<Result> {
+  const order = await load(orderId)
+  if (!order) return { success: false, error: 'Üretim işi bulunamadı.' }
+  const moved = await db.transaction((tx) =>
+    transition(tx, orderId, ['PLANNED', 'QUEUED'], 'IN_PROGRESS', { startedAt: toDbTimestamp() })
+  )
+  if (!moved) return { success: false, error: transitionError(order, 'IN_PROGRESS') }
+  await logAuditEvent({ action: 'PRODUCTION_ORDER_STARTED', entity: 'ProductionOrder', entityId: orderId, userId: userId || null })
+  return { success: true, order: (await load(orderId))! }
 }
 
 /**
- * Transitions production order to IN_PROGRESS.
+ * Records what came off the printer. Filament for every printed piece (good or
+ * failed) is deducted from the job's filament; all pieces failed → FAILED.
  */
-export async function startProductionOrder(
-  orderId: string,
-  userId?: string
-): Promise<{ success: boolean; order?: ProductionOrder; error?: string }> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (!order) {
-    return { success: false, error: 'Üretim emri bulunamadı: ' + orderId }
+export async function completeProductionOrder(orderId: string, input: CompleteProductionInput, userId?: string): Promise<Result> {
+  const order = await load(orderId)
+  if (!order) return { success: false, error: 'Üretim işi bulunamadı.' }
+  const printed = Number(input.completedQuantity)
+  const failed = Number(input.failedQuantity ?? 0)
+  if (!Number.isInteger(printed) || !Number.isInteger(failed) || printed < 0 || failed < 0) {
+    return { success: false, error: 'Adetler 0 veya pozitif tam sayı olmalıdır.' }
   }
+  if (printed === 0) return { success: false, error: 'Basılan adet en az 1 olmalıdır.' }
+  if (failed > printed) return { success: false, error: 'Hatalı adet, basılan adetten fazla olamaz.' }
+  const accepted = printed - failed
+  const target: ProductionStatus = accepted === 0 ? 'FAILED' : 'COMPLETED'
+  const consumed = order.gramsPerUnit === null ? null : Math.round(printed * order.gramsPerUnit * 100) / 100
 
-  if (!canTransition(order.status, 'IN_PROGRESS')) {
-    return {
-      success: false,
-      error:
-        'Geçersiz durum geçişi: ' +
-        order.status +
-        ' -> IN_PROGRESS. Yalnızca PLANNED veya QUEUED durumundaki emirler başlatılabilir.',
-    }
-  }
-
-  const now = nowTs()
-  order.status = 'IN_PROGRESS'
-  order.startedAt = now
-  order.updatedAt = now
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-        status: 'IN_PROGRESS',
-        startedAt: new Date(now),
-        updatedAt: new Date(now),
-      })
-    } catch (err) {
-      console.warn('[production.service] DB update failed:', err)
-    }
-  }
-
-  await logAuditEvent({
-    action: 'PRODUCTION_ORDER_STARTED',
-    entity: 'ProductionOrder',
-    entityId: orderId,
-    userId: userId || null,
-    metadata: { orderId, startedAt: now },
-  })
-
-  return { success: true, order }
-}
-
-/**
- * Completes production with recorded completed and failed quantities.
- */
-export async function completeProductionOrder(
-  orderId: string,
-  input: CompleteProductionInput,
-  userId?: string
-): Promise<{ success: boolean; order?: ProductionOrder; error?: string }> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (!order) {
-    return { success: false, error: 'Üretim emri bulunamadı: ' + orderId }
-  }
-
-  if (!canTransition(order.status, 'COMPLETED')) {
-    return {
-      success: false,
-      error:
-        'Geçersiz durum geçişi: ' +
-        order.status +
-        ' -> COMPLETED. Yalnızca IN_PROGRESS durumundaki emirler tamamlanabilir.',
-    }
-  }
-
-  const completed = Number(input.completedQuantity || 0)
-  const failed = Number(input.failedQuantity || 0)
-
-  if (completed < 0 || failed < 0) {
-    return { success: false, error: 'Üretim miktarları negatif olamaz.' }
-  }
-
-  const accepted = Math.max(0, completed - failed)
-  const now = nowTs()
-
-  // If entire batch failed and accepted is 0, allow transition to FAILED
-  if (accepted === 0 && failed > 0) {
-    order.status = 'FAILED'
-    order.completedQuantity = completed
-    order.acceptedQuantity = 0
-    order.failedQuantity = failed
-    order.completedAt = now
-    order.updatedAt = now
-    if (input.notes) {
-      order.notes = order.notes ? order.notes + ' | ' + input.notes : input.notes
-    }
-
-    if (isDatabaseConfigured) {
-      try {
-        await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-          status: 'FAILED',
-          completedQuantity: completed,
-          acceptedQuantity: 0,
-          failedQuantity: failed,
-          completedAt: new Date(now),
-          updatedAt: new Date(now),
-          notes: order.notes,
-        })
-      } catch (err) {
-        console.warn('[production.service] DB update failed:', err)
-      }
-    }
-
-    await logAuditEvent({
-      action: 'PRODUCTION_ORDER_FAILED_ON_COMPLETION',
-      entity: 'ProductionOrder',
-      entityId: orderId,
-      userId: userId || null,
-      metadata: { completed, failed, accepted: 0 },
+  const moved = await db.transaction(async (tx) => {
+    const ok = await transition(tx, orderId, ['IN_PROGRESS'], target, {
+      completedQuantity: printed,
+      acceptedQuantity: accepted,
+      failedQuantity: failed,
+      completedAt: toDbTimestamp(),
+      notes: appendNote(order.notes, input.notes),
+      materialConsumedGrams: consumed === null ? null : dbNumeric(consumed),
     })
-
-    return { success: true, order }
-  }
-
-  order.status = 'COMPLETED'
-  order.completedQuantity = completed
-  order.acceptedQuantity = accepted
-  order.failedQuantity = failed
-  order.completedAt = now
-  order.updatedAt = now
-  if (input.notes) {
-    order.notes = order.notes ? order.notes + ' | ' + input.notes : input.notes
-  }
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-        status: 'COMPLETED',
-        completedQuantity: completed,
-        acceptedQuantity: accepted,
-        failedQuantity: failed,
-        completedAt: new Date(now),
-        updatedAt: new Date(now),
-        notes: order.notes,
+    if (!ok) return false
+    if (order.materialStockId && consumed && consumed > 0) {
+      await applyMaterialMovement(tx, {
+        materialStockId: order.materialStockId,
+        deltaGrams: -consumed,
+        type: 'PRODUCTION_CONSUMPTION',
+        reason: `Üretim: ${order.productNameSnapshot} × ${printed} (${failed} hatalı)`,
+        reference: orderId,
+        idempotencyKey: `PRODUCTION_MATERIAL:${orderId}`,
+        createdBy: userId || 'system',
       })
-    } catch (err) {
-      console.warn('[production.service] DB update failed:', err)
     }
-  }
+    return true
+  })
+  if (!moved) return { success: false, error: transitionError(order, 'COMPLETED') }
 
   await logAuditEvent({
-    action: 'PRODUCTION_ORDER_COMPLETED',
+    action: target === 'FAILED' ? 'PRODUCTION_ORDER_FAILED_ON_COMPLETION' : 'PRODUCTION_ORDER_COMPLETED',
     entity: 'ProductionOrder',
     entityId: orderId,
     userId: userId || null,
-    metadata: { completed, accepted, failed },
+    metadata: { printed, accepted, failed, consumedGrams: consumed },
   })
-
-  return { success: true, order }
+  return { success: true, order: (await load(orderId))! }
 }
 
-/**
- * Moves completed production goods into central inventory via adjustInventory().
- * CRITICAL INVARIANT: InventoryService is the sole authority for stock mutations.
- * Enforces idempotency via stockedIdempotencyKey to prevent duplicate stocking.
- */
+/** Adds the good pieces of a completed job to the product's stock, exactly once. */
 export async function stockProductionOrder(
   orderId: string,
   userId?: string
-): Promise<{
-  success: boolean
-  order?: ProductionOrder
-  newStock?: number
-  idempotent?: boolean
-  error?: string
-}> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (!order) {
-    return { success: false, error: 'Üretim emri bulunamadı: ' + orderId }
+): Promise<{ success: boolean; order?: ProductionOrder; newStock?: number; idempotent?: boolean; error?: string }> {
+  const order = await load(orderId)
+  if (!order) return { success: false, error: 'Üretim işi bulunamadı.' }
+  const idempotencyKey = `PRODUCTION_STOCK:${orderId}`
+  if (order.status === 'STOCKED') {
+    const product = await db.orm.public.Product.where({ id: order.productId }).select('stock').first()
+    return { success: true, order, newStock: product?.stock, idempotent: true }
   }
+  if (order.acceptedQuantity <= 0) return { success: false, error: 'Stoğa eklenecek sağlam parça yok.' }
 
-  const idempotencyKey = 'PRODUCTION_STOCK:' + order.id
-
-  // Idempotency check: if already stocked, return safe no-op
-  if (order.status === 'STOCKED' || order.stockedIdempotencyKey === idempotencyKey) {
-    const inv = await getInventoryStatus(order.productId)
-    return {
-      success: true,
-      order,
-      newStock: inv.stock,
-      idempotent: true,
-    }
-  }
-
-  if (!canTransition(order.status, 'STOCKED')) {
-    return {
-      success: false,
-      error:
-        'Geçersiz durum geçişi: ' +
-        order.status +
-        ' -> STOCKED. Yalnızca COMPLETED durumundaki emirler stoğa alınabilir.',
-    }
-  }
-
-  if (order.acceptedQuantity <= 0) {
-    return {
-      success: false,
-      error: 'Stoğa eklenecek kabul edilmiş ürün miktarı bulunmuyor (acceptedQuantity: ' + order.acceptedQuantity + ').',
-    }
-  }
-
-  // Adjust central inventory through official InventoryService authority
-  const adjResult = await adjustInventory(order.productId, order.acceptedQuantity, {
-    reason: 'Üretim Tamamlandı & Stoğa Alındı: ' + order.id,
-    referenceId: order.id,
-    idempotencyKey,
-    transactionType: 'PRODUCTION_STOCK',
-    adminUserId: userId || order.createdBy || 'system',
-    metadata: {
-      productionOrderId: order.id,
-      sku: order.skuSnapshot,
-      acceptedQuantity: order.acceptedQuantity,
-      failedQuantity: order.failedQuantity,
-    },
+  const newStock = await db.transaction(async (tx) => {
+    const ok = await transition(tx, orderId, ['COMPLETED'], 'STOCKED', { stockedAt: toDbTimestamp(), stockedIdempotencyKey: idempotencyKey })
+    if (!ok) return null
+    const [row] = (await tx.query(
+      db.raw.sql`SELECT stock, sku FROM products WHERE id = ${order.productId} FOR UPDATE`
+        .returnsRow({ stock: 'pg/int4@1', sku: 'pg/text@1' } as never)
+        .build()
+    )) as unknown as Array<{ stock: number; sku: string }>
+    if (!row) throw new Error('Ürün bulunamadı.')
+    const next = Number(row.stock) + order.acceptedQuantity
+    await tx.execute(
+      db.raw.sql`UPDATE products SET stock = ${next}, updated_at = now() WHERE id = ${order.productId}`.affectedCount().build()
+    )
+    await tx.orm.public.InventoryTransaction.create({
+      productId: order.productId,
+      sku: row.sku,
+      changeQuantity: order.acceptedQuantity,
+      previousStock: Number(row.stock),
+      newStock: next,
+      previousReserved: 0,
+      newReserved: 0,
+      type: 'PRODUCTION_STOCK',
+      reason: `Üretim stoğa alındı (${order.acceptedQuantity} adet)`,
+      idempotencyKey,
+      metadata: { productionOrderId: orderId, changedBy: userId || 'system' } as never,
+    })
+    return next
   })
+  if (newStock === null) return { success: false, error: transitionError(order, 'STOCKED') }
 
-  if (!adjResult.success) {
-    return {
-      success: false,
-      error: 'Stok güncellenirken hata oluştu.',
-    }
-  }
-
-  const now = nowTs()
-  order.status = 'STOCKED'
-  order.stockedAt = now
-  order.stockedIdempotencyKey = idempotencyKey
-  order.updatedAt = now
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-        status: 'STOCKED',
-        stockedAt: new Date(now),
-        stockedIdempotencyKey: idempotencyKey,
-        updatedAt: new Date(now),
-      })
-    } catch (err) {
-      console.warn('[production.service] DB stock update failed:', err)
-    }
-  }
-
+  refreshCatalogStock()
   await logAuditEvent({
     action: 'PRODUCTION_ORDER_STOCKED',
     entity: 'ProductionOrder',
     entityId: orderId,
     userId: userId || null,
-    metadata: {
-      productId: order.productId,
-      quantityAdded: order.acceptedQuantity,
-      newStock: adjResult.newStock,
-      idempotencyKey,
-    },
+    metadata: { productId: order.productId, quantityAdded: order.acceptedQuantity, newStock },
   })
-
-  return {
-    success: true,
-    order,
-    newStock: adjResult.newStock,
-    idempotent: false,
-  }
+  return { success: true, order: (await load(orderId))!, newStock, idempotent: false }
 }
 
-/**
- * Fails a production order with a reason.
- */
-export async function failProductionOrder(
-  orderId: string,
-  reason?: string,
-  userId?: string
-): Promise<{ success: boolean; order?: ProductionOrder; error?: string }> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (!order) {
-    return { success: false, error: 'Üretim emri bulunamadı: ' + orderId }
-  }
-
-  if (!canTransition(order.status, 'FAILED')) {
-    return {
-      success: false,
-      error:
-        'Geçersiz durum geçişi: ' +
-        order.status +
-        ' -> FAILED. Yalnızca IN_PROGRESS durumundaki emirler başarısız olarak işaretlenebilir.',
-    }
-  }
-
-  const now = nowTs()
-  order.status = 'FAILED'
-  order.updatedAt = now
-  if (reason) {
-    order.notes = order.notes ? order.notes + ' | Hata: ' + reason : 'Hata: ' + reason
-  }
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-        status: 'FAILED',
-        updatedAt: new Date(now),
-        notes: order.notes,
-      })
-    } catch (err) {
-      console.warn('[production.service] DB fail update failed:', err)
-    }
-  }
-
-  await logAuditEvent({
-    action: 'PRODUCTION_ORDER_FAILED',
-    entity: 'ProductionOrder',
-    entityId: orderId,
-    userId: userId || null,
-    metadata: { reason },
-  })
-
-  return { success: true, order }
+export async function failProductionOrder(orderId: string, reason?: string, userId?: string): Promise<Result> {
+  const order = await load(orderId)
+  if (!order) return { success: false, error: 'Üretim işi bulunamadı.' }
+  const moved = await db.transaction((tx) =>
+    transition(tx, orderId, ['IN_PROGRESS'], 'FAILED', { notes: appendNote(order.notes, reason ? `Hata: ${reason}` : null) })
+  )
+  if (!moved) return { success: false, error: transitionError(order, 'FAILED') }
+  await logAuditEvent({ action: 'PRODUCTION_ORDER_FAILED', entity: 'ProductionOrder', entityId: orderId, userId: userId || null, metadata: { reason } })
+  return { success: true, order: (await load(orderId))! }
 }
 
-/**
- * Cancels a production order.
- */
-export async function cancelProductionOrder(
-  orderId: string,
-  reason?: string,
-  userId?: string
-): Promise<{ success: boolean; order?: ProductionOrder; error?: string }> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (!order) {
-    return { success: false, error: 'Üretim emri bulunamadı: ' + orderId }
-  }
-
-  if (!canTransition(order.status, 'CANCELLED')) {
-    return {
-      success: false,
-      error:
-        'Geçersiz durum geçişi: ' +
-        order.status +
-        ' -> CANCELLED. Bu durumdaki bir emir iptal edilemez.',
-    }
-  }
-
-  const now = nowTs()
-  order.status = 'CANCELLED'
-  order.updatedAt = now
-  if (reason) {
-    order.notes = order.notes ? order.notes + ' | İptal: ' + reason : 'İptal: ' + reason
-  }
-
-  if (isDatabaseConfigured) {
-    try {
-      await (db.orm.public as any).ProductionOrder.where({ id: orderId }).update({
-        status: 'CANCELLED',
-        updatedAt: new Date(now),
-        notes: order.notes,
-      })
-    } catch (err) {
-      console.warn('[production.service] DB cancel update failed:', err)
-    }
-  }
-
-  await logAuditEvent({
-    action: 'PRODUCTION_ORDER_CANCELLED',
-    entity: 'ProductionOrder',
-    entityId: orderId,
-    userId: userId || null,
-    metadata: { reason },
-  })
-
-  return { success: true, order }
+export async function cancelProductionOrder(orderId: string, reason?: string, userId?: string): Promise<Result> {
+  const order = await load(orderId)
+  if (!order) return { success: false, error: 'Üretim işi bulunamadı.' }
+  const moved = await db.transaction((tx) =>
+    transition(tx, orderId, OPEN, 'CANCELLED', { notes: appendNote(order.notes, reason ? `İptal: ${reason}` : null) })
+  )
+  if (!moved) return { success: false, error: transitionError(order, 'CANCELLED') }
+  await logAuditEvent({ action: 'PRODUCTION_ORDER_CANCELLED', entity: 'ProductionOrder', entityId: orderId, userId: userId || null, metadata: { reason } })
+  return { success: true, order: (await load(orderId))! }
 }
 
-/**
- * Retrieves production orders with optional filtering.
- */
-export async function getProductionOrders(
-  filter?: { status?: ProductionStatus; productId?: string }
-): Promise<ProductionOrder[]> {
-  let list = Array.from(inMemoryProductionOrders.values())
+// ─────────────────────────────────────────────────────────────
+// Reads
+// ─────────────────────────────────────────────────────────────
 
-  if (filter?.status) {
-    list = list.filter((o) => o.status === filter.status)
-  }
-  if (filter?.productId) {
-    list = list.filter((o) => o.productId === filter.productId)
-  }
-
-  return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+export async function getProductionOrders(filter?: { status?: ProductionStatus; productId?: string }): Promise<ProductionOrder[]> {
+  let rows = (await db.orm.public.ProductionOrder.orderBy((o) => o.createdAt.desc()).all()) as Row[]
+  if (filter?.status) rows = rows.filter((r) => r.status === filter.status)
+  if (filter?.productId) rows = rows.filter((r) => r.productId === filter.productId)
+  const labels = await materialLabels([...new Set(rows.map((r) => r.materialStockId).filter((id): id is string => Boolean(id)))])
+  return rows.map((r) => toOrder(r, labels))
 }
 
-/**
- * Retrieves a single production order by ID.
- */
 export async function getProductionOrderById(orderId: string): Promise<ProductionOrder | null> {
-  const order = inMemoryProductionOrders.get(orderId)
-  if (order) return order
-
-  if (isDatabaseConfigured) {
-    try {
-      const dbOrder = await (db.orm.public as any).ProductionOrder.where({ id: orderId }).first()
-      if (dbOrder) {
-        const mapped: ProductionOrder = {
-          id: dbOrder.id,
-          productId: dbOrder.productId,
-          productNameSnapshot: dbOrder.productNameSnapshot,
-          skuSnapshot: dbOrder.skuSnapshot,
-          quantity: dbOrder.quantity,
-          completedQuantity: dbOrder.completedQuantity,
-          acceptedQuantity: dbOrder.acceptedQuantity,
-          failedQuantity: dbOrder.failedQuantity,
-          status: dbOrder.status as ProductionStatus,
-          priority: dbOrder.priority as ProductionPriority,
-          printerReference: dbOrder.printerReference,
-          notes: dbOrder.notes,
-          stockedIdempotencyKey: dbOrder.stockedIdempotencyKey,
-          createdBy: dbOrder.createdBy,
-          startedAt: dbOrder.startedAt ? dbOrder.startedAt.toISOString() : null,
-          completedAt: dbOrder.completedAt ? dbOrder.completedAt.toISOString() : null,
-          stockedAt: dbOrder.stockedAt ? dbOrder.stockedAt.toISOString() : null,
-          createdAt: dbOrder.createdAt.toISOString(),
-          updatedAt: dbOrder.updatedAt.toISOString(),
-        }
-        inMemoryProductionOrders.set(mapped.id, mapped)
-        return mapped
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  return null
+  return load(orderId)
 }
 
-/**
- * Calculates operational summary for dashboard and reporting.
- */
 export async function getProductionSummary(): Promise<ProductionSummary> {
-  const orders = Array.from(inMemoryProductionOrders.values())
-
-  let active = 0
-  let queued = 0
-  let planned = 0
-  let completed = 0
-  let stocked = 0
-  let failed = 0
-  let cancelled = 0
-  let urgent = 0
-  let totalUnitsProduced = 0
-
-  for (const o of orders) {
-    if (o.status === 'IN_PROGRESS') active++
-    else if (o.status === 'QUEUED') queued++
-    else if (o.status === 'PLANNED') planned++
-    else if (o.status === 'COMPLETED') completed++
-    else if (o.status === 'STOCKED') stocked++
-    else if (o.status === 'FAILED') failed++
-    else if (o.status === 'CANCELLED') cancelled++
-
-    if (o.priority === 'URGENT' && o.status !== 'STOCKED' && o.status !== 'CANCELLED') {
-      urgent++
-    }
-
-    if (o.status === 'STOCKED' || o.status === 'COMPLETED') {
-      totalUnitsProduced += o.acceptedQuantity
-    }
-  }
-
-  const recentOrders = [...orders]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 10)
-
+  const orders = await getProductionOrders()
+  const count = (s: ProductionStatus) => orders.filter((o) => o.status === s).length
   return {
     totalOrders: orders.length,
-    active,
-    queued,
-    planned,
-    completed,
-    stocked,
-    failed,
-    cancelled,
-    urgent,
-    totalUnitsProduced,
-    recentOrders,
+    active: count('IN_PROGRESS'),
+    queued: count('QUEUED'),
+    planned: count('PLANNED'),
+    completed: count('COMPLETED'),
+    stocked: count('STOCKED'),
+    failed: count('FAILED'),
+    cancelled: count('CANCELLED'),
+    urgent: orders.filter((o) => o.priority === 'URGENT' && OPEN.includes(o.status)).length,
+    totalUnitsProduced: orders.filter((o) => o.status === 'STOCKED' || o.status === 'COMPLETED').reduce((s, o) => s + o.acceptedQuantity, 0),
+    recentOrders: orders.slice(0, 10),
   }
 }
 
-/**
- * Calculates cost and margin metrics for a product.
- */
-export async function calculateProductCost(
-  productOrId: string | any
-): Promise<ProductCostBreakdown | null> {
-  let prod: any = null
-
-  if (typeof productOrId === 'string') {
-    if (isDatabaseConfigured) {
-      try {
-        prod = await db.orm.public.Product.where({ id: productOrId }).first()
-      } catch {}
-    }
-    if (!prod) {
-      prod = MOCK_PRODUCTS.find((p) => p.id === productOrId)
-    }
-  } else {
-    prod = productOrId
-  }
-
+/** Cost and margin per product from its cost fields (no invented defaults). */
+export async function calculateProductCost(productOrId: string | Record<string, unknown>): Promise<ProductCostBreakdown | null> {
+  const prod = (typeof productOrId === 'string'
+    ? await db.orm.public.Product.where({ id: productOrId }).first()
+    : productOrId) as Record<string, unknown> | null
   if (!prod) return null
-
-  const weightGrams = Number(prod.estimatedMaterialWeightGrams || 0)
-  const costPerKg = Number(prod.materialCostPerKgTl || 600) // Default PLA cost 600 TL/kg
-  const packagingCost = Number(prod.packagingCostTl || 0)
-  const otherCost = Number(prod.otherProductionCostTl || 0)
-  const sellingPrice = Number(prod.price || 0)
-
+  const weightGrams = Number(prod.estimatedMaterialWeightGrams ?? 0)
+  const costPerKg = Number(prod.materialCostPerKgTl ?? 0)
+  const packagingCost = Number(prod.packagingCostTl ?? 0)
+  const otherCost = Number(prod.otherProductionCostTl ?? 0)
+  const sellingPrice = Number(prod.price ?? 0)
   const materialCost = (weightGrams / 1000) * costPerKg
-  const totalProductionCost = materialCost + packagingCost + otherCost
-  const grossMarginTl = sellingPrice - totalProductionCost
-  const grossMarginPercent = sellingPrice > 0 ? (grossMarginTl / sellingPrice) * 100 : 0
-
+  const total = materialCost + packagingCost + otherCost
+  const margin = sellingPrice - total
+  const r2 = (v: number) => Math.round(v * 100) / 100
   return {
-    productId: prod.id,
-    productName: prod.name,
-    sku: prod.sku,
-    estimatedMaterialWeightGrams: Math.round(weightGrams * 100) / 100,
+    productId: String(prod.id),
+    productName: String(prod.name),
+    sku: String(prod.sku),
+    estimatedMaterialWeightGrams: r2(weightGrams),
     materialCostPerKgTl: costPerKg,
-    materialCostTl: Math.round(materialCost * 100) / 100,
-    packagingCostTl: Math.round(packagingCost * 100) / 100,
-    otherProductionCostTl: Math.round(otherCost * 100) / 100,
-    totalProductionCostTl: Math.round(totalProductionCost * 100) / 100,
-    sellingPriceTl: Math.round(sellingPrice * 100) / 100,
-    grossMarginTl: Math.round(grossMarginTl * 100) / 100,
-    grossMarginPercent: Math.round(grossMarginPercent * 10) / 10,
+    materialCostTl: r2(materialCost),
+    packagingCostTl: r2(packagingCost),
+    otherProductionCostTl: r2(otherCost),
+    totalProductionCostTl: r2(total),
+    sellingPriceTl: r2(sellingPrice),
+    grossMarginTl: r2(margin),
+    grossMarginPercent: sellingPrice > 0 ? Math.round((margin / sellingPrice) * 1000) / 10 : 0,
   }
 }
 
-/**
- * Identifies products below minimum stock threshold and checks active production.
- */
+/** Active products below their minimum (or low-stock threshold): what to print next. */
 export async function getLowStockProductsForProduction(): Promise<LowStockProduct[]> {
-  const lowStockList: LowStockProduct[] = []
+  const open = await db.orm.public.ProductionOrder.where((o) => o.status.in(OPEN as never)).select('productId', 'quantity').all()
+  const inProduction = new Map<string, number>()
+  for (const o of open) inProduction.set(o.productId, (inProduction.get(o.productId) ?? 0) + o.quantity)
 
-  // Check active production orders
-  const activeProdSet = new Set<string>()
-  for (const o of inMemoryProductionOrders.values()) {
-    if (o.status === 'PLANNED' || o.status === 'QUEUED' || o.status === 'IN_PROGRESS') {
-      activeProdSet.add(o.productId)
-    }
-  }
-
-  // Live catalog stock (products.stock is the sellable quantity).
   const products = await db.orm.public.Product
-    .select('id', 'name', 'sku', 'stock', 'minimumStock', 'lowStockThreshold', 'printerReference', 'isActive')
+    .select('id', 'name', 'sku', 'stock', 'minimumStock', 'lowStockThreshold', 'printerReference')
     .where({ isActive: true })
     .all()
 
-  for (const prod of products) {
-    const minStock = prod.minimumStock > 0 ? prod.minimumStock : prod.lowStockThreshold || 5
-    if (prod.stock < minStock) {
-      lowStockList.push({
-        productId: prod.id,
-        productName: prod.name,
-        sku: prod.sku,
-        currentStock: prod.stock,
-        allocatedStock: 0,
-        availableStock: prod.stock,
+  return products
+    .map((p) => {
+      const minStock = p.minimumStock > 0 ? p.minimumStock : p.lowStockThreshold || 5
+      const coming = inProduction.get(p.id) ?? 0
+      return {
+        productId: p.id,
+        productName: p.name,
+        sku: p.sku,
+        currentStock: p.stock,
+        allocatedStock: coming,
+        availableStock: p.stock,
         minimumStock: minStock,
-        suggestedProductionQty: Math.max(minStock * 2 - prod.stock, minStock),
-        printerReference: prod.printerReference || null,
-        hasActiveProduction: activeProdSet.has(prod.id),
-      })
-    }
-  }
-
-  return lowStockList.sort((a, b) => a.availableStock - b.availableStock)
+        // Up to twice the minimum, minus what is already being printed.
+        suggestedProductionQty: Math.max(minStock * 2 - p.stock - coming, 0),
+        printerReference: p.printerReference || null,
+        hasActiveProduction: coming > 0,
+      }
+    })
+    .filter((p) => p.currentStock < p.minimumStock)
+    .sort((a, b) => a.availableStock - b.availableStock)
 }

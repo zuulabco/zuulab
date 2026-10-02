@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'5a4e5b15e17b99f0e2fa41e601fc2051fb07a92d0f103d1f967b39585586b4a6'>;
+  StorageHashBase<'5abbddd2ea45b1320ec9198ddb831887a239528229f0bda5afd871cf35f21ae3'>;
 export type ExecutionHash =
   ExecutionHashBase<'6340d282ec657572b17fcb3a67ec4d99b6a7992e828c63df85c2cad1f73b608f'>;
 export type ProfileHash =
@@ -720,7 +720,6 @@ export type FieldOutputTypes = {
       readonly materialName: CodecTypes['pg/text@1']['output'];
       readonly materialProfileId: CodecTypes['pg/text@1']['output'] | null;
       readonly minimumQuantityGrams: Numeric<12, 2>;
-      readonly pricePerKgTl: Numeric<10, 2> | null;
       readonly quantityGrams: Numeric<12, 2>;
       readonly storeId: CodecTypes['pg/text@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamp-temporal@1']['output'];
@@ -2185,7 +2184,6 @@ export type FieldInputTypes = {
       readonly materialName: CodecTypes['pg/text@1']['input'];
       readonly materialProfileId: CodecTypes['pg/text@1']['input'] | null;
       readonly minimumQuantityGrams: CodecTypes['pg/numeric@1']['input'];
-      readonly pricePerKgTl: CodecTypes['pg/numeric@1']['input'] | null;
       readonly quantityGrams: CodecTypes['pg/numeric@1']['input'];
       readonly storeId: CodecTypes['pg/text@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamp-temporal@1']['input'];
@@ -3664,7 +3662,6 @@ export type StorageColumnTypes = {
       readonly material_name: CodecTypes['pg/text@1']['output'];
       readonly material_profile_id: CodecTypes['pg/text@1']['output'] | null;
       readonly minimum_quantity_grams: Numeric<12, 2>;
-      readonly price_per_kg_tl: Numeric<10, 2> | null;
       readonly quantity_grams: Numeric<12, 2>;
       readonly store_id: CodecTypes['pg/text@1']['output'] | null;
       readonly updated_at: CodecTypes['pg/timestamp-temporal@1']['output'];
@@ -5129,7 +5126,6 @@ export type StorageColumnInputTypes = {
       readonly material_name: CodecTypes['pg/text@1']['input'];
       readonly material_profile_id: CodecTypes['pg/text@1']['input'] | null;
       readonly minimum_quantity_grams: CodecTypes['pg/numeric@1']['input'];
-      readonly price_per_kg_tl: CodecTypes['pg/numeric@1']['input'] | null;
       readonly quantity_grams: CodecTypes['pg/numeric@1']['input'];
       readonly store_id: CodecTypes['pg/text@1']['input'] | null;
       readonly updated_at: CodecTypes['pg/timestamp-temporal@1']['input'];
@@ -6661,7 +6657,6 @@ export namespace Models {
     materialName: CodecTypes['pg/text@1']['output'];
     materialProfileId: CodecTypes['pg/text@1']['output'] | null;
     minimumQuantityGrams: Numeric<12, 2>;
-    pricePerKgTl: Numeric<10, 2> | null;
     quantityGrams: Numeric<12, 2>;
     storeId: CodecTypes['pg/text@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamp-temporal@1']['output'];
@@ -10880,12 +10875,6 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/numeric@1', '1000'>;
                   };
                   readonly typeParams: { readonly precision: 12; readonly scale: 2 };
-                };
-                readonly price_per_kg_tl: {
-                  readonly nativeType: 'numeric';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                  readonly typeParams: { readonly precision: 10; readonly scale: 2 };
                 };
                 readonly quantity_grams: {
                   readonly nativeType: 'numeric';
@@ -21031,14 +21020,6 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 12; readonly scale: 2 };
                 };
               };
-              readonly pricePerKgTl: {
-                readonly nullable: true;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly typeParams: { readonly precision: 10; readonly scale: 2 };
-                };
-              };
               readonly quantityGrams: {
                 readonly nullable: false;
                 readonly type: {
@@ -21096,7 +21077,6 @@ type ContractBase = Omit<
                 readonly materialName: { readonly column: 'material_name' };
                 readonly materialProfileId: { readonly column: 'material_profile_id' };
                 readonly minimumQuantityGrams: { readonly column: 'minimum_quantity_grams' };
-                readonly pricePerKgTl: { readonly column: 'price_per_kg_tl' };
                 readonly quantityGrams: { readonly column: 'quantity_grams' };
                 readonly storeId: { readonly column: 'store_id' };
                 readonly updatedAt: { readonly column: 'updated_at' };
