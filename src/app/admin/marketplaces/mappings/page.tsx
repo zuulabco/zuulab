@@ -276,10 +276,29 @@ export default function MarketplaceMappingsPage() {
             </option>
           ))}
         </select>
-        {selected.size > 0 && (
-          <button className={styles.primaryButton} onClick={importSelected} disabled={importing}>
-            {importing ? 'Aktarılıyor… (görseller kopyalanıyor)' : `Seçilenleri siteye aktar (${selected.size})`}
-          </button>
+        {selectable.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setSelected(allSelected ? new Set() : new Set(selectable.map((l) => l.id)))}
+            >
+              {allSelected ? 'Seçimi temizle' : `Eşleşmemişlerin tümünü seç (${selectable.length})`}
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={importSelected}
+              disabled={importing || selected.size === 0}
+              title={selected.size === 0 ? 'Önce soldaki kutulardan ürün seçin' : undefined}
+            >
+              {importing
+                ? 'Aktarılıyor… (görseller kopyalanıyor)'
+                : selected.size === 0
+                  ? 'Siteye aktar (önce ürün seçin)'
+                  : `Seçilenleri siteye aktar (${selected.size})`}
+            </button>
+          </div>
         )}
       </div>
 
@@ -320,7 +339,13 @@ export default function MarketplaceMappingsPage() {
                   <tr key={l.id} style={{ opacity: l.ignored ? 0.55 : 1 }}>
                     <td>
                       {!l.productId && !l.ignored && (
-                        <input type="checkbox" aria-label="Seç" checked={selected.has(l.id)} onChange={() => toggle(l.id)} />
+                        <input
+                          type="checkbox"
+                          aria-label="Seç"
+                          style={{ width: 18, height: 18, cursor: 'pointer' }}
+                          checked={selected.has(l.id)}
+                          onChange={() => toggle(l.id)}
+                        />
                       )}
                     </td>
                     <td>
