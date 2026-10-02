@@ -100,6 +100,26 @@ export function formatBasketForPayTR(
   return basket
 }
 
+// Keys for the local simulator only; never valid against PayTR or in production.
+const DEV_SIMULATION_KEY = 'zuulab-paytr-dev-key'
+const DEV_SIMULATION_SALT = 'zuulab-paytr-dev-salt'
+
+/**
+ * The simulator (fake session + self-signed callback) is only available in local
+ * development when no real merchant credentials are configured. Vercel preview and
+ * production builds both run with NODE_ENV=production.
+ */
+export function isPayTRSimulationAllowed(isLiveConfigured: boolean): boolean {
+  return !isLiveConfigured && process.env.NODE_ENV !== 'production'
+}
+
+function safeEqual(a: string, b: string): boolean {
+  if (!a || !b) return false
+  const aBuf = Buffer.from(a)
+  const bBuf = Buffer.from(b)
+  return aBuf.length === bBuf.length && crypto.timingSafeEqual(aBuf, bBuf)
+}
+
 /**
  * PayTR Payment Gateway Integration for Zuulab
  * Supports iframe token generation, webhook signature verification (HMAC-SHA256),
@@ -214,24 +234,25 @@ export class PayTRPaymentProvider implements PaymentProvider {
             expiresAt,
             attemptNumber,
           }
-        } else {
-          console.warn('[paytr.provider] PayTR token error:', result.reason)
-          // Fall back to simulated flow if test mode
         }
+        console.error('[paytr.provider] PayTR token error:', result.reason)
+        throw new Error(`PAYTR_TOKEN_ERROR: ${result.reason || 'PayTR ödeme oturumu oluşturulamadı.'}`)
       } catch (err) {
+        // With real credentials configured a failed token request must surface as a
+        // failure; falling through to the simulator would hand out a fake session.
+        if (err instanceof Error && err.message.startsWith('PAYTR_TOKEN_ERROR')) throw err
         console.error('[paytr.provider] Failed to communicate with PayTR API:', err)
+        throw new Error('PAYTR_TOKEN_ERROR: PayTR servisine ulaşılamadı.')
       }
     }
 
-    if (process.env.NODE_ENV === 'production' && !this.isLiveConfigured) {
+    if (!isPayTRSimulationAllowed(this.isLiveConfigured)) {
       throw new Error('PAYTR_CONFIGURATION_ERROR: PayTR merchant credentials (PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY, PAYTR_MERCHANT_SALT) must be configured in production.')
     }
 
-    // High-fidelity sandbox / test simulation for development and testing
-    const simulatedSalt = this.merchantSalt || 'zuulab-paytr-salt-2026'
-    const simulatedKey = this.merchantKey || 'zuulab-paytr-key-2026'
-    const hashData = `${merchantOid}|${request.amount}|${simulatedSalt}`
-    const sessionToken = crypto.createHmac('sha256', simulatedKey).update(hashData).digest('hex')
+    // Local simulation for development without PayTR credentials
+    const hashData = `${merchantOid}|${request.amount}|${DEV_SIMULATION_SALT}`
+    const sessionToken = crypto.createHmac('sha256', DEV_SIMULATION_KEY).update(hashData).digest('hex')
 
     return {
       sessionToken,
@@ -271,8 +292,8 @@ export class PayTRPaymentProvider implements PaymentProvider {
       totalAmountKurus = String(Math.round(amountInTL * 100))
     }
 
-    const salt = this.merchantSalt || 'zuulab-paytr-salt-2026'
-    const key = this.merchantKey || 'zuulab-paytr-key-2026'
+    const salt = this.isLiveConfigured ? this.merchantSalt : DEV_SIMULATION_SALT
+    const key = this.isLiveConfigured ? this.merchantKey : DEV_SIMULATION_KEY
     const paymentId = String(payload.paymentId || `paytr_${merchantOid}`)
     const transactionRef = String(
       payload.transactionRef || payload.trans_id || `PAYTR-${Date.now()}`
@@ -290,33 +311,22 @@ export class PayTRPaymentProvider implements PaymentProvider {
       .update(hashData)
       .digest('base64')
 
-    // Also support fallback test HMAC signature for sandbox testing
-    const fallbackTestHash = crypto
-      .createHmac('sha256', salt)
-      .update(`${orderNumber}|${amountInTL}|${isSuccess ? 'SUCCEEDED' : 'FAILED'}|${salt}`)
-      .digest('hex')
-
     const signatureToCheck = String(
       incomingSignature || payload.hash || ''
     )
 
-    const isProduction = process.env.NODE_ENV === 'production'
-    let isValid = false
-
-    if (isProduction) {
-      // In production, signature MUST match calculated PayTR HMAC hash
-      isValid = Boolean(
-        signatureToCheck &&
-        calculatedPayTrHash &&
-        signatureToCheck === calculatedPayTrHash
-      )
-    } else {
-      // Development / sandbox test verification
+    let isValid: boolean
+    if (this.isLiveConfigured) {
+      // Real merchant credentials: only PayTR's own HMAC is accepted, in every environment.
+      isValid = safeEqual(signatureToCheck, calculatedPayTrHash)
+    } else if (isPayTRSimulationAllowed(false)) {
+      // Local development without credentials: accept simulator signatures.
       isValid =
-        signatureToCheck === calculatedPayTrHash ||
-        signatureToCheck === fallbackTestHash ||
+        !signatureToCheck ||
         signatureToCheck === 'test-signature' ||
-        (!this.isLiveConfigured && !signatureToCheck)
+        safeEqual(signatureToCheck, calculatedPayTrHash)
+    } else {
+      isValid = false
     }
 
     return {
@@ -340,6 +350,10 @@ export class PayTRPaymentProvider implements PaymentProvider {
     amount: number
   ): Promise<{ success: boolean; refundId?: string }> {
     if (!this.isLiveConfigured) {
+      if (!isPayTRSimulationAllowed(false)) {
+        console.error('[paytr.provider] Refund requested without PayTR credentials configured.')
+        return { success: false }
+      }
       return {
         success: true,
         refundId: `ref_paytr_${Date.now()}`,
@@ -386,14 +400,17 @@ export class PayTRPaymentProvider implements PaymentProvider {
     failureReason?: string,
     attemptNumber: number = 1
   ): { payload: Record<string, unknown>; signature: string } {
+    // Signing with real merchant secrets would let anyone who can reach the caller
+    // forge a paid callback, so the simulator only ever uses the dev keys.
+    if (!isPayTRSimulationAllowed(this.isLiveConfigured)) {
+      throw new Error('PAYTR_SIMULATION_DISABLED: Test ödeme simülasyonu bu ortamda kapalıdır.')
+    }
     const merchantOid = attemptNumber > 1 ? `${orderNumber}-ATT${attemptNumber}` : orderNumber
     const statusStr = status === 'SUCCESS' ? 'success' : 'failed'
     const totalAmountKurus = String(Math.round(amountTL * 100))
-    const salt = this.merchantSalt || 'zuulab-paytr-salt-2026'
-    const key = this.merchantKey || 'zuulab-paytr-key-2026'
 
-    const hashData = `${merchantOid}${salt}${statusStr}${totalAmountKurus}`
-    const signature = crypto.createHmac('sha256', key).update(hashData).digest('base64')
+    const hashData = `${merchantOid}${DEV_SIMULATION_SALT}${statusStr}${totalAmountKurus}`
+    const signature = crypto.createHmac('sha256', DEV_SIMULATION_KEY).update(hashData).digest('base64')
 
     return {
       payload: {

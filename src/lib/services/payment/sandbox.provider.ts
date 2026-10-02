@@ -10,7 +10,7 @@ import type {
 const SECRET_SALT = process.env.PAYMENT_WEBHOOK_SECRET || 'zuulab-secure-salt-2026'
 
 /**
- * Production-ready Turkish Payment Gateway Sandbox Provider (PayTR / iyzico test flow)
+ * Production-ready Turkish Payment Gateway Sandbox Provider (local development only)
  */
 export class SandboxPaymentProvider implements PaymentProvider {
   name: 'PAYTR' = 'PAYTR'

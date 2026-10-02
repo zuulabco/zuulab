@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyAuthToken } from '@/lib/firebase-admin'
-import { syncOrCreateUser, extractBearerToken } from '@/lib/services/auth.service'
+import { syncOrCreateUser, extractBearerToken, AuthSyncError } from '@/lib/services/auth.service'
 import {
   createSessionToken,
   getSessionCookieDomain,
@@ -30,10 +30,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Sync or create user in database
+    // Identity fields come only from the verified token; a client-supplied email
+    // would let any Firebase identity claim another user's record.
     const user = await syncOrCreateUser({
       firebaseUid: decoded.uid,
-      email: decoded.email || body.email || `${decoded.uid}@zuulab.user`,
+      email: decoded.email || `${decoded.uid}@zuulab.user`,
+      emailVerified: decoded.email_verified === true,
       name: (decoded.name as string) || body.name || null,
       avatar: (decoded.picture as string) || body.avatar || null,
       roleOverride: (decoded.role as any) || undefined,
@@ -70,6 +72,12 @@ export async function POST(request: Request) {
 
     return response
   } catch (error: any) {
+    if (error instanceof AuthSyncError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.code === 'EMAIL_NOT_VERIFIED' ? 403 : 503 }
+      )
+    }
     console.error('Auth sync error:', error)
     return NextResponse.json(
       { success: false, error: 'Kullanıcı senkronizasyonu sırasında hata oluştu.' },

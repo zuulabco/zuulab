@@ -3,7 +3,7 @@ import { handlePaymentWebhook } from '@/lib/services/payment/payment.service'
 
 /**
  * Production Payment Webhook Endpoint
- * Supports PayTR, iyzico, and sandbox gateways.
+ * PayTR callback (sandbox in local development).
  * Accepts both JSON and application/x-www-form-urlencoded payloads.
  * Returns raw "OK" for PayTR callbacks (per PayTR API specification).
  */

@@ -497,17 +497,17 @@ export default function AdminSettingsPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
-              {/* Iyzico */}
+              {/* PayTR */}
               <div style={{ padding: '1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius, 6px)', backgroundColor: 'var(--surface-1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>İyzico Ödeme Altyapısı</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>PayTR Ödeme Altyapısı</span>
                   <span className={`${styles.badge} ${styles.badgeSuccess}`}>Aktif</span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                  3D Secure ödeme akışı ve kart saklama
+                  iFrame 3D Secure ödeme akışı
                 </div>
                 <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                  Secret Key: ••••••••••••••••••••••••
+                  Merchant Key: ••••••••••••••••••••••••
                 </div>
               </div>
 

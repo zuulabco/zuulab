@@ -4,6 +4,11 @@ import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { createOrder } from '@/lib/services/orders.service'
 import { initiatePayment } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
+import {
+  createOrderAccessToken,
+  ORDER_ACCESS_COOKIE_NAME,
+  ORDER_ACCESS_MAX_AGE,
+} from '@/lib/services/session.service'
 
 export async function POST(request: Request) {
   try {
@@ -108,7 +113,7 @@ export async function POST(request: Request) {
       clientExpectedTotal: expectedTotal,
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       orderNumber: order.orderNumber,
       totalAmount: order.totalAmount,
@@ -121,6 +126,19 @@ export async function POST(request: Request) {
       iframeUrl: paymentSession.iframeUrl,
       provider: paymentSession.provider,
     })
+
+    // Lets this browser (including guests) retry payment for the order it created.
+    response.cookies.set({
+      name: ORDER_ACCESS_COOKIE_NAME,
+      value: createOrderAccessToken(order.orderNumber),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: ORDER_ACCESS_MAX_AGE,
+    })
+
+    return response
   } catch (error: any) {
     console.error('[checkout/initiate] Error:', error)
     return NextResponse.json(

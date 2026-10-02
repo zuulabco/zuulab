@@ -93,10 +93,14 @@ export async function authenticateRequest(
       return syncOrCreateUser({
         firebaseUid: decoded.uid,
         email: decoded.email || `${decoded.uid}@zuulab.user`,
+        emailVerified: decoded.email_verified === true,
         name: (decoded.name as string) || null,
         avatar: (decoded.picture as string) || null,
         roleOverride: (decoded.role as AuthUser['role']) || undefined,
         storeId: (decoded as any).storeId || undefined,
+      }).catch((err) => {
+        if (err instanceof AuthSyncError && err.code === 'EMAIL_NOT_VERIFIED') return null
+        throw err
       })
     }
   }
@@ -117,53 +121,88 @@ export async function authenticateRequest(
 }
 
 /**
- * Finds or creates User in PostgreSQL (or fallback memory)
+ * Emails (comma-separated) that receive the ADMIN role when their account is first
+ * created. Only honoured for Firebase-verified emails, so the role cannot be claimed
+ * by registering an unverified address.
+ */
+function isBootstrapAdminEmail(email: string): boolean {
+  return (process.env.ADMIN_BOOTSTRAP_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email)
+}
+
+export class AuthSyncError extends Error {
+  constructor(
+    public code: 'EMAIL_NOT_VERIFIED' | 'DATABASE_UNAVAILABLE',
+    message: string
+  ) {
+    super(message)
+    this.name = 'AuthSyncError'
+  }
+}
+
+/**
+ * Finds or creates User in PostgreSQL (or fallback memory outside production).
+ *
+ * Attaching a Firebase identity to an existing record by email is the account-takeover
+ * surface, so it is only allowed when Firebase has verified the email, or when the
+ * record is an unlinked guest CUSTOMER created at checkout. Privileged or already
+ * linked accounts are never reachable through an unverified email.
  */
 export async function syncOrCreateUser(payload: {
   firebaseUid: string
   email: string
+  emailVerified?: boolean
   name?: string | null
   avatar?: string | null
   roleOverride?: AuthUser['role']
   storeId?: string | null
 }): Promise<AuthUser> {
   const { firebaseUid, email, name, avatar, roleOverride, storeId } = payload
+  const emailVerified = payload.emailVerified === true
   const normalizedEmail = email.trim().toLowerCase()
 
-  // Check if email matches designated admin
-  const isAdminEmail =
-    normalizedEmail === 'admin@zuulab.com' ||
-    roleOverride === 'ADMIN'
-
-  const targetRole: AuthUser['role'] = roleOverride || (isAdminEmail ? 'ADMIN' : 'CUSTOMER')
+  const targetRole: AuthUser['role'] =
+    roleOverride || (emailVerified && isBootstrapAdminEmail(normalizedEmail) ? 'ADMIN' : 'CUSTOMER')
 
   if (isDatabaseConfigured) {
     try {
-      // Find existing user by firebaseUid or email
       let existing = await db.orm.public.User.where({
         firebaseUid,
       }).first()
 
       if (!existing && normalizedEmail) {
-        existing = await db.orm.public.User.where({
+        const byEmail = await db.orm.public.User.where({
           email: normalizedEmail,
         }).first()
+
+        if (byEmail) {
+          const isUnlinkedGuest = !byEmail.firebaseUid && (byEmail.role || 'CUSTOMER') === 'CUSTOMER'
+          if (!emailVerified && !isUnlinkedGuest) {
+            throw new AuthSyncError(
+              'EMAIL_NOT_VERIFIED',
+              'Bu e-posta adresi başka bir hesaba bağlı. Devam etmek için e-posta adresinizi doğrulayın.'
+            )
+          }
+          existing = byEmail
+        }
       }
 
       if (existing) {
-        // Update last login and link firebaseUid if it was created as guest
         const globalTemporal = (globalThis as any).Temporal
         const nowTemporal = globalTemporal ? globalTemporal.Now.plainDateTimeISO() : (new Date() as any)
         await db.orm.public.User.where({ id: existing.id }).update({
-          firebaseUid: existing.firebaseUid || firebaseUid,
-          emailVerified: true,
+          firebaseUid,
+          emailVerified: emailVerified || Boolean(existing.emailVerified),
           lastLoginAt: nowTemporal as any,
           name: name || existing.name,
           avatar: avatar || existing.avatar,
         })
         return {
           id: existing.id,
-          firebaseUid: existing.firebaseUid || firebaseUid,
+          firebaseUid,
           email: existing.email,
           name: existing.name || name || null,
           avatar: existing.avatar || avatar || null,
@@ -181,7 +220,7 @@ export async function syncOrCreateUser(payload: {
         avatar: avatar || null,
         role: targetRole,
         status: 'ACTIVE',
-        emailVerified: true,
+        emailVerified,
       })
 
       return {
@@ -195,8 +234,16 @@ export async function syncOrCreateUser(payload: {
         storeId: storeId || null,
       }
     } catch (err) {
+      if (err instanceof AuthSyncError) throw err
+      // A transient DB error must never fall through to role resolution in memory.
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[auth.service] syncOrCreateUser database error:', err)
+        throw new AuthSyncError('DATABASE_UNAVAILABLE', 'Kullanıcı kaydı şu anda doğrulanamıyor.')
+      }
       console.warn('[auth.service] Database query failed, using memory fallback:', err)
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new AuthSyncError('DATABASE_UNAVAILABLE', 'Kullanıcı kaydı şu anda doğrulanamıyor.')
   }
 
   // Fallback in-memory

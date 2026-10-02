@@ -3,6 +3,7 @@ import { db, isDatabaseConfigured } from '@/prisma/db'
 import { getOrderByNumber, updateOrderStatus } from '../orders.service'
 import { logAuditEvent } from '../admin.service'
 import { getShippingProvider } from './shipping-provider.factory'
+import { verifyCarrierWebhook } from './webhook-signature'
 import { createNotification } from '../notification/notification.service'
 import type {
   StoredShipment,
@@ -578,11 +579,14 @@ export async function handleShippingWebhook(params: {
 }): Promise<{ success: boolean; message: string; shipmentId?: string }> {
   const provider = getShippingProvider(params.providerName)
 
-  if (provider.verifyWebhookSignature && params.rawBody && params.signature) {
-    const isValid = provider.verifyWebhookSignature(params.rawBody, params.signature)
-    if (!isValid) {
-      throw new Error('Geçersiz webhook imzası.')
-    }
+  const verification = verifyCarrierWebhook({
+    provider: params.providerName,
+    rawBody: params.rawBody || '',
+    signature: params.signature,
+    providerVerifier: provider.verifyWebhookSignature?.bind(provider),
+  })
+  if (!verification.ok) {
+    throw new Error(verification.reason)
   }
 
   const found = await _findShipmentByTrackingNumber(params.payload.trackingNumber)

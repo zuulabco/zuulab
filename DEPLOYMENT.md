@@ -15,7 +15,7 @@ Managed PostgreSQL (Prisma ORM 8)
 ### Connected External Services
 - **Authentication**: Firebase Authentication & Firebase Admin SDK (Serverless token verification)
 - **Asset Storage & CDN**: Cloudinary Media Management
-- **Payment Gateways**: PayTR (Primary iFrame & Direct API), iyzico (Alternative)
+- **Payment Gateway**: PayTR (iFrame)
 - **E-Invoicing**: Uyumsoft e-Fatura & e-Arşiv SOAP Service
 - **Multi-Carrier Shipping**: Sürat Kargo (SOAP Web Service) & Yurtiçi Kargo (KOPS Dispatcher)
 - **Transactional Notifications**: Resend API (Verified Domain)
@@ -37,7 +37,7 @@ The platform is strictly isolated across three tiers: `development`, `staging`, 
 | `FIREBASE_PROJECT_ID` | Staging / Prod | Firebase Admin SDK Project ID |
 | `FIREBASE_CLIENT_EMAIL` | Staging / Prod | Firebase Admin Service Account email |
 | `FIREBASE_PRIVATE_KEY` | Staging / Prod | PEM-formatted private RSA key (escaped newlines) |
-| `PAYMENT_PROVIDER` | Staging / Prod | `PAYTR` (Production default) or `IYZICO` |
+| `PAYMENT_PROVIDER` | Staging / Prod | `PAYTR` (only supported gateway; `SANDBOX` local dev only) |
 | `PAYTR_MERCHANT_ID` | Staging / Prod | PayTR Merchant ID |
 | `PAYTR_MERCHANT_KEY` | Staging / Prod | PayTR Secret Key |
 | `PAYTR_MERCHANT_SALT` | Staging / Prod | PayTR Hash Salt |
@@ -124,7 +124,7 @@ Vercel Cron triggers the following endpoints with `Authorization: Bearer $CRON_S
    - `Referrer-Policy: strict-origin-when-cross-origin`
    - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 2. **Production Mock Guards**:
-   - SURAT, YURTICI, PAYTR, IYZICO, UYUMSOFT, and RESEND throw explicit configuration errors when unconfigured in production. Silent mock fallback is forbidden.
+   - SURAT, YURTICI, PAYTR, UYUMSOFT, and RESEND throw explicit configuration errors when unconfigured in production. Silent mock fallback is forbidden.
 3. **Secret Sanitization**:
    - `sanitizeContext()` recursively redacts passwords, tokens, API keys, CVVs, and credit card numbers from all error logs and Sentry alerts.
 4. **SEO & Privacy**:

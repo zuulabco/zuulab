@@ -58,7 +58,6 @@ import { verifyAuthToken } from '../lib/firebase-admin'
 import { requireAdmin, requireAuth } from '../lib/services/auth.service'
 import { getPaymentProvider } from '../lib/services/payment/provider.factory'
 import { PayTRPaymentProvider } from '../lib/services/payment/paytr.provider'
-import { IyzicoPaymentProvider } from '../lib/services/payment/iyzico.provider'
 import { handlePaymentWebhook } from '../lib/services/payment/payment.service'
 import { createOrder, getOrderByNumber } from '../lib/services/orders.service'
 import {

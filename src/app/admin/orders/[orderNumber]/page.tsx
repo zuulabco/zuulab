@@ -886,7 +886,7 @@ export default function AdminOrderDetailPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Sağlayıcı:</span>
-                <span style={{ fontWeight: 600 }}>PayTR / iyzico</span>
+                <span style={{ fontWeight: 600 }}>PayTR</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Ödeme Durumu:</span>

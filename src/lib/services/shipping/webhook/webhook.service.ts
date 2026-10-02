@@ -4,6 +4,7 @@ import { db, isDatabaseConfigured } from '@/prisma/db'
 import { logAuditEvent } from '@/lib/services/admin.service'
 import { CargoWebhookInvalidError } from '../shipping-error'
 import { CargoProviderFactory } from '../shipping.factory'
+import { verifyCarrierWebhook } from '../webhook-signature'
 import type { CarrierProviderType, ShippingShipmentStatus } from '../shipping-types'
 
 export interface ProcessWebhookInput {
@@ -56,14 +57,17 @@ export class ShippingWebhookService {
     const providerInstance = CargoProviderFactory.getProvider(input.provider)
 
     // 1. Signature Verification
-    if (providerInstance.verifyWebhookSignature && input.signature) {
-      const isValid = providerInstance.verifyWebhookSignature(input.rawBody, input.signature)
-      if (!isValid) {
-        throw new CargoWebhookInvalidError(
-          `[${input.provider}] Webhook imza doğrulaması başarısız oldu.`,
-          input.provider
-        )
-      }
+    const verification = verifyCarrierWebhook({
+      provider: input.provider,
+      rawBody: input.rawBody,
+      signature: input.signature,
+      providerVerifier: providerInstance.verifyWebhookSignature?.bind(providerInstance),
+    })
+    if (!verification.ok) {
+      throw new CargoWebhookInvalidError(
+        `[${input.provider}] Webhook imza doğrulaması başarısız oldu: ${verification.reason}`,
+        input.provider
+      )
     }
 
     // 2. Parse JSON payload

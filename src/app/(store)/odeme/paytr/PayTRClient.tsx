@@ -17,7 +17,8 @@ export default function PayTRClient() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const orderNumber = searchParams.get('order') || ''
-  const isSimulated = searchParams.get('simulated') === 'true' || Boolean(token && token.length === 64)
+  // Only the server's simulated session (dev without PayTR credentials) sets this flag.
+  const isSimulated = searchParams.get('simulated') === 'true'
 
   const [loading, setLoading] = useState(true)
   const [iframeError, setIframeError] = useState(false)

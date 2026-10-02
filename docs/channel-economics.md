@@ -7,7 +7,7 @@ ZUULAB operates across three active sales channels:
 1. **`ZUULAB` (Direct Website):**
    * Direct storefront (`zuulab.com`).
    * Marketplace commission: `0%`.
-   * Payment Gateway Fee: `2.8% + 0.50 TL` (e.g. PayTR/Iyzico).
+   * Payment Gateway Fee: `2.8% + 0.50 TL` (e.g. PayTR).
    * Shipping: Actual cargo cost or default carrier agreement estimate (`40.00 TL`).
 
 2. **`TRENDYOL`:**

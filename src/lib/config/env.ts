@@ -10,7 +10,6 @@ export interface EnvValidationResult {
     firebaseAdmin: boolean
     firebaseClient: boolean
     paytr: boolean
-    iyzico: boolean
     uyumsoft: boolean
     surat: boolean
     yurtici: boolean
@@ -75,19 +74,11 @@ export function validateEnvironment(): EnvValidationResult {
     process.env.PAYTR_MERCHANT_SALT &&
     !process.env.PAYTR_MERCHANT_ID.includes('your_')
   )
-  const iyzicoConfigured = Boolean(
-    process.env.IYZICO_API_KEY &&
-    process.env.IYZICO_SECRET_KEY &&
-    !process.env.IYZICO_API_KEY.includes('your_')
-  )
-
   if (isProduction) {
-    if (paymentProvider === 'PAYTR' && !paytrConfigured) {
+    if (paymentProvider !== 'PAYTR') {
+      errors.push(`PAYMENT_PROVIDER must be PAYTR in production (got ${paymentProvider}).`)
+    } else if (!paytrConfigured) {
       errors.push('PAYTR credentials (PAYTR_MERCHANT_ID, PAYTR_MERCHANT_KEY, PAYTR_MERCHANT_SALT) must be set in production.')
-    } else if (paymentProvider === 'IYZICO' && !iyzicoConfigured) {
-      errors.push('IYZICO credentials (IYZICO_API_KEY, IYZICO_SECRET_KEY) must be set in production.')
-    } else if (paymentProvider === 'SANDBOX') {
-      errors.push('PAYMENT_PROVIDER cannot be set to SANDBOX in production.')
     }
   }
 
@@ -167,7 +158,20 @@ export function validateEnvironment(): EnvValidationResult {
     errors.push('CRON_SECRET must be configured in production to protect scheduled endpoints.')
   }
 
-  // 10. APP URL
+  // 10. AUTH & WEBHOOK SECRETS
+  if (isProduction) {
+    if (!process.env.AUTH_SESSION_SECRET) {
+      warnings.push('AUTH_SESSION_SECRET is not set; session signing is derived from the Firebase private key. Set a dedicated random secret.')
+    }
+    if (!process.env.SHIPPING_WEBHOOK_SECRET) {
+      warnings.push('SHIPPING_WEBHOOK_SECRET is not set; all carrier webhooks will be rejected.')
+    }
+    if (!process.env.TRENDYOL_WEBHOOK_SECRET || !process.env.HEPSIBURADA_WEBHOOK_SECRET) {
+      warnings.push('TRENDYOL_WEBHOOK_SECRET / HEPSIBURADA_WEBHOOK_SECRET not set; those marketplace webhooks will be rejected.')
+    }
+  }
+
+  // 11. APP URL
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (isProduction && (!appUrl || appUrl.includes('localhost') || appUrl.includes('127.0.0.1'))) {
     warnings.push(`NEXT_PUBLIC_APP_URL in production is set to '${appUrl}'. Webhook callbacks require a public HTTPS domain.`)
@@ -183,7 +187,6 @@ export function validateEnvironment(): EnvValidationResult {
       firebaseAdmin: isFirebaseAdminConfigured,
       firebaseClient: isFirebaseClientConfigured,
       paytr: paytrConfigured,
-      iyzico: iyzicoConfigured,
       uyumsoft: uyumsoftConfigured,
       surat: suratConfigured,
       yurtici: yurticiConfigured,

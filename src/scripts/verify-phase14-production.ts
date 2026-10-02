@@ -12,7 +12,7 @@
  * 7. Cron distributed lease lock
  * 8. Firebase production configuration & guard
  * 9. Cloudinary configuration
- * 10. Payment provider configuration (PayTR / iyzico)
+ * 10. Payment provider configuration (PayTR)
  * 11. Shipping provider configuration (Sürat / Yurtiçi)
  * 12. Invoice provider configuration (Uyumsoft)
  * 13. Resend notification configuration

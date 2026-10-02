@@ -115,7 +115,7 @@ export default function AdminPaymentsPage() {
         <div>
           <h1 className={styles.title}>Ödemeler & Finans İşlemleri</h1>
           <p className={styles.subtitle}>
-            Ödeme sağlayıcıları (PayTR / iyzico) işlem logları, tahsilatlar, provizyon denemeleri ve iade durumları.
+            Ödeme sağlayıcıları (PayTR) işlem logları, tahsilatlar, provizyon denemeleri ve iade durumları.
           </p>
         </div>
 
@@ -281,7 +281,6 @@ export default function AdminPaymentsPage() {
         >
           <option value="ALL">Tüm Sağlayıcılar</option>
           <option value="PAYTR">PayTR</option>
-          <option value="IYZICO">iyzico</option>
           <option value="STRIPE">Stripe</option>
           <option value="MANUAL">Manuel Havale</option>
         </select>

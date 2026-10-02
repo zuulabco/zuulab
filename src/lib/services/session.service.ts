@@ -17,7 +17,8 @@ export const SESSION_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
 /**
  * Resolves session secret from environment variables.
  * Falls back to a deterministic hash of FIREBASE_PRIVATE_KEY if explicit secret is not set,
- * ensuring zero runtime breakage in production if AUTH_SESSION_SECRET is omitted.
+ * so existing sessions keep working until AUTH_SESSION_SECRET is configured. A publicly
+ * known constant is only acceptable outside production.
  */
 function getSessionSecret(): string {
   if (process.env.AUTH_SESSION_SECRET) {
@@ -30,7 +31,10 @@ function getSessionSecret(): string {
     const raw = process.env.FIREBASE_ADMIN_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY || ''
     return crypto.createHash('sha256').update(raw).digest('hex')
   }
-  return 'zuulab-production-session-fallback-secret-2026'
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_CONFIGURATION_ERROR: AUTH_SESSION_SECRET must be configured in production.')
+  }
+  return 'zuulab-dev-session-secret'
 }
 
 /**
@@ -115,13 +119,62 @@ export function getSessionCookieDomain(host?: string | null): string | undefined
  * Extracts the zuulab_session cookie value from the HTTP Request.
  */
 export function extractSessionCookie(request: Request): string | null {
+  return readCookie(request, SESSION_COOKIE_NAME)
+}
+
+function readCookie(request: Request, name: string): string | null {
   const cookieHeader = request.headers.get('cookie')
   if (!cookieHeader) return null
   const cookies = cookieHeader.split(';').map((c) => c.trim())
   for (const c of cookies) {
-    if (c.startsWith(`${SESSION_COOKIE_NAME}=`)) {
-      return decodeURIComponent(c.slice(`${SESSION_COOKIE_NAME}=`.length))
+    if (c.startsWith(`${name}=`)) {
+      return decodeURIComponent(c.slice(`${name}=`.length))
     }
   }
   return null
+}
+
+// ─────────────────────────────────────────────────────────────
+// Order access (guest checkout)
+// ─────────────────────────────────────────────────────────────
+
+export const ORDER_ACCESS_COOKIE_NAME = 'zuulab_order_access'
+export const ORDER_ACCESS_MAX_AGE = 24 * 60 * 60 // 1 day in seconds
+
+/**
+ * Proves that the browser holding it created the order, so a guest can retry
+ * payment without an account while knowing the order number alone is not enough.
+ * Signed under a separate domain tag so it can never be replayed as a session token.
+ */
+export function createOrderAccessToken(orderNumber: string): string {
+  const exp = Math.floor(Date.now() / 1000) + ORDER_ACCESS_MAX_AGE
+  const encoded = Buffer.from(JSON.stringify({ orderNumber, exp })).toString('base64url')
+  return `${encoded}.${signOrderAccess(encoded)}`
+}
+
+export function hasOrderAccess(request: Request, orderNumber: string): boolean {
+  const token = readCookie(request, ORDER_ACCESS_COOKIE_NAME)
+  if (!token) return false
+  const [encoded, signature] = token.split('.')
+  if (!encoded || !signature) return false
+
+  const providedBuf = Buffer.from(signature)
+  const expectedBuf = Buffer.from(signOrderAccess(encoded))
+  if (providedBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(providedBuf, expectedBuf)) {
+    return false
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'))
+    return payload.orderNumber === orderNumber && payload.exp >= Math.floor(Date.now() / 1000)
+  } catch {
+    return false
+  }
+}
+
+function signOrderAccess(encoded: string): string {
+  return crypto
+    .createHmac('sha256', getSessionSecret())
+    .update(`order-access:${encoded}`)
+    .digest('base64url')
 }

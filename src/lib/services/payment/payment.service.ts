@@ -76,7 +76,7 @@ export async function initiatePayment(params: {
   const attemptNumber = params.attemptNumber || 1
   const provider = getPaymentProvider()
 
-  // Generate provider session (PayTR / iyzico / Sandbox)
+  // Generate provider session (PayTR / local Sandbox)
   const sessionResult = await provider.createSession({
     orderNumber: order.orderNumber,
     amount: order.totalAmount,
@@ -508,6 +508,10 @@ export async function processTestPayment(params: {
   failureReason?: string
   attemptNumber?: number
 }) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('PAYMENT_SIMULATION_DISABLED: Test ödeme simülasyonu bu ortamda kapalıdır.')
+  }
+
   const order = await getOrderByNumber(params.orderNumber, undefined, true)
   if (!order) {
     throw new Error('Sipariş bulunamadı.')

@@ -1,4 +1,5 @@
 import 'server-only'
+import crypto from 'crypto'
 import type {
   MarketplaceProviderType,
   MarketplaceSyncStrategy,
@@ -400,6 +401,33 @@ export async function syncAllActiveStores(options: {
 }
 
 /**
+ * Compares the credential a marketplace sends with `<PROVIDER>_WEBHOOK_SECRET`
+ * (e.g. TRENDYOL_WEBHOOK_SECRET). Accepted carriers: `x-api-key`/`apikey`, or the
+ * Authorization header as `Bearer <secret>`, `Basic <secret>` or the raw value.
+ * Production rejects every request when the secret is not configured.
+ */
+function isMarketplaceWebhookAuthentic(provider: MarketplaceProviderType, headers: Headers): boolean {
+  const secret = process.env[`${provider}_WEBHOOK_SECRET`]
+  if (!secret) {
+    return process.env.NODE_ENV !== 'production'
+  }
+
+  const authHeader = (headers.get('authorization') || '').trim()
+  const candidates = [
+    headers.get('x-api-key'),
+    headers.get('apikey'),
+    authHeader,
+    authHeader.replace(/^(Bearer|Basic)\s+/i, ''),
+  ].filter((v): v is string => Boolean(v))
+
+  const expected = Buffer.from(secret)
+  return candidates.some((value) => {
+    const provided = Buffer.from(value)
+    return provided.length === expected.length && crypto.timingSafeEqual(provided, expected)
+  })
+}
+
+/**
  * Handles incoming marketplace webhooks with signature/credential authentication
  * and deduplication idempotency.
  */
@@ -424,35 +452,16 @@ export async function processIncomingWebhook(
     })
   }
 
-  // Webhook Authentication Verification according to provider contracts
-  const apiKeyHeader = headers.get('x-api-key') || headers.get('apikey')
-  const authHeader = headers.get('authorization')
-  const hbSignature = headers.get('x-hepsiburada-signature') || headers.get('x-signature')
-
-  const credential = await getStoreCredentialById(store.id)
-
-  if (provider === 'TRENDYOL') {
-    // Trendyol supports Basic Auth or API Key header
-    const hasAuth = Boolean(apiKeyHeader || authHeader || headers.get('x-agentname'))
-    if (!hasAuth && process.env.NODE_ENV === 'production') {
-      throw new MarketplaceError({
-        message: 'Unauthorized: Trendyol webhook authentication header missing.',
-        code: 'AUTHENTICATION_ERROR',
-        provider: 'TRENDYOL',
-        statusCode: 401,
-      })
-    }
-  } else if (provider === 'HEPSIBURADA') {
-    // Hepsiburada supports signature or token header
-    const hasAuth = Boolean(hbSignature || authHeader || apiKeyHeader)
-    if (!hasAuth && process.env.NODE_ENV === 'production') {
-      throw new MarketplaceError({
-        message: 'Unauthorized: Hepsiburada webhook authorization token missing.',
-        code: 'AUTHENTICATION_ERROR',
-        provider: 'HEPSIBURADA',
-        statusCode: 401,
-      })
-    }
+  // Webhook authentication. Trendyol and Hepsiburada echo back the credential
+  // registered with the webhook (API key header or Basic/Bearer Authorization), so
+  // the value itself must match; header presence alone proves nothing.
+  if (!isMarketplaceWebhookAuthentic(provider, headers)) {
+    throw new MarketplaceError({
+      message: `Unauthorized: ${provider} webhook credential missing or invalid.`,
+      code: 'AUTHENTICATION_ERROR',
+      provider,
+      statusCode: 401,
+    })
   }
 
   // Webhook Idempotency Check

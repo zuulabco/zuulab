@@ -178,7 +178,7 @@ if (inMemoryOrders.length === 0) {
           status: 'CONFIRMED',
           note: 'Ödeme onaylandı.',
           createdAt: new Date(now - 1000 * 60 * 120).toISOString(),
-          createdBy: 'iyzico Webhook',
+          createdBy: 'PayTR Webhook',
         },
       ],
       items: [
