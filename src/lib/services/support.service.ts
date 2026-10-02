@@ -1,10 +1,20 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
+import { db } from '@/prisma/db'
+import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
 import { logAuditEvent } from './admin.service'
 import type { AuthUser } from './auth.service'
+import { notifySupportTeam, sendSupportReplyEmail } from './notification/support-email'
+
+/**
+ * Customer support tickets, stored in Postgres only.
+ *
+ * Every message records its author (users.id) and side (CUSTOMER / STAFF /
+ * SYSTEM). Internal staff notes are never returned to customers.
+ */
 
 export type TicketCategoryType = 'ORDER' | 'SHIPPING' | 'RETURN' | 'PRODUCT' | 'PAYMENT' | 'GENERAL'
 export type TicketStatusType = 'OPEN' | 'IN_PROGRESS' | 'WAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED'
+export type TicketChannel = 'ACCOUNT' | 'CONTACT_FORM'
 
 export interface SupportMessageItem {
   id: string
@@ -29,18 +39,62 @@ export interface SupportTicketItem {
   subject: string
   status: TicketStatusType
   priority: number // 1: low, 2: medium, 3: high
+  channel: TicketChannel
   createdAt: string
   updatedAt: string
   resolvedAt: string | null
   messages?: SupportMessageItem[]
 }
 
-// In-memory fallback support storage for dev / testing
-const inMemoryTickets: Map<string, SupportTicketItem> = new Map()
-const inMemoryMessages: Map<string, SupportMessageItem[]> = new Map()
+const STAFF_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'SUPPORT'])
+const CATEGORIES = new Set<TicketCategoryType>(['ORDER', 'SHIPPING', 'RETURN', 'PRODUCT', 'PAYMENT', 'GENERAL'])
+
+function isStaff(user: Pick<AuthUser, 'role'>): boolean {
+  return STAFF_ROLES.has(user.role)
+}
+
+function ticketQuery() {
+  return db.orm.public.SupportTicket.include('user', (u) => u.select('id', 'name', 'email'))
+}
+
+type TicketRow = NonNullable<Awaited<ReturnType<ReturnType<typeof ticketQuery>['first']>>>
+
+async function orderNumbersFor(orderIds: Array<string | null>): Promise<Map<string, string>> {
+  const ids = [...new Set(orderIds.filter((id): id is string => Boolean(id)))]
+  if (ids.length === 0) return new Map()
+  const rows = await db.orm.public.Order.select('id', 'orderNumber').where((o) => o.id.in(ids)).all()
+  return new Map(rows.map((r) => [r.id, r.orderNumber]))
+}
+
+function toTicketItem(t: TicketRow, orderNumbers: Map<string, string>): SupportTicketItem {
+  return {
+    id: t.id,
+    userId: t.userId,
+    userName: t.user?.name || t.user?.email?.split('@')[0] || 'Müşteri',
+    userEmail: t.user?.email ?? '',
+    orderId: t.orderId ?? null,
+    orderNumber: t.orderId ? orderNumbers.get(t.orderId) ?? null : null,
+    category: t.category as TicketCategoryType,
+    subject: t.subject,
+    status: t.status as TicketStatusType,
+    priority: t.priority,
+    channel: t.channel === 'CONTACT_FORM' ? 'CONTACT_FORM' : 'ACCOUNT',
+    createdAt: dbTimestampToIso(t.createdAt) ?? '',
+    updatedAt: dbTimestampToIso(t.updatedAt) ?? '',
+    resolvedAt: dbTimestampToIso(t.resolvedAt),
+  }
+}
+
+function validateMessage(text: string | undefined, min = 5): string {
+  const body = (text ?? '').trim()
+  if (body.length < min) throw new Error(`VALIDATION_ERROR: Mesajınız en az ${min} karakter olmalıdır.`)
+  if (body.length > 5000) throw new Error('VALIDATION_ERROR: Mesajınız en fazla 5000 karakter olabilir.')
+  return body
+}
 
 /**
- * Creates a support ticket for an authenticated customer
+ * Creates a support ticket for a customer (account panel) or for a contact-form
+ * sender (`channel: 'CONTACT_FORM'`, user is the guest record for their email).
  */
 export async function createTicket(
   user: { id: string; email: string; name?: string | null },
@@ -50,209 +104,125 @@ export async function createTicket(
     priority?: number
     orderId?: string | null
     message: string
+    channel?: TicketChannel
+    phone?: string | null
   }
 ): Promise<SupportTicketItem> {
-  const { subject, category, priority = 2, orderId, message } = payload
+  const subject = (payload.subject ?? '').trim()
+  if (subject.length < 3) throw new Error('VALIDATION_ERROR: Konu başlığı en az 3 karakter olmalıdır.')
+  if (subject.length > 150) throw new Error('VALIDATION_ERROR: Konu başlığı en fazla 150 karakter olabilir.')
+  const body = validateMessage(payload.message)
+  const category = CATEGORIES.has(payload.category) ? payload.category : 'GENERAL'
+  const priority = Math.min(3, Math.max(1, Math.round(payload.priority ?? 2)))
+  const channel: TicketChannel = payload.channel === 'CONTACT_FORM' ? 'CONTACT_FORM' : 'ACCOUNT'
 
-  if (!subject || subject.trim().length < 3) {
-    throw new Error('VALIDATION_ERROR: Konu başlığı en az 3 karakter olmalıdır.')
-  }
-  if (!message || message.trim().length < 5) {
-    throw new Error('VALIDATION_ERROR: Mesajınız en az 5 karakter olmalıdır.')
-  }
-
-  // If orderId is supplied, verify server-side that the order belongs to this customer
-  let verifiedOrderId: string | null = null
-  let verifiedOrderNumber: string | null = null
-
-  if (orderId) {
-    const { getUserOrders } = await import('./orders.service')
-    const userOrders = await getUserOrders(user.id)
-    const match = userOrders.find((o) => o.id === orderId || o.orderNumber === orderId)
-    if (!match) {
+  // A linked order must belong to this customer.
+  let orderId: string | null = null
+  if (payload.orderId) {
+    const order =
+      (await db.orm.public.Order.select('id', 'userId').where({ id: payload.orderId }).first()) ??
+      (await db.orm.public.Order.select('id', 'userId').where({ orderNumber: payload.orderId }).first())
+    if (!order || order.userId !== user.id) {
       throw new Error('FORBIDDEN: Seçilen sipariş bu hesaba ait değil.')
     }
-    verifiedOrderId = match.id
-    verifiedOrderNumber = match.orderNumber
+    orderId = order.id
   }
 
-  const now = new Date().toISOString()
-  const ticketId = `tck-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  const msgId = `msg-${Date.now()}-1`
+  const ticketId = await db.transaction(async (tx) => {
+    const ticket = await tx.orm.public.SupportTicket.create({
+      userId: user.id,
+      orderId,
+      category: category as never,
+      subject,
+      status: 'OPEN',
+      priority,
+      channel,
+    })
+    await tx.orm.public.SupportMessage.create({
+      ticketId: ticket.id,
+      authorUserId: user.id,
+      authorType: 'CUSTOMER',
+      body,
+      isInternal: false,
+      attachments: [],
+    })
+    return ticket.id
+  })
 
-  const initialMessage: SupportMessageItem = {
-    id: msgId,
+  notifySupportTeam({
     ticketId,
-    adminUserId: null,
-    authorName: user.name || user.email.split('@')[0],
-    authorRole: 'CUSTOMER',
-    body: message.trim(),
-    isInternal: false,
-    attachments: [],
-    createdAt: now,
-  }
-
-  const ticket: SupportTicketItem = {
-    id: ticketId,
-    userId: user.id,
-    userName: user.name || user.email.split('@')[0],
-    userEmail: user.email,
-    orderId: verifiedOrderId,
-    orderNumber: verifiedOrderNumber,
+    subject,
     category,
-    subject: subject.trim(),
-    status: 'OPEN',
-    priority,
-    createdAt: now,
-    updatedAt: now,
-    resolvedAt: null,
-    messages: [initialMessage],
-  }
+    channel,
+    fromName: user.name || user.email,
+    fromEmail: user.email,
+    phone: payload.phone,
+    message: body,
+  }).catch((err) => console.error('[support.service] support inbox alert failed:', err))
 
-  // 1. Persist to PostgreSQL if configured
-  if (isDatabaseConfigured) {
-    try {
-      const created = await db.orm.public.SupportTicket.create({
-        userId: user.id,
-        orderId: verifiedOrderId,
-        category: category as any,
-        subject: subject.trim(),
-        status: 'OPEN',
-        priority,
-      })
-
-      await db.orm.public.SupportMessage.create({
-        ticketId: created.id,
-        body: message.trim(),
-        isInternal: false,
-        attachments: [],
-      })
-
-      return {
-        ...ticket,
-        id: created.id,
-      }
-    } catch (err) {
-      console.warn('[support.service] DB ticket creation failed, using fallback:', err)
-    }
-  }
-
-  inMemoryTickets.set(ticketId, ticket)
-  inMemoryMessages.set(ticketId, [initialMessage])
-
-  return ticket
+  const row = await ticketQuery().where({ id: ticketId }).first()
+  return { ...toTicketItem(row!, await orderNumbersFor([orderId])), messages: await loadMessages(ticketId, true) }
 }
 
 /**
- * Retrieves all tickets belonging to a customer
+ * Retrieves all tickets belonging to a customer, most recently active first
  */
 export async function getCustomerTickets(userId: string): Promise<SupportTicketItem[]> {
-  if (isDatabaseConfigured) {
-    try {
-      const records = await db.orm.public.SupportTicket.where({ userId }).all()
-      if (records && records.length > 0) {
-        return records.map((r) => ({
-          id: r.id,
-          userId: r.userId,
-          userName: 'Müşteri',
-          userEmail: '',
-          orderId: r.orderId,
-          category: r.category as TicketCategoryType,
-          subject: r.subject,
-          status: r.status as TicketStatusType,
-          priority: r.priority,
-          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-          updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
-          resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toISOString() : null,
-        })).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      }
-    } catch (err) {
-      console.warn('[support.service] DB customer tickets fetch failed, using fallback:', err)
-    }
-  }
+  const rows = await ticketQuery().where({ userId }).orderBy((t) => t.updatedAt.desc()).limit(200).all()
+  const orderNumbers = await orderNumbersFor(rows.map((r) => r.orderId ?? null))
+  return rows.map((r) => toTicketItem(r, orderNumbers))
+}
 
-  return Array.from(inMemoryTickets.values())
-    .filter((t) => t.userId === userId)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+async function loadMessages(ticketId: string, includeInternal: boolean): Promise<SupportMessageItem[]> {
+  let query = db.orm.public.SupportMessage
+    .include('author', (a) => a.select('id', 'name', 'email'))
+    .where({ ticketId })
+  if (!includeInternal) query = query.where({ isInternal: false })
+  const rows = await query.orderBy((m) => m.createdAt.asc()).all()
+
+  return rows.map((m) => {
+    const staffMessage = m.authorType === 'STAFF' || Boolean(m.adminUserId)
+    return {
+      id: m.id,
+      ticketId: m.ticketId,
+      adminUserId: staffMessage ? m.authorUserId ?? m.adminUserId ?? null : null,
+      authorName: staffMessage
+        ? includeInternal
+          ? m.author?.name || m.author?.email || 'Zuulab Destek'
+          : 'Zuulab Destek Ekibi'
+        : m.author?.name || m.author?.email?.split('@')[0] || 'Müşteri',
+      authorRole: staffMessage ? 'SUPPORT' : 'CUSTOMER',
+      body: m.body,
+      isInternal: Boolean(m.isInternal),
+      attachments: (m.attachments as string[]) ?? [],
+      createdAt: dbTimestampToIso(m.createdAt) ?? '',
+    }
+  })
 }
 
 /**
- * Retrieves a single ticket and its message thread with customer isolation & internal note filtration
+ * A ticket with its thread. Customers can only open their own tickets and never
+ * see internal staff notes.
  */
-export async function getTicketDetails(
-  ticketId: string,
-  user: AuthUser
-): Promise<SupportTicketItem> {
-  let ticket: SupportTicketItem | null = null
-  let messages: SupportMessageItem[] = []
+export async function getTicketDetails(ticketId: string, user: AuthUser): Promise<SupportTicketItem> {
+  const row = await ticketQuery().where({ id: ticketId }).first()
+  if (!row) throw new Error('NOT_FOUND: Destek talebi bulunamadı.')
 
-  // Check DB if configured
-  if (isDatabaseConfigured) {
-    try {
-      const t = await db.orm.public.SupportTicket.where({ id: ticketId }).first()
-      if (t) {
-        ticket = {
-          id: t.id,
-          userId: t.userId,
-          userName: 'Müşteri',
-          userEmail: '',
-          orderId: t.orderId,
-          category: t.category as TicketCategoryType,
-          subject: t.subject,
-          status: t.status as TicketStatusType,
-          priority: t.priority,
-          createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
-          updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
-          resolvedAt: t.resolvedAt ? new Date(t.resolvedAt).toISOString() : null,
-        }
-
-        const msgs = await db.orm.public.SupportMessage.where({ ticketId }).all()
-        messages = msgs.map((m) => ({
-          id: m.id,
-          ticketId: m.ticketId,
-          adminUserId: m.adminUserId,
-          authorName: m.adminUserId ? 'Zuulab Destek Ekibi' : 'Siz',
-          authorRole: m.adminUserId ? 'SUPPORT' : 'CUSTOMER',
-          body: m.body,
-          isInternal: Boolean(m.isInternal),
-          attachments: (m.attachments as string[]) || [],
-          createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
-        }))
-      }
-    } catch (err) {
-      console.warn('[support.service] DB ticket detail fetch failed, using fallback:', err)
-    }
-  }
-
-  if (!ticket) {
-    ticket = inMemoryTickets.get(ticketId) || null
-    messages = inMemoryMessages.get(ticketId) || []
-  }
-
-  if (!ticket) {
-    throw new Error('NOT_FOUND: Destek talebi bulunamadı.')
-  }
-
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT'
-
-  // Strict Customer Isolation: Customer can only access their own ticket!
-  if (!isAdmin && ticket.userId !== user.id) {
+  const staff = isStaff(user)
+  if (!staff && row.userId !== user.id) {
     throw new Error('FORBIDDEN: Bu destek talebine erişim yetkiniz bulunmamaktadır.')
   }
 
-  // Filter out internal messages for customers!
-  const filteredMessages = isAdmin
-    ? messages
-    : messages.filter((m) => !m.isInternal)
-
   return {
-    ...ticket,
-    messages: filteredMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    ...toTicketItem(row, await orderNumbersFor([row.orderId ?? null])),
+    messages: await loadMessages(ticketId, staff),
   }
 }
 
 /**
- * Adds a message to an existing ticket
+ * Adds a message to a ticket and moves its status:
+ *  - staff public reply -> WAITING_CUSTOMER (customer is emailed)
+ *  - customer reply to a waiting/resolved/closed ticket -> IN_PROGRESS
  */
 export async function addMessageToTicket(
   ticketId: string,
@@ -261,212 +231,113 @@ export async function addMessageToTicket(
   isInternal = false
 ): Promise<SupportMessageItem> {
   const ticket = await getTicketDetails(ticketId, user)
-  const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'SUPPORT'
+  const staff = isStaff(user)
+  const internal = staff ? Boolean(isInternal) : false
+  const text = validateMessage(body, 1)
 
-  // Non-admins cannot post internal messages
-  const effectiveIsInternal = isAdmin ? Boolean(isInternal) : false
-
-  if (!body || body.trim().length === 0) {
-    throw new Error('VALIDATION_ERROR: Mesaj boş olamaz.')
-  }
-
-  const now = new Date().toISOString()
-  const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-
-  const newMsg: SupportMessageItem = {
-    id: msgId,
-    ticketId,
-    adminUserId: isAdmin ? user.id : null,
-    authorName: isAdmin ? (user.name || 'Zuulab Destek') : (user.name || 'Siz'),
-    authorRole: isAdmin ? 'SUPPORT' : 'CUSTOMER',
-    body: body.trim(),
-    isInternal: effectiveIsInternal,
-    attachments: [],
-    createdAt: now,
-  }
-
-  // State transitions:
-  // If customer replies, status becomes IN_PROGRESS or OPEN
-  // If admin replies publicly, status becomes WAITING_CUSTOMER
   let newStatus: TicketStatusType = ticket.status
-  if (isAdmin && !effectiveIsInternal) {
-    newStatus = 'WAITING_CUSTOMER'
-  } else if (!isAdmin && (ticket.status === 'WAITING_CUSTOMER' || ticket.status === 'RESOLVED')) {
-    newStatus = 'IN_PROGRESS'
-  }
+  if (staff && !internal) newStatus = 'WAITING_CUSTOMER'
+  else if (!staff && ['WAITING_CUSTOMER', 'RESOLVED', 'CLOSED'].includes(ticket.status)) newStatus = 'IN_PROGRESS'
 
-  if (isDatabaseConfigured) {
-    try {
-      await db.orm.public.SupportMessage.create({
-        ticketId,
-        adminUserId: isAdmin ? user.id : null,
-        body: body.trim(),
-        isInternal: effectiveIsInternal,
-        attachments: [],
-      })
-
-      await db.orm.public.SupportTicket.where({ id: ticketId }).update({
-        status: newStatus as any,
-        updatedAt: new Date(),
-      })
-    } catch (err) {
-      console.warn('[support.service] DB add message failed, using fallback:', err)
-    }
-  }
-
-  // Fallback in-memory
-  const msgs = inMemoryMessages.get(ticketId) || []
-  msgs.push(newMsg)
-  inMemoryMessages.set(ticketId, msgs)
-
-  const storedTicket = inMemoryTickets.get(ticketId)
-  if (storedTicket) {
-    inMemoryTickets.set(ticketId, {
-      ...storedTicket,
-      status: newStatus,
-      updatedAt: now,
+  const messageId = await db.transaction(async (tx) => {
+    const message = await tx.orm.public.SupportMessage.create({
+      ticketId,
+      authorUserId: user.id,
+      authorType: staff ? 'STAFF' : 'CUSTOMER',
+      body: text,
+      isInternal: internal,
+      attachments: [],
     })
-  }
+    await tx.orm.public.SupportTicket.where({ id: ticketId }).update({
+      status: newStatus as never,
+      resolvedAt: null,
+    })
+    return message.id
+  })
 
-  // If admin replied publicly, notify customer
-  if (isAdmin && !effectiveIsInternal && isDatabaseConfigured) {
-    try {
-      await db.orm.public.Notification.create({
-        userId: ticket.userId,
-        type: 'SUPPORT' as any,
-        title: 'Destek Talebiniz Yanıtlandı',
-        body: `"${ticket.subject}" konulu destek talebinize yeni bir yanıt verildi.`,
-        data: { ticketId } as any,
-      })
-    } catch (err) {
-      console.warn('[support.service] Error creating support notification:', err)
+  if (staff && !internal) {
+    if (ticket.userEmail) {
+      sendSupportReplyEmail({
+        to: ticket.userEmail,
+        ticketId,
+        subject: ticket.subject,
+        messageId,
+        channel: ticket.channel,
+        replyBody: text,
+      }).catch((err) => console.error('[support.service] reply email failed:', err))
     }
+    await db.orm.public.Notification.create({
+      userId: ticket.userId,
+      type: 'SUPPORT' as never,
+      title: 'Destek Talebiniz Yanıtlandı',
+      body: `"${ticket.subject}" konulu destek talebinize yeni bir yanıt verildi.`,
+      data: { ticketId } as never,
+    }).catch((err: unknown) => console.warn('[support.service] in-app notification failed:', err))
   }
 
-  return newMsg
+  const messages = await loadMessages(ticketId, staff)
+  return messages.find((m) => m.id === messageId)!
 }
 
 /**
- * Admin: Lists all tickets with optional filtering
+ * Admin: lists tickets with optional filters, most recently active first
  */
 export async function getAdminTickets(filters: {
   status?: TicketStatusType
   category?: TicketCategoryType
   search?: string
 } = {}): Promise<SupportTicketItem[]> {
-  if (isDatabaseConfigured) {
-    try {
-      const query: any = {}
-      if (filters.status) query.status = filters.status
-      if (filters.category) query.category = filters.category
+  let query = ticketQuery()
+  if (filters.status) query = query.where({ status: filters.status as never })
+  if (filters.category) query = query.where({ category: filters.category as never })
+  const rows = await query.orderBy((t) => t.updatedAt.desc()).limit(500).all()
 
-      const records = await db.orm.public.SupportTicket.where(query).all()
-      if (records && records.length > 0) {
-        return records.map((r) => ({
-          id: r.id,
-          userId: r.userId,
-          userName: 'Müşteri',
-          userEmail: '',
-          orderId: r.orderId,
-          category: r.category as TicketCategoryType,
-          subject: r.subject,
-          status: r.status as TicketStatusType,
-          priority: r.priority,
-          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-          updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
-          resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toISOString() : null,
-        })).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      }
-    } catch (err) {
-      console.warn('[support.service] DB admin tickets fetch failed, using fallback:', err)
-    }
-  }
+  const orderNumbers = await orderNumbersFor(rows.map((r) => r.orderId ?? null))
+  let list = rows.map((r) => toTicketItem(r, orderNumbers))
 
-  let list = Array.from(inMemoryTickets.values())
-  if (filters.status) {
-    list = list.filter((t) => t.status === filters.status)
-  }
-  if (filters.category) {
-    list = list.filter((t) => t.category === filters.category)
-  }
   if (filters.search) {
-    const s = filters.search.toLowerCase()
+    const q = filters.search.toLocaleLowerCase('tr-TR')
     list = list.filter(
       (t) =>
-        t.subject.toLowerCase().includes(s) ||
-        t.userEmail.toLowerCase().includes(s) ||
-        t.id.toLowerCase().includes(s)
+        t.subject.toLocaleLowerCase('tr-TR').includes(q) ||
+        t.userEmail.toLowerCase().includes(q) ||
+        t.userName.toLocaleLowerCase('tr-TR').includes(q) ||
+        t.id.toLowerCase().includes(q) ||
+        (t.orderNumber ?? '').toLowerCase().includes(q)
     )
   }
-
-  return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  return list
 }
 
 /**
- * Admin: Updates ticket status or priority
+ * Admin: updates a ticket's status and/or priority
  */
 export async function updateTicketStatus(
-  adminUserId: string,
   ticketId: string,
+  adminUser: AuthUser,
   updates: { status?: TicketStatusType; priority?: number }
 ): Promise<SupportTicketItem> {
-  const { status, priority } = updates
-  const now = new Date().toISOString()
+  const existing = await db.orm.public.SupportTicket.where({ id: ticketId }).first()
+  if (!existing) throw new Error('NOT_FOUND: Destek talebi bulunamadı.')
 
-  if (isDatabaseConfigured) {
-    try {
-      const patch: any = { updatedAt: new Date() }
-      if (status) {
-        patch.status = status
-        if (status === 'RESOLVED' || status === 'CLOSED') {
-          patch.resolvedAt = new Date()
-        }
-      }
-      if (priority !== undefined) patch.priority = priority
-
-      await db.orm.public.SupportTicket.where({ id: ticketId }).update(patch)
-    } catch (err) {
-      console.warn('[support.service] DB update ticket status failed, using fallback:', err)
-    }
+  const fields: Record<string, unknown> = {}
+  if (updates.status) {
+    fields.status = updates.status
+    fields.resolvedAt = updates.status === 'RESOLVED' || updates.status === 'CLOSED' ? toDbTimestamp() : null
   }
+  if (updates.priority !== undefined) fields.priority = Math.min(3, Math.max(1, Math.round(updates.priority)))
 
-  const ticket = inMemoryTickets.get(ticketId)
-  if (!ticket) {
-    throw new Error('NOT_FOUND: Destek talebi bulunamadı.')
+  if (Object.keys(fields).length > 0) {
+    await db.orm.public.SupportTicket.where({ id: ticketId }).update(fields as never)
   }
-
-  const updated: SupportTicketItem = {
-    ...ticket,
-    ...(status && { status }),
-    ...(priority !== undefined && { priority }),
-    ...(status === 'RESOLVED' || status === 'CLOSED' ? { resolvedAt: now } : {}),
-    updatedAt: now,
-  }
-
-  inMemoryTickets.set(ticketId, updated)
 
   await logAuditEvent({
-    userId: adminUserId,
-    action: 'support_ticket.status_changed',
+    userId: adminUser.id,
+    action: 'SUPPORT_TICKET_UPDATED',
     entity: 'SupportTicket',
     entityId: ticketId,
-    metadata: { status, priority },
+    metadata: { ...updates },
   })
 
-  // Notify customer if status resolved
-  if (status === 'RESOLVED' && isDatabaseConfigured) {
-    try {
-      await db.orm.public.Notification.create({
-        userId: ticket.userId,
-        type: 'SUPPORT' as any,
-        title: 'Destek Talebiniz Çözüldü',
-        body: `"${ticket.subject}" konulu destek talebiniz çözümlendi olarak işaretlendi.`,
-        data: { ticketId } as any,
-      })
-    } catch (err) {
-      console.warn('[support.service] Error creating support notification:', err)
-    }
-  }
-
-  return updated
+  return getTicketDetails(ticketId, adminUser)
 }

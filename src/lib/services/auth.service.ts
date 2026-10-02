@@ -307,8 +307,13 @@ export async function getOrCreateGuestUser(payload: {
         isNew: true,
       }
     } catch (err) {
+      // A memory-only guest id would be a dangling foreign key for the order or
+      // ticket created with it.
+      if (process.env.NODE_ENV === 'production') throw err
       console.warn('[auth.service] Database getOrCreateGuestUser failed, using memory fallback:', err)
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_UNAVAILABLE: Müşteri kaydı oluşturulamadı.')
   }
 
   // Fallback in-memory

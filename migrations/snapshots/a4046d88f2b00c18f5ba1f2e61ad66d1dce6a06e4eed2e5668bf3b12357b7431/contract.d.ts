@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'97645ca05bd2a115d4e1810645debafdb2fcd7c03d4dd3642f125696bd036357'>;
+  StorageHashBase<'a4046d88f2b00c18f5ba1f2e61ad66d1dce6a06e4eed2e5668bf3b12357b7431'>;
 export type ExecutionHash =
   ExecutionHashBase<'e047b7f2775d90d6b8f8b6704e7cbe406d0f5ee12f3346f9fe36a8c6678d7fc9'>;
 export type ProfileHash =
@@ -890,11 +890,6 @@ export type FieldOutputTypes = {
       readonly sortOrder: CodecTypes['pg/int4@1']['output'];
       readonly stock: CodecTypes['pg/int4@1']['output'];
       readonly value: CodecTypes['pg/text@1']['output'];
-    };
-    readonly RateLimit: {
-      readonly count: CodecTypes['pg/int4@1']['output'];
-      readonly key: CodecTypes['pg/text@1']['output'];
-      readonly windowEndsAt: CodecTypes['pg/timestamp-temporal@1']['output'];
     };
     readonly ReturnEvent: {
       readonly createdAt: CodecTypes['pg/timestamp-temporal@1']['output'];
@@ -2257,11 +2252,6 @@ export type FieldInputTypes = {
       readonly stock: CodecTypes['pg/int4@1']['input'];
       readonly value: CodecTypes['pg/text@1']['input'];
     };
-    readonly RateLimit: {
-      readonly count: CodecTypes['pg/int4@1']['input'];
-      readonly key: CodecTypes['pg/text@1']['input'];
-      readonly windowEndsAt: CodecTypes['pg/timestamp-temporal@1']['input'];
-    };
     readonly ReturnEvent: {
       readonly createdAt: CodecTypes['pg/timestamp-temporal@1']['input'];
       readonly createdBy: CodecTypes['pg/text@1']['input'] | null;
@@ -3623,11 +3613,6 @@ export type StorageColumnTypes = {
       readonly weight_grams: CodecTypes['pg/int4@1']['output'] | null;
       readonly width_mm: CodecTypes['pg/int4@1']['output'] | null;
     };
-    readonly rate_limits: {
-      readonly count: CodecTypes['pg/int4@1']['output'];
-      readonly key: CodecTypes['pg/text@1']['output'];
-      readonly window_ends_at: CodecTypes['pg/timestamp-temporal@1']['output'];
-    };
     readonly return_events: {
       readonly created_at: CodecTypes['pg/timestamp-temporal@1']['output'];
       readonly created_by: CodecTypes['pg/text@1']['output'] | null;
@@ -4988,11 +4973,6 @@ export type StorageColumnInputTypes = {
       readonly weight: CodecTypes['pg/numeric@1']['input'] | null;
       readonly weight_grams: CodecTypes['pg/int4@1']['input'] | null;
       readonly width_mm: CodecTypes['pg/int4@1']['input'] | null;
-    };
-    readonly rate_limits: {
-      readonly count: CodecTypes['pg/int4@1']['input'];
-      readonly key: CodecTypes['pg/text@1']['input'];
-      readonly window_ends_at: CodecTypes['pg/timestamp-temporal@1']['input'];
     };
     readonly return_events: {
       readonly created_at: CodecTypes['pg/timestamp-temporal@1']['input'];
@@ -6498,12 +6478,6 @@ export namespace Models {
     product: public_Product;
     readonly [RelationKeys]?: 'product';
   };
-  export type public_RateLimit = {
-    count: CodecTypes['pg/int4@1']['output'];
-    key: CodecTypes['pg/text@1']['output'];
-    windowEndsAt: CodecTypes['pg/timestamp-temporal@1']['output'];
-    readonly [RelationKeys]?: never;
-  };
   export type public_ReturnEvent = {
     createdAt: CodecTypes['pg/timestamp-temporal@1']['output'];
     createdBy: CodecTypes['pg/text@1']['output'] | null;
@@ -7385,7 +7359,6 @@ export declare const models: {
     ProductSpecification: Models.public_ProductSpecification;
     ProductVariant: Models.public_ProductVariant;
     ProductionOrder: Models.public_ProductionOrder;
-    RateLimit: Models.public_RateLimit;
     ReturnEvent: Models.public_ReturnEvent;
     ReturnItem: Models.public_ReturnItem;
     ReturnRequest: Models.public_ReturnRequest;
@@ -11330,36 +11303,6 @@ type ContractBase = Omit<
                   };
                 },
               ];
-            };
-            readonly rate_limits: {
-              columns: {
-                readonly count: {
-                  readonly nativeType: 'int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                };
-                readonly key: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
-                };
-                readonly window_ends_at: {
-                  readonly nativeType: 'timestamp';
-                  readonly codecId: 'pg/timestamp-temporal@1';
-                  readonly nullable: false;
-                  readonly typeParams: { readonly precision: 3 };
-                };
-              };
-              primaryKey: { readonly columns: readonly ['key'] };
-              uniques: readonly [];
-              indexes: readonly [
-                {
-                  readonly name: 'rate_limits_window_ends_at_idx';
-                  readonly columns: readonly ['window_ends_at'];
-                  readonly unique: false;
-                },
-              ];
-              foreignKeys: readonly [];
             };
             readonly return_events: {
               columns: {
@@ -16707,10 +16650,6 @@ type ContractBase = Omit<
       readonly model: 'ProductionOrder';
     };
     readonly products: { readonly namespace: 'public' & NamespaceId; readonly model: 'Product' };
-    readonly rate_limits: {
-      readonly namespace: 'public' & NamespaceId;
-      readonly model: 'RateLimit';
-    };
     readonly return_events: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'ReturnEvent';
@@ -20951,36 +20890,6 @@ type ContractBase = Omit<
                 readonly sortOrder: { readonly column: 'sort_order' };
                 readonly stock: { readonly column: 'stock' };
                 readonly value: { readonly column: 'value' };
-              };
-            };
-          };
-          readonly RateLimit: {
-            readonly fields: {
-              readonly count: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly key: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly windowEndsAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamp-temporal@1';
-                  readonly typeParams: { readonly precision: 3 };
-                };
-              };
-            };
-            readonly relations: Record<string, never>;
-            readonly storage: {
-              readonly table: 'rate_limits';
-              readonly namespaceId: 'public';
-              readonly fields: {
-                readonly count: { readonly column: 'count' };
-                readonly key: { readonly column: 'key' };
-                readonly windowEndsAt: { readonly column: 'window_ends_at' };
               };
             };
           };

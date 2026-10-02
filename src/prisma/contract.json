@@ -156,6 +156,10 @@
       "model": "Product",
       "namespace": "public"
     },
+    "rate_limits": {
+      "model": "RateLimit",
+      "namespace": "public"
+    },
     "return_events": {
       "model": "ReturnEvent",
       "namespace": "public"
@@ -6875,6 +6879,50 @@
               "table": "production_orders"
             }
           },
+          "RateLimit": {
+            "fields": {
+              "count": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "key": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "windowEndsAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "count": {
+                  "column": "count"
+                },
+                "key": {
+                  "column": "key"
+                },
+                "windowEndsAt": {
+                  "column": "window_ends_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "rate_limits"
+            }
+          },
           "ReturnEvent": {
             "fields": {
               "createdAt": {
@@ -10021,6 +10069,23 @@
                   "kind": "scalar"
                 }
               },
+              "authorType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "SupportAuthorType"
+                  }
+                }
+              },
+              "authorUserId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "body": {
                 "nullable": false,
                 "type": {
@@ -10077,6 +10142,22 @@
                   "namespace": "public"
                 }
               },
+              "author": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "authorUserId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              },
               "ticket": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -10101,6 +10182,12 @@
                 },
                 "attachments": {
                   "column": "attachments"
+                },
+                "authorType": {
+                  "column": "author_type"
+                },
+                "authorUserId": {
+                  "column": "author_user_id"
                 },
                 "body": {
                   "column": "body"
@@ -10139,6 +10226,13 @@
                   "typeParams": {
                     "typeName": "TicketCategory"
                   }
+                }
+              },
+              "channel": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
                 }
               },
               "createdAt": {
@@ -10273,6 +10367,9 @@
                 },
                 "category": {
                   "column": "category"
+                },
+                "channel": {
+                  "column": "channel"
                 },
                 "createdAt": {
                   "column": "created_at"
@@ -10574,6 +10671,21 @@
                 },
                 "to": {
                   "model": "Review",
+                  "namespace": "public"
+                }
+              },
+              "supportMessages": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "authorUserId"
+                  ]
+                },
+                "to": {
+                  "model": "SupportMessage",
                   "namespace": "public"
                 }
               },
@@ -14820,6 +14932,15 @@
                 "SKIPPED"
               ],
               "typeName": "StockSyncStatus"
+            },
+            "SupportAuthorType": {
+              "kind": "postgres-enum",
+              "members": [
+                "CUSTOMER",
+                "STAFF",
+                "SYSTEM"
+              ],
+              "typeName": "SupportAuthorType"
             },
             "TicketCategory": {
               "kind": "postgres-enum",
@@ -19983,6 +20104,44 @@
               },
               "uniques": []
             },
+            "rate_limits": {
+              "columns": {
+                "count": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "key": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "window_ends_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "window_ends_at"
+                  ],
+                  "name": "rate_limits_window_ends_at_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "key"
+                ]
+              },
+              "uniques": []
+            },
             "return_events": {
               "columns": {
                 "created_at": {
@@ -22456,6 +22615,29 @@
                   ],
                   "nullable": true
                 },
+                "author_type": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CUSTOMER"
+                  },
+                  "nativeType": "SupportAuthorType",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "SupportAuthorType"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "SupportAuthorType",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "author_user_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "body": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -22529,9 +22711,35 @@
                     "namespaceId": "public",
                     "tableName": "admin_users"
                   }
+                },
+                {
+                  "onDelete": "setNull",
+                  "onUpdate": "cascade",
+                  "source": {
+                    "columns": [
+                      "author_user_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "support_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "ticket_id"
+                  ],
+                  "name": "support_messages_ticket_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -22559,6 +22767,15 @@
                     "namespaceId": "public",
                     "plane": "storage"
                   }
+                },
+                "channel": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "ACCOUNT"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
                 },
                 "created_at": {
                   "codecId": "pg/timestamp-temporal@1",
@@ -22674,7 +22891,23 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "status",
+                    "updated_at"
+                  ],
+                  "name": "support_tickets_status_updated_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "user_id"
+                  ],
+                  "name": "support_tickets_user_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -26269,6 +26502,14 @@
                 "SKIPPED"
               ]
             },
+            "SupportAuthorType": {
+              "kind": "valueSet",
+              "values": [
+                "CUSTOMER",
+                "STAFF",
+                "SYSTEM"
+              ]
+            },
             "TicketCategory": {
               "kind": "valueSet",
               "values": [
@@ -26475,7 +26716,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "cbc26e14b11e003714392972b471404b6e1a678e04e995700c1c56aa22c18960"
+    "storageHash": "97645ca05bd2a115d4e1810645debafdb2fcd7c03d4dd3642f125696bd036357"
   },
   "execution": {
     "executionHash": "e047b7f2775d90d6b8f8b6704e7cbe406d0f5ee12f3346f9fe36a8c6678d7fc9",

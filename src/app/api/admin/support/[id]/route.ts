@@ -94,7 +94,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       )
     }
 
-    const updated = await updateTicketStatus(adminUser.id, id, {
+    const updated = await updateTicketStatus(id, adminUser, {
       status: parsed.data.status as TicketStatusType,
       priority: parsed.data.priority,
     })

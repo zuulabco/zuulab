@@ -1,5 +1,5 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
+import { db } from '@/prisma/db'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -8,109 +8,54 @@ export interface RateLimitResult {
   limit: number
 }
 
-// In-memory fallback tracking for development/single instance
-const localBuckets = new Map<string, { count: number; expiresAt: number }>()
-
 /**
- * Serverless-compatible sliding window rate limiter.
- * Protects critical mutation endpoints against brute force and abuse.
+ * Fixed-window rate limiter backed by Postgres, so the limit holds across every
+ * serverless instance (an in-memory counter would reset per instance).
  *
- * @param key Unique identifier (e.g. `ip:192.168.1.1` or `user:usr_123`)
- * @param limit Maximum allowed requests within the window
- * @param windowSeconds Window length in seconds (default 60s)
+ * One atomic upsert per call: the row's window restarts once it has ended,
+ * otherwise its count is incremented.
+ *
+ * Fails open: if the database is unreachable the request is allowed, because
+ * blocking every customer is worse than briefly not limiting.
+ *
+ * @param key Unique identifier, e.g. `contact:ip:1.2.3.4`
+ * @param limit Maximum requests per window
+ * @param windowSeconds Window length in seconds
  */
-export async function checkRateLimit(
-  key: string,
-  limit: number = 60,
-  windowSeconds: number = 60
-): Promise<RateLimitResult> {
-  const now = Date.now()
-  const windowMs = windowSeconds * 1000
-  const rateKey = `ratelimit:${key}`
+export async function checkRateLimit(key: string, limit = 60, windowSeconds = 60): Promise<RateLimitResult> {
+  const rateKey = key.slice(0, 200)
+  try {
+    const [row] = (await db.runtime().query(
+      db.raw.sql`
+        INSERT INTO rate_limits (key, count, window_ends_at)
+        VALUES (${rateKey}, 1, now() + make_interval(secs => ${windowSeconds}))
+        ON CONFLICT (key) DO UPDATE SET
+          count = CASE WHEN rate_limits.window_ends_at <= now() THEN 1 ELSE rate_limits.count + 1 END,
+          window_ends_at = CASE WHEN rate_limits.window_ends_at <= now()
+            THEN now() + make_interval(secs => ${windowSeconds})
+            ELSE rate_limits.window_ends_at END
+        RETURNING count, (extract(epoch from (window_ends_at - now())) * 1000)::int AS reset_ms
+      `
+        .returnsRow({ count: 'pg/int4@1', reset_ms: 'pg/int4@1' } as never)
+        .build()
+    )) as unknown as Array<{ count: number; reset_ms: number }>
 
-  if (isDatabaseConfigured) {
-    try {
-      const existing = await (db.orm.public.Setting as any).findUnique({
-        where: { key: rateKey },
-      })
-
-      if (existing && existing.value) {
-        try {
-          const parsed = JSON.parse(existing.value) as { count: number; expiresAt: number }
-          if (now < parsed.expiresAt) {
-            if (parsed.count >= limit) {
-              return {
-                allowed: false,
-                remaining: 0,
-                resetMs: parsed.expiresAt - now,
-                limit,
-              }
-            }
-
-            // Increment count within active window
-            const newCount = parsed.count + 1
-            await (db.orm.public.Setting as any).update({
-              where: { key: rateKey },
-              data: { value: JSON.stringify({ count: newCount, expiresAt: parsed.expiresAt }) },
-            })
-
-            return {
-              allowed: true,
-              remaining: limit - newCount,
-              resetMs: parsed.expiresAt - now,
-              limit,
-            }
-          }
-        } catch {
-          // If parse fails, reset below
-        }
-      }
-
-      // New window creation
-      const expiresAt = now + windowMs
-      await (db.orm.public.Setting as any).upsert({
-        where: { key: rateKey },
-        update: { value: JSON.stringify({ count: 1, expiresAt }), group: 'rate_limit' },
-        create: { key: rateKey, value: JSON.stringify({ count: 1, expiresAt }), group: 'rate_limit', type: 'json' },
-      })
-
-      return {
-        allowed: true,
-        remaining: limit - 1,
-        resetMs: windowMs,
-        limit,
-      }
-    } catch {
-      // In case of transient DB failure, fall through to memory limiter
+    // Occasionally prune expired windows so the table stays small.
+    if (Math.random() < 0.01) {
+      db.runtime()
+        .execute(db.raw.sql`DELETE FROM rate_limits WHERE window_ends_at < now() - interval '1 day'`.affectedCount().build())
+        .catch(() => {})
     }
-  }
 
-  // In-memory fallback
-  const item = localBuckets.get(rateKey)
-  if (item && now < item.expiresAt) {
-    if (item.count >= limit) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetMs: item.expiresAt - now,
-        limit,
-      }
-    }
-    item.count += 1
+    const count = Number(row?.count ?? 1)
     return {
-      allowed: true,
-      remaining: limit - item.count,
-      resetMs: item.expiresAt - now,
+      allowed: count <= limit,
+      remaining: Math.max(0, limit - count),
+      resetMs: Math.max(0, Number(row?.reset_ms ?? windowSeconds * 1000)),
       limit,
     }
-  }
-
-  const expiresAt = now + windowMs
-  localBuckets.set(rateKey, { count: 1, expiresAt })
-  return {
-    allowed: true,
-    remaining: limit - 1,
-    resetMs: windowMs,
-    limit,
+  } catch (err) {
+    console.error('[rate-limiter] check failed, allowing request:', err)
+    return { allowed: true, remaining: limit, resetMs: windowSeconds * 1000, limit }
   }
 }

@@ -1,0 +1,309 @@
+[
+  {
+    "id": "createNativeEnumType.SupportAuthorType",
+    "label": "Create enum type \"SupportAuthorType\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "type",
+        "name": "SupportAuthorType"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create enum type \"SupportAuthorType\"",
+        "sql": "CREATE TYPE \"public\".\"SupportAuthorType\" AS ENUM ('CUSTOMER', 'STAFF', 'SYSTEM')",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "column.public.support_messages.author_type",
+    "label": "Add column \"author_type\" to \"support_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "author_type",
+        "table": "support_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"author_type\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_messages",
+          "author_type"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"author_type\"",
+        "sql": "ALTER TABLE \"public\".\"support_messages\" ADD COLUMN \"author_type\" \"SupportAuthorType\" DEFAULT 'CUSTOMER'::\"SupportAuthorType\" NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"author_type\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_messages",
+          "author_type"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.support_messages.author_user_id",
+    "label": "Add column \"author_user_id\" to \"support_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "author_user_id",
+        "table": "support_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"author_user_id\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_messages",
+          "author_user_id"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"author_user_id\"",
+        "sql": "ALTER TABLE \"public\".\"support_messages\" ADD COLUMN \"author_user_id\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"author_user_id\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_messages",
+          "author_user_id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.support_tickets.channel",
+    "label": "Add column \"channel\" to \"support_tickets\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "channel",
+        "table": "support_tickets"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"channel\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_tickets",
+          "channel"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"channel\"",
+        "sql": "ALTER TABLE \"public\".\"support_tickets\" ADD COLUMN \"channel\" text DEFAULT 'ACCOUNT' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"channel\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "support_tickets",
+          "channel"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.support_messages.support_messages_ticket_id_idx",
+    "label": "Create index \"support_messages_ticket_id_idx\" on \"support_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "support_messages_ticket_id_idx",
+        "table": "support_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"support_messages_ticket_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_messages_ticket_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"support_messages_ticket_id_idx\"",
+        "sql": "CREATE INDEX \"support_messages_ticket_id_idx\" ON \"public\".\"support_messages\" (\"ticket_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"support_messages_ticket_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_messages_ticket_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.support_tickets.support_tickets_status_updated_at_idx",
+    "label": "Create index \"support_tickets_status_updated_at_idx\" on \"support_tickets\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "support_tickets_status_updated_at_idx",
+        "table": "support_tickets"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"support_tickets_status_updated_at_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_tickets_status_updated_at_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"support_tickets_status_updated_at_idx\"",
+        "sql": "CREATE INDEX \"support_tickets_status_updated_at_idx\" ON \"public\".\"support_tickets\" (\"status\", \"updated_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"support_tickets_status_updated_at_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_tickets_status_updated_at_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.support_tickets.support_tickets_user_id_idx",
+    "label": "Create index \"support_tickets_user_id_idx\" on \"support_tickets\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "support_tickets_user_id_idx",
+        "table": "support_tickets"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"support_tickets_user_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_tickets_user_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"support_tickets_user_id_idx\"",
+        "sql": "CREATE INDEX \"support_tickets_user_id_idx\" ON \"public\".\"support_tickets\" (\"user_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"support_tickets_user_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"support_tickets_user_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.support_messages.support_messages_author_user_id_fkey",
+    "label": "Add foreign key \"support_messages_author_user_id_fkey\" on \"support_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "support_messages_author_user_id_fkey",
+        "table": "support_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"support_messages_author_user_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "support_messages_author_user_id_fkey",
+          "public",
+          "\"public\".\"support_messages\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"support_messages_author_user_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"support_messages\"\nADD CONSTRAINT \"support_messages_author_user_id_fkey\"\nFOREIGN KEY (\"author_user_id\")\nREFERENCES \"public\".\"users\" (\"id\")\nON DELETE SET NULL\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"support_messages_author_user_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "support_messages_author_user_id_fkey",
+          "public",
+          "\"public\".\"support_messages\""
+        ]
+      }
+    ]
+  }
+]

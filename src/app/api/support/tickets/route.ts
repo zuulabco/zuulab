@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       category: parsed.data.category as TicketCategoryType,
       message: parsed.data.message,
       orderId: parsed.data.orderId,
-      priority: parsed.data.priority,
+      // Priority is set by staff, not by the customer.
     })
 
     return NextResponse.json({

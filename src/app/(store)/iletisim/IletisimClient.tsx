@@ -9,20 +9,39 @@ export default function IletisimClient() {
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
+  const [website, setWebsite] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Sends the message to /api/contact, which files it as a support ticket and
+  // alerts the team; success is only shown once the server has stored it.
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setSubmitting(true)
-    setTimeout(() => {
-      setSubmitting(false)
+    setError(null)
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message, website }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Mesajınız gönderilemedi. Lütfen tekrar deneyin.')
+        return
+      }
       setSubmitted(true)
       setName('')
       setEmail('')
       setSubject('')
       setMessage('')
-    }, 600)
+    } catch {
+      setError('Bağlantı hatası. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -107,6 +126,17 @@ export default function IletisimClient() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className={styles.formGrid}>
+            {/* Honeypot for bots; hidden from people and assistive tech. */}
+            <input
+              type="text"
+              name="website"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }}
+            />
             <div className={styles.formGroup}>
               <label htmlFor="iletisim-name" className={styles.formLabel}>
                 ad soyad *
@@ -166,6 +196,12 @@ export default function IletisimClient() {
                 className={styles.formTextarea}
               />
             </div>
+
+            {error && (
+              <p role="alert" className={styles.formGroup} style={{ color: 'var(--status-error, #c0392b)', margin: 0 }}>
+                {error}
+              </p>
+            )}
 
             <div className={styles.formGroup}>
               <button

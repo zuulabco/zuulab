@@ -1,0 +1,80 @@
+[
+  {
+    "id": "table.rate_limits",
+    "label": "Create table \"rate_limits\"",
+    "summary": "Creates table \"rate_limits\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "rate_limits"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"rate_limits\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"rate_limits\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"rate_limits\"",
+        "sql": "CREATE TABLE \"public\".\"rate_limits\" (\n  \"count\" int4 NOT NULL,\n  \"key\" text NOT NULL,\n  \"window_ends_at\" timestamp(3) NOT NULL,\n  PRIMARY KEY (\"key\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"rate_limits\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"rate_limits\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.rate_limits.rate_limits_window_ends_at_idx",
+    "label": "Create index \"rate_limits_window_ends_at_idx\" on \"rate_limits\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "rate_limits_window_ends_at_idx",
+        "table": "rate_limits"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"rate_limits_window_ends_at_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"rate_limits_window_ends_at_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"rate_limits_window_ends_at_idx\"",
+        "sql": "CREATE INDEX \"rate_limits_window_ends_at_idx\" ON \"public\".\"rate_limits\" (\"window_ends_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"rate_limits_window_ends_at_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"rate_limits_window_ends_at_idx\""
+        ]
+      }
+    ]
+  }
+]

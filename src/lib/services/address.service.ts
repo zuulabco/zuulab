@@ -1,5 +1,11 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
+import { db } from '@/prisma/db'
+import { dbTimestampToIso } from '@/lib/db/time'
+
+/**
+ * Customer address book, stored in Postgres only. Each user has at most one
+ * default address; changes to the default happen in one transaction.
+ */
 
 export interface AddressData {
   id?: string
@@ -35,144 +41,85 @@ export interface StoredAddress {
   updatedAt: string
 }
 
-// Thread-safe in-memory address repository for local dev / testing
-const inMemoryAddresses: Map<string, StoredAddress> = new Map()
+const MAX_ADDRESSES = 20
+
+type AddressRow = NonNullable<Awaited<ReturnType<ReturnType<typeof db.orm.public.Address.where>['first']>>>
+
+function toStored(r: AddressRow): StoredAddress {
+  return {
+    id: r.id,
+    userId: r.userId,
+    title: r.title,
+    firstName: r.firstName,
+    lastName: r.lastName,
+    phone: r.phone,
+    addressLine1: r.addressLine1,
+    addressLine2: r.addressLine2 || null,
+    city: r.city,
+    district: r.district,
+    postalCode: r.postalCode,
+    country: r.country || 'TR',
+    isDefault: Boolean(r.isDefault),
+    createdAt: dbTimestampToIso(r.createdAt) ?? '',
+    updatedAt: dbTimestampToIso(r.updatedAt) ?? '',
+  }
+}
 
 /**
- * Returns all addresses belonging to the specified user
+ * Returns all addresses of the user, default first, then newest
  */
 export async function getUserAddresses(userId: string): Promise<StoredAddress[]> {
-  if (isDatabaseConfigured) {
-    try {
-      const records = await db.orm.public.Address.where({ userId }).all()
-      return records.map((r) => ({
-        id: r.id,
-        userId: r.userId,
-        title: r.title,
-        firstName: r.firstName,
-        lastName: r.lastName,
-        phone: r.phone,
-        addressLine1: r.addressLine1,
-        addressLine2: r.addressLine2 || null,
-        city: r.city,
-        district: r.district,
-        postalCode: r.postalCode,
-        country: r.country || 'TR',
-        isDefault: Boolean(r.isDefault),
-        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-        updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
-      }))
-    } catch (err) {
-      console.warn('[address.service] DB fetch failed, using fallback:', err)
-    }
-  }
-
-  return Array.from(inMemoryAddresses.values())
-    .filter((a) => a.userId === userId)
-    .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+  const rows = await db.orm.public.Address.where({ userId }).orderBy((a) => a.createdAt.desc()).all()
+  return rows.map(toStored).sort((x, y) => Number(y.isDefault) - Number(x.isDefault))
 }
 
 /**
- * Retrieves a single address with strict server-side ownership verification
+ * Retrieves a single address only if it belongs to the user
  */
 export async function getAddressById(userId: string, addressId: string): Promise<StoredAddress | null> {
-  const addresses = await getUserAddresses(userId)
-  return addresses.find((a) => a.id === addressId) || null
+  const row = await db.orm.public.Address.where({ id: addressId, userId }).first()
+  return row ? toStored(row) : null
 }
 
 /**
- * Creates a new address for the authenticated user
+ * Creates a new address; the first address, or one marked default, becomes default
  */
 export async function createAddress(
   userId: string,
   data: Omit<AddressData, 'id' | 'userId'>
 ): Promise<StoredAddress> {
-  const existing = await getUserAddresses(userId)
-  // If first address or explicitly marked as default, make it default
-  const makeDefault = data.isDefault || existing.length === 0
+  const count = await db.orm.public.Address.where({ userId }).aggregate((a) => ({ n: a.count() }))
+  if (count.n >= MAX_ADDRESSES) {
+    throw new Error(`VALIDATION_ERROR: En fazla ${MAX_ADDRESSES} adres kaydedebilirsiniz.`)
+  }
+  const makeDefault = Boolean(data.isDefault) || count.n === 0
 
-  if (isDatabaseConfigured) {
-    try {
-      if (makeDefault) {
-        // Clear previous defaults for this user
-        for (const addr of existing) {
-          if (addr.isDefault) {
-            await db.orm.public.Address.where({ id: addr.id }).update({ isDefault: false })
-          }
-        }
-      }
-
-      const created = await db.orm.public.Address.create({
-        userId,
-        title: data.title,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        addressLine1: data.addressLine1,
-        addressLine2: data.addressLine2 || null,
-        city: data.city,
-        district: data.district,
-        postalCode: data.postalCode,
-        country: data.country || 'TR',
-        isDefault: makeDefault,
-      })
-
-      return {
-        id: created.id,
-        userId: created.userId,
-        title: created.title,
-        firstName: created.firstName,
-        lastName: created.lastName,
-        phone: created.phone,
-        addressLine1: created.addressLine1,
-        addressLine2: created.addressLine2 || null,
-        city: created.city,
-        district: created.district,
-        postalCode: created.postalCode,
-        country: created.country || 'TR',
-        isDefault: created.isDefault,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    } catch (err) {
-      console.warn('[address.service] DB create failed, using fallback:', err)
+  const id = await db.transaction(async (tx) => {
+    if (makeDefault) {
+      await tx.execute(db.raw.sql`UPDATE addresses SET is_default = false WHERE user_id = ${userId} AND is_default`.affectedCount().build())
     }
-  }
+    const created = await tx.orm.public.Address.create({
+      userId,
+      title: data.title,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      addressLine1: data.addressLine1,
+      addressLine2: data.addressLine2 || null,
+      city: data.city,
+      district: data.district,
+      postalCode: data.postalCode,
+      country: data.country || 'TR',
+      isDefault: makeDefault,
+    })
+    return created.id
+  })
 
-  // Fallback in-memory
-  if (makeDefault) {
-    for (const [id, addr] of inMemoryAddresses.entries()) {
-      if (addr.userId === userId && addr.isDefault) {
-        inMemoryAddresses.set(id, { ...addr, isDefault: false, updatedAt: new Date().toISOString() })
-      }
-    }
-  }
-
-  const id = `addr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  const newAddress: StoredAddress = {
-    id,
-    userId,
-    title: data.title,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    phone: data.phone,
-    addressLine1: data.addressLine1,
-    addressLine2: data.addressLine2 || null,
-    city: data.city,
-    district: data.district,
-    postalCode: data.postalCode,
-    country: data.country || 'TR',
-    isDefault: makeDefault,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-
-  inMemoryAddresses.set(id, newAddress)
-  return newAddress
+  return (await getAddressById(userId, id))!
 }
 
 /**
- * Updates an address with strict server-side ownership verification
+ * Updates an address the user owns
  */
 export async function updateAddress(
   userId: string,
@@ -184,78 +131,37 @@ export async function updateAddress(
     throw new Error('NOT_FOUND: Adres bulunamadı veya bu hesaba ait değil.')
   }
 
-  const allUserAddresses = await getUserAddresses(userId)
+  const fields: Record<string, unknown> = {}
+  for (const key of ['title', 'firstName', 'lastName', 'phone', 'addressLine1', 'addressLine2', 'city', 'district', 'postalCode', 'country'] as const) {
+    if (data[key] !== undefined) fields[key] = data[key]
+  }
 
-  if (isDatabaseConfigured) {
-    try {
-      if (data.isDefault) {
-        // Clear other defaults
-        for (const addr of allUserAddresses) {
-          if (addr.id !== addressId && addr.isDefault) {
-            await db.orm.public.Address.where({ id: addr.id }).update({ isDefault: false })
-          }
-        }
-      }
-
-      await db.orm.public.Address.where({ id: addressId }).update({
-        ...(data.title !== undefined && { title: data.title }),
-        ...(data.firstName !== undefined && { firstName: data.firstName }),
-        ...(data.lastName !== undefined && { lastName: data.lastName }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.addressLine1 !== undefined && { addressLine1: data.addressLine1 }),
-        ...(data.addressLine2 !== undefined && { addressLine2: data.addressLine2 }),
-        ...(data.city !== undefined && { city: data.city }),
-        ...(data.district !== undefined && { district: data.district }),
-        ...(data.postalCode !== undefined && { postalCode: data.postalCode }),
-        ...(data.country !== undefined && { country: data.country }),
-        ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
-      })
-
-      const updated = await db.orm.public.Address.where({ id: addressId }).first()
-      if (updated) {
-        return {
-          id: updated.id,
-          userId: updated.userId,
-          title: updated.title,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          phone: updated.phone,
-          addressLine1: updated.addressLine1,
-          addressLine2: updated.addressLine2 || null,
-          city: updated.city,
-          district: updated.district,
-          postalCode: updated.postalCode,
-          country: updated.country || 'TR',
-          isDefault: updated.isDefault,
-          createdAt: existing.createdAt,
-          updatedAt: new Date().toISOString(),
-        }
-      }
-    } catch (err) {
-      console.warn('[address.service] DB update failed, using fallback:', err)
+  await db.transaction(async (tx) => {
+    if (data.isDefault === true) {
+      await tx.execute(
+        db.raw.sql`UPDATE addresses SET is_default = (id = ${addressId}) WHERE user_id = ${userId}`.affectedCount().build()
+      )
     }
-  }
-
-  // Fallback in-memory
-  if (data.isDefault) {
-    for (const [id, addr] of inMemoryAddresses.entries()) {
-      if (addr.userId === userId && id !== addressId && addr.isDefault) {
-        inMemoryAddresses.set(id, { ...addr, isDefault: false, updatedAt: new Date().toISOString() })
-      }
+    // Unsetting the only default is ignored: the user always keeps a default.
+    if (Object.keys(fields).length > 0) {
+      await tx.orm.public.Address.where({ id: addressId, userId }).update(fields as never)
     }
-  }
+  })
 
-  const updatedInMemory: StoredAddress = {
-    ...existing,
-    ...data,
-    updatedAt: new Date().toISOString(),
-  }
-  inMemoryAddresses.set(addressId, updatedInMemory)
-  return updatedInMemory
+  return (await getAddressById(userId, addressId))!
 }
 
 /**
- * Deletes an address with strict server-side ownership verification
+ * Makes one of the user's addresses the default
+ */
+export async function setDefaultAddress(userId: string, addressId: string): Promise<StoredAddress> {
+  return updateAddress(userId, addressId, { isDefault: true })
+}
+
+/**
+ * Deletes an address the user owns. Past orders keep their own address snapshot
+ * and only lose the link; if the default was deleted, the newest remaining
+ * address becomes the default.
  */
 export async function deleteAddress(userId: string, addressId: string): Promise<boolean> {
   const existing = await getAddressById(userId, addressId)
@@ -263,36 +169,16 @@ export async function deleteAddress(userId: string, addressId: string): Promise<
     throw new Error('NOT_FOUND: Adres bulunamadı veya bu hesaba ait değil.')
   }
 
-  if (isDatabaseConfigured) {
-    try {
-      await db.orm.public.Address.where({ id: addressId }).delete()
-      
-      // If deleted address was default, promote another address to default
-      if (existing.isDefault) {
-        const remaining = await db.orm.public.Address.where({ userId }).first()
-        if (remaining) {
-          await db.orm.public.Address.where({ id: remaining.id }).update({ isDefault: true })
-        }
-      }
-      return true
-    } catch (err) {
-      console.warn('[address.service] DB delete failed, using fallback:', err)
+  await db.transaction(async (tx) => {
+    await tx.execute(db.raw.sql`UPDATE orders SET address_id = NULL WHERE address_id = ${addressId}`.affectedCount().build())
+    await tx.execute(db.raw.sql`DELETE FROM addresses WHERE id = ${addressId} AND user_id = ${userId}`.affectedCount().build())
+    if (existing.isDefault) {
+      await tx.execute(
+        db.raw.sql`UPDATE addresses SET is_default = true WHERE id = (
+          SELECT id FROM addresses WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1
+        )`.affectedCount().build()
+      )
     }
-  }
-
-  inMemoryAddresses.delete(addressId)
-
-  // Promote another to default if deleted was default
-  if (existing.isDefault) {
-    const remaining = Array.from(inMemoryAddresses.values()).find((a) => a.userId === userId)
-    if (remaining) {
-      inMemoryAddresses.set(remaining.id, {
-        ...remaining,
-        isDefault: true,
-        updatedAt: new Date().toISOString(),
-      })
-    }
-  }
-
+  })
   return true
 }

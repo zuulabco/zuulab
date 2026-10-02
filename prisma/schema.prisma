@@ -311,6 +311,7 @@ model User {
   reviews        Review[]
   notifications  Notification[]
   supportTickets SupportTicket[]
+  supportMessages SupportMessage[] @relation("SupportMessageAuthor")
   couponUsages   CouponUsage[]
   auditLogs      AuditLog[]
   returnRequests ReturnRequest[]
@@ -1082,6 +1083,8 @@ model SupportTicket {
   subject    String
   status     TicketStatus     @default(OPEN)
   priority   Int              @default(2) // 1=low, 2=medium, 3=high
+  // Where the ticket came from: ACCOUNT (customer panel) or CONTACT_FORM (public form).
+  channel    String           @default("ACCOUNT")
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt @map("updated_at")
   resolvedAt DateTime?        @map("resolved_at")
@@ -1090,6 +1093,8 @@ model SupportTicket {
   assignee   AdminUser?       @relation("TicketAssignee", fields:[assigneeId], references:[id])
   messages   SupportMessage[]
 
+  @@index([userId])
+  @@index([status, updatedAt])
   @@map("support_tickets")
 }
 
@@ -1097,6 +1102,9 @@ model SupportMessage {
   id          String        @id @default(cuid())
   ticketId    String        @map("ticket_id")
   adminUserId String?       @map("admin_user_id")
+  // The user who wrote the message (customer or staff account) and their side.
+  authorUserId String?      @map("author_user_id")
+  authorType  SupportAuthorType @default(CUSTOMER) @map("author_type")
   body        String        @db.Text
   isInternal  Boolean       @default(false) @map("is_internal")
   attachments String[] // array of file URLs
@@ -1104,8 +1112,16 @@ model SupportMessage {
 
   ticket      SupportTicket @relation(fields:[ticketId], references:[id], onDelete: Cascade)
   adminUser   AdminUser?    @relation(fields:[adminUserId], references:[id])
+  author      User?         @relation("SupportMessageAuthor", fields:[authorUserId], references:[id])
 
+  @@index([ticketId])
   @@map("support_messages")
+}
+
+enum SupportAuthorType {
+  CUSTOMER
+  STAFF
+  SYSTEM
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2337,3 +2353,14 @@ model MaterialStockMovement {
   @@map("material_stock_movements")
 }
 
+
+// Fixed-window request counters shared by every server instance
+// (src/lib/security/rate-limiter.ts). Rows are tiny and pruned as they expire.
+model RateLimit {
+  key          String   @id
+  count        Int
+  windowEndsAt DateTime @map("window_ends_at")
+
+  @@index([windowEndsAt])
+  @@map("rate_limits")
+}
