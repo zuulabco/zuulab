@@ -1,420 +1,453 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
-import { getMappingStatusConfig } from '@/lib/constants/admin-status'
-import Modal from '@/components/common/Modal'
 import styles from '../../admin.module.css'
 
-interface MarketplaceProductMapping {
-  id: string
-  storeId: string
+type Filter = 'UNMAPPED' | 'MAPPED' | 'IGNORED' | 'ALL'
+
+interface Suggestion {
   productId: string
-  productName: string
-  productSku: string
-  productBarcode: string | null
-  externalProductId: string | null
-  externalSku: string
-  externalBarcode: string | null
-  status: string
-  lastSyncedAt: string | null
-  createdAt: string
+  name: string
+  sku: string
+  score: number
 }
 
-interface MarketplaceStore {
+interface Listing {
+  id: string
+  storeId: string
+  storeName: string
+  barcode: string
+  stockCode: string | null
+  productMainId: string | null
+  title: string
+  categoryName: string | null
+  imageUrl: string | null
+  productUrl: string | null
+  salePrice: number
+  listPrice: number
+  quantity: number
+  onSale: boolean
+  productId: string | null
+  productName: string | null
+  productSku: string | null
+  matchMethod: string | null
+  ignored: boolean
+  targetSalePrice: number | null
+  targetListPrice: number | null
+  suggestions: Suggestion[]
+}
+
+interface SiteProduct {
+  id: string
+  name: string
+  sku: string
+  isActive: boolean
+}
+
+interface Store {
   id: string
   name: string
   provider: string
+  hasCredentials: boolean
 }
 
-export default function AdminMarketplaceMappingsPage() {
+const FILTER_LABEL: Record<Filter, string> = {
+  UNMAPPED: 'Eşleşmemiş',
+  MAPPED: 'Eşleşmiş',
+  IGNORED: 'Yoksayılan',
+  ALL: 'Tümü',
+}
+
+const METHOD_LABEL: Record<string, string> = {
+  MODEL_CODE: 'Model kodu',
+  BARCODE: 'Barkod',
+  SKU: 'Stok kodu',
+  MANUAL: 'Elle',
+  IMPORT: 'Aktarıldı',
+}
+
+function tl(value: number | null): string {
+  return value === null ? '—' : `${value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} TL`
+}
+
+export default function MarketplaceMappingsPage() {
   const { token, canFetch } = useAuthStore()
-  const [mappings, setMappings] = useState<MarketplaceProductMapping[]>([])
-  const [stores, setStores] = useState<MarketplaceStore[]>([])
+  const [stores, setStores] = useState<Store[]>([])
+  const [storeId, setStoreId] = useState('')
+  const [filter, setFilter] = useState<Filter>('UNMAPPED')
+  const [listings, setListings] = useState<Listing[]>([])
+  const [products, setProducts] = useState<SiteProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
 
-  // Products from catalog
-  const [products, setProducts] = useState<Array<{ id: string; name: string; sku: string; barcode?: string }>>([])
+  const headers = useCallback(
+    (json = false): Record<string, string> => ({
+      Authorization: `Bearer ${token}`,
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
+    }),
+    [token]
+  )
 
-  // Add Modal state (UI-16 Global Modal)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [selectedStoreId, setSelectedStoreId] = useState('')
-  const [selectedProductId, setSelectedProductId] = useState('')
-  const [externalSku, setExternalSku] = useState('')
-  const [externalBarcode, setExternalBarcode] = useState('')
-  const [addLoading, setAddLoading] = useState(false)
-
-  // Delete Confirmation Modal (UI-16 Global Modal)
-  const [deleteConfirmMapping, setDeleteConfirmMapping] = useState<MarketplaceProductMapping | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
-
-  const loadData = () => {
+  const load = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
-
-    Promise.all([
-      fetch('/api/admin/marketplaces/mappings', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((res) => res.json()),
-      fetch('/api/admin/marketplaces/stores', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then((res) => res.json()),
-      fetch('/api/admin/products?limit=100', {
-        headers: { Authorization: `Bearer ${token}` },
+    const params = new URLSearchParams({ filter })
+    if (storeId) params.set('storeId', storeId)
+    fetch(`/api/admin/marketplaces/listings?${params}`, { headers: headers() })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) throw new Error(data.error)
+        setListings(data.listings)
+        setProducts(data.products)
+        setSelected(new Set())
       })
-        .then((res) => res.json())
-        .catch(() => ({ products: [] })),
-    ])
-      .then(([mappingsData, storesData, productsData]) => {
-        if (mappingsData.success && Array.isArray(mappingsData.mappings)) {
-          setMappings(mappingsData.mappings)
-        }
-        if (storesData.success && Array.isArray(storesData.stores)) {
-          setStores(storesData.stores)
-          if (storesData.stores.length > 0 && !selectedStoreId) {
-            setSelectedStoreId(storesData.stores[0].id)
-          }
-        }
-        if (productsData.success && Array.isArray(productsData.products)) {
-          setProducts(productsData.products)
-          if (productsData.products.length > 0 && !selectedProductId) {
-            setSelectedProductId(productsData.products[0].id)
-          }
-        }
-      })
-      .catch((err) => {
-        console.error('Mappings fetch error:', err)
-        toast.error('Eşleştirme verileri alınamadı.')
-      })
+      .catch((err) => toast.error(err.message || 'Ürünler yüklenemedi.'))
       .finally(() => setLoading(false))
-  }
+  }, [canFetch, filter, storeId, headers])
 
   useEffect(() => {
-    loadData()
-  }, [token, canFetch, canFetch])
+    load()
+  }, [load])
 
-  const handleCreateMapping = async (e: React.FormEvent) => {
-    e.preventDefault()
+  useEffect(() => {
     if (!canFetch) return
+    fetch('/api/admin/marketplaces/stores', { headers: headers() })
+      .then((res) => res.json())
+      .then((data) => data.success && setStores(data.stores))
+      .catch(() => {})
+  }, [canFetch, headers])
 
-    setAddLoading(true)
+  async function refresh() {
+    setRefreshing(true)
     try {
-      const res = await fetch('/api/admin/marketplaces/mappings', {
+      const res = await fetch('/api/admin/marketplaces/listings/refresh', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          storeId: selectedStoreId,
-          productId: selectedProductId,
-          externalSku: externalSku.trim(),
-          externalBarcode: externalBarcode.trim() || undefined,
-        }),
+        headers: headers(true),
+        body: JSON.stringify(storeId ? { storeId } : {}),
       })
       const data = await res.json()
-
-      if (data.success) {
-        toast.success(`"${data.mapping?.productName || 'Ürün'}" için SKU eşleştirmesi oluşturuldu.`)
-        setShowAddModal(false)
-        setExternalSku('')
-        setExternalBarcode('')
-        loadData()
-      } else {
-        toast.error(data.error || 'Eşleştirme oluşturulamadı.')
+      if (!data.success) throw new Error(data.error)
+      const names = new Map(stores.map((s) => [s.id, s.name]))
+      for (const r of data.results) {
+        const name = names.get(r.storeId) ?? r.storeId
+        if (r.error) toast.error(`${name}: ${r.error}`)
+        else
+          toast.success(
+            `${name}: ${r.fetched} ürün okundu (${r.created} yeni${r.archived ? `, ${r.archived} yayından kalkmış` : ''}${r.autoMapped ? `, ${r.autoMapped} otomatik eşleşti` : ''}).`
+          )
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Bağlantı hatası.')
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Ürünler okunamadı.')
     } finally {
-      setAddLoading(false)
+      setRefreshing(false)
     }
   }
 
-  const handleDeleteConfirmed = async () => {
-    if (!canFetch || !deleteConfirmMapping) return
-    setDeleteLoading(true)
-
+  async function patch(listing: Listing, body: Record<string, unknown>, success?: string) {
+    setBusyId(listing.id)
     try {
-      const res = await fetch(`/api/admin/marketplaces/mappings/${deleteConfirmMapping.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`/api/admin/marketplaces/listings/${listing.id}`, {
+        method: 'PATCH',
+        headers: headers(true),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
-
-      if (data.success) {
-        toast.success('Eşleştirme başarıyla kaldırıldı.')
-        setDeleteConfirmMapping(null)
-        loadData()
-      } else {
-        toast.error(data.error || 'Silme işlemi başarısız oldu.')
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Hata oluştu.')
+      if (!data.success) throw new Error(data.error)
+      if (success) toast.success(success)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'İşlem başarısız.')
     } finally {
-      setDeleteLoading(false)
+      setBusyId(null)
     }
   }
 
-  const getStoreName = (storeId: string) => {
-    const s = stores.find((st) => st.id === storeId)
-    return s ? `${s.name} (${s.provider})` : storeId
+  function link(listing: Listing, productId: string) {
+    if (!productId) return
+    const name = products.find((p) => p.id === productId)?.name ?? ''
+    patch(listing, { action: 'map', productId, applyToModel: true }, `"${listing.title}" → "${name}" bağlandı.`)
   }
+
+  function savePrice(listing: Listing) {
+    const draft = priceDrafts[listing.id]
+    if (draft === undefined) return
+    const value = draft.trim() === '' ? null : Number(draft.replace(',', '.'))
+    if (value !== null && (!Number.isFinite(value) || value <= 0)) {
+      toast.error('Geçerli bir fiyat girin.')
+      return
+    }
+    if (value === listing.targetSalePrice) return
+    patch(listing, { action: 'price', salePrice: value, listPrice: value !== null ? Math.max(value, listing.targetListPrice ?? value) : null }, 'Mağaza fiyatı kaydedildi.')
+    setPriceDrafts((d) => {
+      const next = { ...d }
+      delete next[listing.id]
+      return next
+    })
+  }
+
+  async function importSelected() {
+    if (selected.size === 0) return
+    setImporting(true)
+    try {
+      const res = await fetch('/api/admin/marketplaces/listings/import', {
+        method: 'POST',
+        headers: headers(true),
+        body: JSON.stringify({ listingIds: [...selected] }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      if (data.created.length) {
+        toast.success(
+          `${data.created.length} ürün siteye taslak olarak eklendi. Stok 0; fiyat, kategori ve stoku kontrol edip yayına alın.`,
+          8000
+        )
+      }
+      for (const s of data.skipped) toast.error(`${s.title}: ${s.reason}`)
+      if (data.imageWarnings.length) toast.error(`${data.imageWarnings.length} görsel kopyalanamadı: ${data.imageWarnings[0]}`, 8000)
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Aktarım başarısız.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const selectable = useMemo(() => listings.filter((l) => !l.productId && !l.ignored), [listings])
+  const allSelected = selectable.length > 0 && selectable.every((l) => selected.has(l.id))
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   return (
-    <div className={styles.pageContainer}>
-      {/* Header */}
+    <div className={styles.adminPage}>
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.pageTitle}>Ürün Eşleştirme (Product Mapping)</h1>
+          <h1 className={styles.pageTitle}>Pazaryeri Ürün Eşleştirme</h1>
           <p className={styles.pageSubtitle}>
-            ZUULAB katalog ürünlerinin Trendyol ve Hepsiburada SKU/barkodlarıyla deterministik birebir eşleştirmesi.
+            Pazaryerindeki ürünlerinizi site ürünlerine bağlayın. Stok, fiyat ve siparişler bu bağlantı üzerinden yürür.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Link href="/admin/marketplaces" className={`${styles.btn} ${styles.btnSecondary}`}>
-            ← Mağazalara Dön
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Link href="/admin/marketplaces" className={styles.secondaryButton}>
+            Mağazalar
           </Link>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={() => setShowAddModal(true)}
-          >
-            + Yeni Eşleştirme Ekle
+          <button className={styles.primaryButton} onClick={refresh} disabled={refreshing}>
+            {refreshing ? 'Okunuyor…' : 'Ürünleri pazaryerinden çek'}
           </button>
         </div>
       </div>
 
-      {/* KPI Metrics */}
-      <div className={styles.metricsStrip}>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Aktif Eşleştirme</div>
-          <div className={`${styles.metricValue} ${styles.metricSuccess}`}>{mappings.length}</div>
-          <div className={styles.metricSub}>Katalog ile Senkron</div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+        Aynı model koduna sahip ürünler (farklı mağazalardaki aynı ürün) tek site ürününe birlikte bağlanır. Barkod,
+        stok kodu veya model kodu birebir tutan ürünler otomatik eşleşir; isim benzerliği yalnızca öneri olarak
+        gösterilir. Sitede karşılığı olmayan ürünleri seçip <strong>siteye aktarabilirsiniz</strong>: taslak olarak,
+        stok 0 ile eklenir. &quot;Mağaza fiyatı&quot; o mağazaya gönderilecek fiyattır.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+        <div className={styles.operationalTabs} style={{ marginBottom: 0 }}>
+          {(Object.keys(FILTER_LABEL) as Filter[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`${styles.operationalTabItem} ${filter === f ? styles.active : ''}`}
+            >
+              {FILTER_LABEL[f]}
+            </button>
+          ))}
         </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Bağlı Mağazalar</div>
-          <div className={styles.metricValue}>{stores.length}</div>
-          <div className={styles.metricSub}>Pazaryeri Entegrasyonu</div>
-        </div>
-        <div className={styles.metricItem}>
-          <div className={styles.metricLabel}>Katalog Ürün Havuzu</div>
-          <div className={styles.metricValue}>{products.length}</div>
-          <div className={styles.metricSub}>Eşleşmeye Hazır</div>
-        </div>
+        <select className={styles.select} style={{ width: 'auto' }} value={storeId} onChange={(e) => setStoreId(e.target.value)}>
+          <option value="">Tüm mağazalar</option>
+          {stores.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        {selected.size > 0 && (
+          <button className={styles.primaryButton} onClick={importSelected} disabled={importing}>
+            {importing ? 'Aktarılıyor… (görseller kopyalanıyor)' : `Seçilenleri siteye aktar (${selected.size})`}
+          </button>
+        )}
       </div>
 
-      {/* Mappings Table */}
       <div className={styles.tableCard}>
-        <div className={styles.tableWrapper}>
-          <table className={styles.adminTable}>
+        {loading ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+        ) : listings.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+            {filter === 'UNMAPPED'
+              ? 'Eşleşmemiş ürün yok. Henüz çekmediyseniz "Ürünleri pazaryerinden çek" düğmesine basın.'
+              : 'Kayıt yok.'}
+          </div>
+        ) : (
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th>ZUULAB Ürünü</th>
-                <th>Katalog SKU</th>
-                <th>Hedef Pazaryeri</th>
-                <th>Pazaryeri SKU</th>
-                <th>Pazaryeri Barkod</th>
-                <th>Durum</th>
-                <th style={{ textAlign: 'center' }}>İşlem</th>
+                <th style={{ width: 28 }}>
+                  <input
+                    type="checkbox"
+                    aria-label="Tümünü seç"
+                    checked={allSelected}
+                    disabled={selectable.length === 0}
+                    onChange={() => setSelected(allSelected ? new Set() : new Set(selectable.map((l) => l.id)))}
+                  />
+                </th>
+                <th>Pazaryeri ürünü</th>
+                <th>Mağaza</th>
+                <th>Pazaryeri fiyatı / stok</th>
+                <th>Mağaza fiyatı</th>
+                <th style={{ minWidth: 260 }}>Site ürünü</th>
+                <th style={{ textAlign: 'right' }}>İşlem</th>
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Eşleştirmeler yükleniyor...
-                  </td>
-                </tr>
-              ) : mappings.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>
-                    <div className={styles.emptyState}>
-                      <div className={styles.emptyStateTitle}>Kayıtlı ürün eşleştirmesi bulunamadı</div>
-                      <div className={styles.emptyStateDesc}>
-                        Pazaryerlerinden gelen siparişlerin depoda doğru ürünle toplanabilmesi için ürün SKU eşleştirmesi ekleyin.
+              {listings.map((l) => {
+                const busy = busyId === l.id
+                return (
+                  <tr key={l.id} style={{ opacity: l.ignored ? 0.55 : 1 }}>
+                    <td>
+                      {!l.productId && !l.ignored && (
+                        <input type="checkbox" aria-label="Seç" checked={selected.has(l.id)} onChange={() => toggle(l.id)} />
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        {l.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={l.imageUrl} alt="" width={44} height={44} style={{ objectFit: 'cover', borderRadius: 4 }} />
+                        ) : (
+                          <div style={{ width: 44, height: 44, background: 'var(--surface-2)', borderRadius: 4 }} />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {l.productUrl ? (
+                              <a href={l.productUrl} target="_blank" rel="noreferrer">
+                                {l.title}
+                              </a>
+                            ) : (
+                              l.title
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            Barkod <code>{l.barcode}</code>
+                            {l.productMainId && (
+                              <>
+                                {' · '}Model <code>{l.productMainId}</code>
+                              </>
+                            )}
+                            {!l.onSale && ' · satışta değil'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                mappings.map((m) => {
-                  const statusCfg = getMappingStatusConfig(m.status || 'MATCHED')
-                  return (
-                    <tr key={m.id}>
-                      <td style={{ fontWeight: 600 }}>
-                        <Link
-                          href={`/admin/products/${m.productId}`}
-                          style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
-                        >
-                          {m.productName}
-                        </Link>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: 'var(--brand-blue, var(--zuu-blue))' }}>
-                        {m.productSku}
-                      </td>
-                      <td>
-                        <span className={`${styles.badge} ${styles.badgeNeutral}`}>
-                          {getStoreName(m.storeId)}
-                        </span>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 600, color: 'var(--warning)' }}>
-                        {m.externalSku}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--text-muted)' }}>
-                        {m.externalBarcode || '—'}
-                      </td>
-                      <td>
-                        <span className={`${styles.badge} ${styles[statusCfg.badgeClass] || styles.badgeSuccess}`}>
-                          {statusCfg.label}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{l.storeName}</td>
+                    <td style={{ fontSize: 12 }}>
+                      {tl(l.salePrice)}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>stok {l.quantity}</div>
+                    </td>
+                    <td>
+                      <input
+                        className={styles.input}
+                        style={{ width: 96, padding: '4px 8px', fontSize: 12 }}
+                        inputMode="decimal"
+                        placeholder="—"
+                        value={priceDrafts[l.id] ?? (l.targetSalePrice ?? '').toString()}
+                        onChange={(e) => setPriceDrafts((d) => ({ ...d, [l.id]: e.target.value }))}
+                        onBlur={() => savePrice(l)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        disabled={busy}
+                        aria-label="Mağaza fiyatı"
+                      />
+                    </td>
+                    <td>
+                      {l.productId ? (
+                        <div style={{ fontSize: 12 }}>
+                          <Link href={`/admin/products/${l.productId}`} style={{ fontWeight: 600 }}>
+                            {l.productName}
+                          </Link>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {l.productSku} · {METHOD_LABEL[l.matchMethod ?? ''] ?? l.matchMethod}
+                          </div>
+                        </div>
+                      ) : l.ignored ? (
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Yoksayıldı</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {l.suggestions.map((s) => (
+                            <button
+                              key={s.productId}
+                              type="button"
+                              className={styles.secondaryButton}
+                              style={{ padding: '2px 8px', fontSize: 11, textAlign: 'left' }}
+                              disabled={busy}
+                              onClick={() => link(l, s.productId)}
+                              title="Bu ürüne bağla"
+                            >
+                              Öneri: {s.name} (%{Math.round(s.score * 100)})
+                            </button>
+                          ))}
+                          <select
+                            className={styles.select}
+                            style={{ fontSize: 12, padding: '4px 8px' }}
+                            value=""
+                            disabled={busy}
+                            onChange={(e) => link(l, e.target.value)}
+                            aria-label="Site ürünü seç"
+                          >
+                            <option value="">Site ürünü seç…</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.sku}){p.isActive ? '' : ' · pasif'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {l.productId ? (
                         <button
                           type="button"
-                          onClick={() => setDeleteConfirmMapping(m)}
-                          className={`${styles.btn} ${styles.btnDanger} ${styles.btnSm}`}
+                          className={styles.secondaryButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          disabled={busy}
+                          onClick={() => patch(l, { action: 'map', productId: null }, 'Bağlantı kaldırıldı.')}
                         >
-                          Kaldır
+                          Bağlantıyı kaldır
                         </button>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.secondaryButton}
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          disabled={busy}
+                          onClick={() => patch(l, { action: 'ignore', ignored: !l.ignored })}
+                          title="Bu ürün sitede satılmayacaksa yoksayın; stok/fiyat gönderilmez."
+                        >
+                          {l.ignored ? 'Geri al' : 'Yoksay'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
-
-      {/* Add Mapping Modal (UI-16 Global Modal) */}
-      {showAddModal && (
-        <Modal
-          isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          ariaLabel="Yeni Ürün Eşleştirmesi"
-          maxWidth={500}
-        >
-          <form onSubmit={handleCreateMapping} style={{ padding: '4px 0' }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 16px', color: 'var(--text-primary)' }}>
-              Yeni Ürün Eşleştirmesi Ekle
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Hedef Pazaryeri Mağazası</label>
-                <select
-                  value={selectedStoreId}
-                  onChange={(e) => setSelectedStoreId(e.target.value)}
-                  className={styles.formSelect}
-                  required
-                >
-                  {stores.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.provider})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>ZUULAB Katalog Ürünü</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className={styles.formSelect}
-                  required
-                >
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (SKU: {p.sku})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Pazaryeri SKU / Barkod Kodu *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="örn: TY-DINO-01 veya HB-88392"
-                  value={externalSku}
-                  onChange={(e) => setExternalSku(e.target.value)}
-                  className={styles.formInput}
-                  style={{ fontFamily: 'var(--font-mono, monospace)' }}
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Pazaryeri EAN / Barkod (Opsiyonel)</label>
-                <input
-                  type="text"
-                  placeholder="örn: 8680000000000"
-                  value={externalBarcode}
-                  onChange={(e) => setExternalBarcode(e.target.value)}
-                  className={styles.formInput}
-                  style={{ fontFamily: 'var(--font-mono, monospace)' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className={`${styles.btn} ${styles.btnSecondary}`}
-              >
-                İptal
-              </button>
-              <button
-                type="submit"
-                disabled={addLoading}
-                className={`${styles.btn} ${styles.btnPrimary}`}
-              >
-                {addLoading ? 'Kaydediliyor...' : 'Eşleştirmeyi Kaydet'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Delete Confirmation Modal (UI-16 Global Modal) */}
-      {deleteConfirmMapping && (
-        <Modal
-          isOpen={Boolean(deleteConfirmMapping)}
-          onClose={() => setDeleteConfirmMapping(null)}
-          ariaLabel="Eşleştirme Silme Onayı"
-          maxWidth={440}
-        >
-          <div style={{ padding: '4px 0' }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 10px', color: 'var(--text-primary)' }}>
-              Eşleştirmeyi Kaldır
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 18px' }}>
-              <strong>{deleteConfirmMapping.productName}</strong> ürününün pazaryeri SKU ({deleteConfirmMapping.externalSku}) bağlantısı kaldırılacaktır. Onaylıyor musunuz?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmMapping(null)}
-                className={`${styles.btn} ${styles.btnSecondary}`}
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                disabled={deleteLoading}
-                onClick={handleDeleteConfirmed}
-                className={`${styles.btn} ${styles.btnDanger}`}
-              >
-                {deleteLoading ? 'Kaldırılıyor...' : 'Evet, Kaldır'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

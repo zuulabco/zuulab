@@ -35,7 +35,6 @@ import {
 // IN-MEMORY STATE (mappings, orders, jobs move to the database in the next steps)
 // ─────────────────────────────────────────────────────────────
 
-const inMemoryMappings: Map<string, MarketplaceProductMapping> = new Map()
 const inMemoryOrders: Map<string, MarketplaceOrder> = new Map()
 const inMemorySyncJobs: Map<string, MarketplaceSyncJob> = new Map()
 
@@ -445,7 +444,7 @@ export async function testStoreConnection(
 }
 
 // ─────────────────────────────────────────────────────────────
-// PRODUCT MAPPING SERVICES
+// PRODUCT MAPPING SERVICES (linked rows of marketplace_listings; see listings.service)
 // ─────────────────────────────────────────────────────────────
 
 export interface CreateMappingInput {
@@ -457,120 +456,111 @@ export interface CreateMappingInput {
   externalVariantId?: string
 }
 
-export async function getMarketplaceMappings(
-  storeId?: string
-): Promise<MarketplaceProductMapping[]> {
-  const all = Array.from(inMemoryMappings.values())
-  if (storeId) {
-    return all.filter((m) => m.storeId === storeId)
-  }
-  return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+type LinkedListingRow = {
+  id: string
+  storeId: string
+  barcode: string
+  stockCode: string | null
+  externalId: string | null
+  productId: string | null
+  variantId: string | null
+  lastSeenAt: unknown
+  createdAt: unknown
+  updatedAt: unknown
 }
 
+async function listingsAsMappings(rows: LinkedListingRow[]): Promise<MarketplaceProductMapping[]> {
+  const productIds = [...new Set(rows.map((r) => r.productId).filter((id): id is string => Boolean(id)))]
+  const products = productIds.length
+    ? await db.orm.public.Product.where((p) => p.id.in(productIds)).select('id', 'name', 'sku', 'barcode').all()
+    : []
+  const byId = new Map(products.map((p) => [p.id, p]))
+  return rows
+    .filter((r) => r.productId && byId.has(r.productId))
+    .map((r) => {
+      const product = byId.get(r.productId!)!
+      return {
+        id: r.id,
+        storeId: r.storeId,
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku,
+        productBarcode: product.barcode ?? null,
+        externalProductId: r.externalId,
+        externalSku: r.stockCode || r.barcode,
+        externalBarcode: r.barcode,
+        externalVariantId: r.variantId,
+        status: 'MAPPED' as const,
+        lastSyncedAt: dbTimestampToIso(r.lastSeenAt),
+        createdAt: dbTimestampToIso(r.createdAt) ?? '',
+        updatedAt: dbTimestampToIso(r.updatedAt) ?? '',
+      }
+    })
+}
+
+export async function getMarketplaceMappings(storeId?: string): Promise<MarketplaceProductMapping[]> {
+  const rows = (await (storeId
+    ? db.orm.public.MarketplaceListing.where({ storeId, archived: false })
+    : db.orm.public.MarketplaceListing.where({ archived: false })
+  ).all()) as LinkedListingRow[]
+  return listingsAsMappings(rows.filter((r) => r.productId))
+}
+
+/**
+ * Links an existing listing (found by barcode or stock code on the store) to a site
+ * product. Listings come from the marketplace; they are not created here.
+ */
 export async function createProductMapping(
   input: CreateMappingInput,
   adminUserId: string
 ): Promise<MarketplaceProductMapping> {
   const store = await getMarketplaceStoreById(input.storeId)
   if (!store) {
-    throw new MarketplaceError({
-      message: `Hedef mağaza bulunamadı: ${input.storeId}`,
-      code: 'NOT_FOUND',
-      provider: 'HEPSIBURADA',
-    })
+    throw new MarketplaceError({ message: `Hedef mağaza bulunamadı: ${input.storeId}`, code: 'NOT_FOUND', provider: 'TRENDYOL' })
   }
-
-  // Critical rule: STRICT SKU / BARCODE RULE.
-  // Marketplace mapping requires explicit SKU alignment. No pure name matching!
-  if (!input.externalSku || input.externalSku.trim().length === 0) {
-    throw new MarketplaceError({
-      message:
-        'Pazaryeri Eşleştirmesi için Harici SKU (externalSku) zorunludur. İsim bazlı otomatik eşleştirme kabul edilmez.',
-      code: 'VALIDATION_ERROR',
-      provider: store.provider,
-    })
-  }
-
-  // Verify internal product existence
-  const product = await db.orm.public.Product.where({ id: input.productId }).select('id', 'name', 'sku', 'barcode').first()
+  const product = await db.orm.public.Product.where({ id: input.productId }).select('id').first()
   if (!product) {
-    throw new MarketplaceError({
-      message: `ZUULAB Ürünü bulunamadı: ${input.productId}`,
-      code: 'NOT_FOUND',
-      provider: store.provider,
-    })
+    throw new MarketplaceError({ message: `ZUULAB ürünü bulunamadı: ${input.productId}`, code: 'NOT_FOUND', provider: store.provider })
   }
-
-  // Prevent duplicate mapping of same external SKU on the same store
-  const duplicate = Array.from(inMemoryMappings.values()).find(
-    (m) =>
-      m.storeId === input.storeId &&
-      m.externalSku.toLowerCase() === input.externalSku.trim().toLowerCase()
-  )
-
-  if (duplicate) {
+  const code = (input.externalBarcode || input.externalSku || '').trim().toLowerCase()
+  const listings = (await db.orm.public.MarketplaceListing.where({ storeId: store.id }).all()) as LinkedListingRow[]
+  const listing = listings.find((l) => l.barcode.toLowerCase() === code || l.stockCode?.toLowerCase() === code)
+  if (!listing) {
     throw new MarketplaceError({
-      message: `Bu mağazada "${input.externalSku}" harici SKU'su zaten "${duplicate.productName}" ürünü ile eşleştirilmiş.`,
+      message: `Bu mağazada "${input.externalBarcode || input.externalSku}" barkodlu/stok kodlu ürün yok. Önce pazaryerinden ürünleri çekin.`,
       code: 'VALIDATION_ERROR',
       provider: store.provider,
     })
   }
-
-  const id = `map-${Date.now()}`
-  const now = new Date().toISOString()
-
-  const mapping: MarketplaceProductMapping = {
-    id,
-    storeId: input.storeId,
+  await db.orm.public.MarketplaceListing.where({ id: listing.id }).update({
     productId: product.id,
-    productName: product.name,
-    productSku: product.sku,
-    productBarcode: product.barcode ?? null,
-    externalProductId: input.externalProductId || null,
-    externalSku: input.externalSku.trim(),
-    externalBarcode: input.externalBarcode || null,
-    externalVariantId: input.externalVariantId || null,
-    status: 'MAPPED',
-    lastSyncedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  }
-
-  inMemoryMappings.set(id, mapping)
-
+    variantId: null,
+    matchMethod: 'MANUAL',
+    ignored: false,
+  } as never)
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.mapping.created',
-    entity: 'MarketplaceProductMapping',
-    entityId: id,
-    metadata: {
-      storeId: store.id,
-      productId: product.id,
-      productSku: product.sku,
-      externalSku: mapping.externalSku,
-    },
+    entity: 'MarketplaceListing',
+    entityId: listing.id,
+    metadata: { storeId: store.id, productId: product.id, barcode: listing.barcode },
   })
-
+  const [mapping] = await listingsAsMappings([{ ...listing, productId: product.id, variantId: null }])
   return mapping
 }
 
-export async function deleteProductMapping(
-  id: string,
-  adminUserId: string
-): Promise<boolean> {
-  const mapping = inMemoryMappings.get(id)
-  if (!mapping) return false
-
-  inMemoryMappings.delete(id)
-
+/** Unlinks a listing (the id is the listing id). */
+export async function deleteProductMapping(id: string, adminUserId: string): Promise<boolean> {
+  const listing = (await db.orm.public.MarketplaceListing.where({ id }).first()) as LinkedListingRow | null
+  if (!listing || !listing.productId) return false
+  await db.orm.public.MarketplaceListing.where({ id }).update({ productId: null, variantId: null, matchMethod: null } as never)
   await logAuditEvent({
     userId: adminUserId,
     action: 'marketplace.mapping.deleted',
-    entity: 'MarketplaceProductMapping',
+    entity: 'MarketplaceListing',
     entityId: id,
-    metadata: { storeId: mapping.storeId, externalSku: mapping.externalSku },
+    metadata: { storeId: listing.storeId, barcode: listing.barcode },
   })
-
   return true
 }
 
@@ -615,9 +605,7 @@ async function reconcileItems(
   unmatchedCount: number
 }> {
   const now = new Date().toISOString()
-  const storeMappings = Array.from(inMemoryMappings.values()).filter(
-    (m) => m.storeId === storeId
-  )
+  const storeMappings = await getMarketplaceMappings(storeId)
 
   let matchedCount = 0
   let unmatchedCount = 0
@@ -626,10 +614,12 @@ async function reconcileItems(
 
   for (let idx = 0; idx < items.length; idx++) {
     const it = items[idx]
-    // Find matching SKU mapping on this specific store
-    const mapping = storeMappings.find(
-      (m) => m.externalSku.toLowerCase().trim() === it.externalSku.toLowerCase().trim()
-    )
+    // Barcode is the marketplace's identity for a listing; stock code is the fallback.
+    const barcode = it.externalBarcode?.toLowerCase().trim()
+    const sku = it.externalSku.toLowerCase().trim()
+    const mapping =
+      (barcode ? storeMappings.find((m) => m.externalBarcode?.toLowerCase() === barcode) : undefined) ??
+      storeMappings.find((m) => m.externalSku.toLowerCase() === sku || m.externalBarcode?.toLowerCase() === sku)
 
     const isMatched = Boolean(mapping && mapping.productId)
     let stockStatus: ItemStockStatus = 'UNKNOWN'

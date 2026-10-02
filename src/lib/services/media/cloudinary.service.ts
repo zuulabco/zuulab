@@ -55,6 +55,37 @@ export class CloudinaryService {
   }
 
   /**
+   * Copies an image from a public URL into Cloudinary (Cloudinary fetches it). Never
+   * simulated: without live credentials it fails, so callers can tell.
+   */
+  async uploadRemoteImage(sourceUrl: string, folder = 'zuulab-products'): Promise<MediaUploadResult> {
+    if (!this.isConfigured) return { success: false, error: 'Cloudinary yapılandırılmamış.' }
+    const timestamp = Math.round(Date.now() / 1000)
+    const signature = crypto
+      .createHash('sha1')
+      .update(`folder=${folder}&timestamp=${timestamp}${this.apiSecret}`)
+      .digest('hex')
+    const form = new FormData()
+    form.append('file', sourceUrl)
+    form.append('api_key', this.apiKey)
+    form.append('timestamp', String(timestamp))
+    form.append('folder', folder)
+    form.append('signature', signature)
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${this.cloudName}/image/upload`, {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(30_000),
+      })
+      const data = (await res.json()) as { secure_url?: string; public_id?: string; error?: { message?: string } }
+      if (res.ok && data.secure_url) return { success: true, url: data.secure_url, publicId: data.public_id }
+      return { success: false, error: data.error?.message || `Cloudinary hatası (${res.status}).` }
+    } catch (err) {
+      return { success: false, error: `Cloudinary bağlantı hatası: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  }
+
+  /**
    * Validates file upload parameters (MIME type and size limit)
    */
   validateFile(fileType: string, sizeBytes: number): { valid: boolean; error?: string } {

@@ -6,6 +6,9 @@ import type {
   MarketplaceStoreInfo,
   FetchOrdersParams,
   FetchOrdersResult,
+  FetchProductsParams,
+  FetchProductsResult,
+  NormalizedMarketplaceProduct,
   NormalizedMarketplaceOrder,
   NormalizedMarketplaceStatus,
   MarketplaceAddress,
@@ -193,6 +196,62 @@ export class TrendyolProvider extends BaseMarketplaceProvider {
       currency: raw.currency || 'TRY',
       rawPayload: this.sanitizeRawPayload(raw),
       items,
+    }
+  }
+
+  /**
+   * One page of the seller's live listings (approved, not archived). Uses the filter
+   * endpoint because the newer /products/approved variant ignores "archived" and
+   * would return every archived listing too.
+   */
+  public override async fetchProducts(params: FetchProductsParams): Promise<FetchProductsResult> {
+    const page = params.page ?? 0
+    const size = Math.min(params.size ?? 200, 1000)
+    const sellerId = encodeURIComponent(this.store.externalMerchantId)
+    const res = await marketplaceFetch(
+      'TRENDYOL',
+      `${this.baseUrl}/integration/product/sellers/${sellerId}/products?approved=true&archived=false&page=${page}&size=${size}`,
+      { method: 'GET', headers: marketplaceHeaders(this.store, this.credential) }
+    )
+    const data = (await res.json()) as {
+      content?: TrendyolProduct[]
+      totalPages?: number
+      totalElements?: number
+    }
+    const products = (data.content ?? []).filter((p) => p.barcode).map((p) => this.normalizeProduct(p))
+    return {
+      products,
+      page,
+      totalCount: data.totalElements,
+      hasMore: page + 1 < (data.totalPages ?? 0),
+    }
+  }
+
+  private normalizeProduct(p: TrendyolProduct): NormalizedMarketplaceProduct {
+    return {
+      externalProductId: String(p.id ?? p.barcode),
+      externalSku: String(p.stockCode || p.barcode),
+      externalBarcode: String(p.barcode),
+      title: String(p.title ?? '').trim(),
+      brand: p.brand ?? undefined,
+      stock: Number(p.quantity ?? 0),
+      salePrice: Number(p.salePrice ?? 0),
+      listPrice: Number(p.listPrice ?? p.salePrice ?? 0),
+      currency: 'TRY',
+      status: p.archived ? 'ARCHIVED' : p.onSale ? 'ON_SALE' : 'NOT_ON_SALE',
+      rawPayload: {},
+      productMainId: p.productMainId ? String(p.productMainId) : null,
+      stockCode: p.stockCode ? String(p.stockCode) : null,
+      categoryName: p.categoryName ?? null,
+      description: p.description ?? null,
+      imageUrls: (p.images ?? []).map((i) => i.url).filter((u): u is string => typeof u === 'string'),
+      attributes: (p.attributes ?? [])
+        .filter((a) => a.attributeName && a.attributeValue)
+        .map((a) => ({ name: String(a.attributeName), value: String(a.attributeValue) })),
+      vatRate: typeof p.vatRate === 'number' ? p.vatRate : null,
+      onSale: Boolean(p.onSale),
+      archived: Boolean(p.archived),
+      productUrl: p.productUrl ?? null,
     }
   }
 
@@ -558,4 +617,25 @@ export class TrendyolProvider extends BaseMarketplaceProvider {
       message: `Trendyol paket #${params.packageNumber} kargo durumu (${params.status}: ${params.cargoProvider} - ${params.trackingNumber}) güncellendi.`,
     }
   }
+}
+
+/** Fields read from Trendyol's product filter response. */
+interface TrendyolProduct {
+  id?: string
+  barcode?: string
+  stockCode?: string
+  productMainId?: string
+  title?: string
+  brand?: string
+  categoryName?: string
+  description?: string
+  images?: Array<{ url?: string }>
+  attributes?: Array<{ attributeName?: string; attributeValue?: string }>
+  quantity?: number
+  salePrice?: number
+  listPrice?: number
+  vatRate?: number
+  onSale?: boolean
+  archived?: boolean
+  productUrl?: string
 }

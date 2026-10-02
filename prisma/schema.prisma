@@ -491,6 +491,7 @@ model Product {
   reviews           Review[]
   campaignProducts  CampaignProduct[]
   productionOrders  ProductionOrder[]
+  marketplaceListings MarketplaceListing[]
 
   @@map("products")
 }
@@ -539,6 +540,7 @@ model ProductVariant {
   product    Product     @relation(fields:[productId], references:[id], onDelete: Cascade)
   cartItems  CartItem[]
   orderItems OrderItem[]
+  marketplaceListings MarketplaceListing[]
 
   @@map("product_variants")
 }
@@ -2389,6 +2391,7 @@ model MarketplaceStore {
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   credential         MarketplaceCredential?
+  listings           MarketplaceListing[]
 
   @@unique([provider, externalSellerId, environment])
   @@map("marketplace_stores")
@@ -2408,4 +2411,51 @@ model MarketplaceCredential {
   store           MarketplaceStore @relation(fields:[storeId], references:[id], onDelete: Cascade)
 
   @@map("marketplace_credentials")
+}
+
+// A product as listed on one marketplace store (one row per barcode), and the site
+// product it is linked to. Marketplace fields are refreshed from the API; mapping and
+// target prices are ours and never overwritten by a refresh.
+model MarketplaceListing {
+  id               String          @id @default(cuid())
+  storeId          String          @map("store_id")
+  barcode          String
+  stockCode        String?         @map("stock_code")
+  // Model code; the same product in several stores shares it.
+  productMainId    String?         @map("product_main_id")
+  externalId       String?         @map("external_id")
+  title            String
+  brand            String?
+  categoryName     String?         @map("category_name")
+  description      String?         @db.Text
+  imageUrls        Json?           @map("image_urls")
+  attributes       Json?
+  productUrl       String?         @map("product_url")
+  vatRate          Int?            @map("vat_rate")
+  // As last read from the marketplace
+  salePrice        Decimal         @db.Decimal(10, 2) @map("sale_price")
+  listPrice        Decimal         @db.Decimal(10, 2) @map("list_price")
+  quantity         Int             @default(0)
+  onSale           Boolean         @default(false) @map("on_sale")
+  archived         Boolean         @default(false)
+  lastSeenAt       DateTime        @default(now()) @map("last_seen_at")
+  // Ours
+  productId        String?         @map("product_id")
+  variantId        String?         @map("variant_id")
+  matchMethod      String?         @map("match_method") // MODEL_CODE | BARCODE | SKU | MANUAL | IMPORT
+  ignored          Boolean         @default(false)
+  // Prices pushed to this store (initialised from the marketplace on first read).
+  targetSalePrice  Decimal?        @db.Decimal(10, 2) @map("target_sale_price")
+  targetListPrice  Decimal?        @db.Decimal(10, 2) @map("target_list_price")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  store            MarketplaceStore @relation(fields:[storeId], references:[id], onDelete: Cascade)
+  product          Product?        @relation(fields:[productId], references:[id], onDelete: SetNull)
+  variant          ProductVariant? @relation(fields:[variantId], references:[id], onDelete: SetNull)
+
+  @@unique([storeId, barcode])
+  @@index([productId])
+  @@index([productMainId])
+  @@map("marketplace_listings")
 }

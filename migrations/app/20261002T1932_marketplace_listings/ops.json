@@ -1,0 +1,284 @@
+[
+  {
+    "id": "table.marketplace_listings",
+    "label": "Create table \"marketplace_listings\"",
+    "summary": "Creates table \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"marketplace_listings\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"marketplace_listings\"",
+        "sql": "CREATE TABLE \"public\".\"marketplace_listings\" (\n  \"archived\" bool DEFAULT false NOT NULL,\n  \"attributes\" jsonb,\n  \"barcode\" text NOT NULL,\n  \"brand\" text,\n  \"category_name\" text,\n  \"created_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"external_id\" text,\n  \"id\" text NOT NULL,\n  \"ignored\" bool DEFAULT false NOT NULL,\n  \"image_urls\" jsonb,\n  \"last_seen_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"list_price\" numeric(10,2) NOT NULL,\n  \"match_method\" text,\n  \"on_sale\" bool DEFAULT false NOT NULL,\n  \"product_id\" text,\n  \"product_main_id\" text,\n  \"product_url\" text,\n  \"quantity\" int4 DEFAULT 0 NOT NULL,\n  \"sale_price\" numeric(10,2) NOT NULL,\n  \"stock_code\" text,\n  \"store_id\" text NOT NULL,\n  \"target_list_price\" numeric(10,2),\n  \"target_sale_price\" numeric(10,2),\n  \"title\" text NOT NULL,\n  \"updated_at\" timestamp(3) NOT NULL,\n  \"variant_id\" text,\n  \"vat_rate\" int4,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"marketplace_listings\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.marketplace_listings.marketplace_listings_product_id_idx",
+    "label": "Create index \"marketplace_listings_product_id_idx\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "marketplace_listings_product_id_idx",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"marketplace_listings_product_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_product_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"marketplace_listings_product_id_idx\"",
+        "sql": "CREATE INDEX \"marketplace_listings_product_id_idx\" ON \"public\".\"marketplace_listings\" (\"product_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"marketplace_listings_product_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_product_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.marketplace_listings.marketplace_listings_product_main_id_idx",
+    "label": "Create index \"marketplace_listings_product_main_id_idx\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "marketplace_listings_product_main_id_idx",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"marketplace_listings_product_main_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_product_main_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"marketplace_listings_product_main_id_idx\"",
+        "sql": "CREATE INDEX \"marketplace_listings_product_main_id_idx\" ON \"public\".\"marketplace_listings\" (\"product_main_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"marketplace_listings_product_main_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_product_main_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.marketplace_listings.marketplace_listings_store_id_barcode_key",
+    "label": "Create index \"marketplace_listings_store_id_barcode_key\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "marketplace_listings_store_id_barcode_key",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"marketplace_listings_store_id_barcode_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_store_id_barcode_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"marketplace_listings_store_id_barcode_key\"",
+        "sql": "CREATE UNIQUE INDEX \"marketplace_listings_store_id_barcode_key\" ON \"public\".\"marketplace_listings\" (\"store_id\", \"barcode\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"marketplace_listings_store_id_barcode_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"marketplace_listings_store_id_barcode_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.marketplace_listings.marketplace_listings_store_id_fkey",
+    "label": "Add foreign key \"marketplace_listings_store_id_fkey\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "marketplace_listings_store_id_fkey",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"marketplace_listings_store_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_store_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"marketplace_listings_store_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"marketplace_listings\"\nADD CONSTRAINT \"marketplace_listings_store_id_fkey\"\nFOREIGN KEY (\"store_id\")\nREFERENCES \"public\".\"marketplace_stores\" (\"id\")\nON DELETE CASCADE\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"marketplace_listings_store_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_store_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.marketplace_listings.marketplace_listings_product_id_fkey",
+    "label": "Add foreign key \"marketplace_listings_product_id_fkey\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "marketplace_listings_product_id_fkey",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"marketplace_listings_product_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_product_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"marketplace_listings_product_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"marketplace_listings\"\nADD CONSTRAINT \"marketplace_listings_product_id_fkey\"\nFOREIGN KEY (\"product_id\")\nREFERENCES \"public\".\"products\" (\"id\")\nON DELETE SET NULL\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"marketplace_listings_product_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_product_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.marketplace_listings.marketplace_listings_variant_id_fkey",
+    "label": "Add foreign key \"marketplace_listings_variant_id_fkey\" on \"marketplace_listings\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "marketplace_listings_variant_id_fkey",
+        "table": "marketplace_listings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"marketplace_listings_variant_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_variant_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"marketplace_listings_variant_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"marketplace_listings\"\nADD CONSTRAINT \"marketplace_listings_variant_id_fkey\"\nFOREIGN KEY (\"variant_id\")\nREFERENCES \"public\".\"product_variants\" (\"id\")\nON DELETE SET NULL\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"marketplace_listings_variant_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "marketplace_listings_variant_id_fkey",
+          "public",
+          "\"public\".\"marketplace_listings\""
+        ]
+      }
+    ]
+  }
+]

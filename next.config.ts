@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://www.paytr.com https://*.paytr.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://*.paytr.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://cdn.dsmcdn.com https://lh3.googleusercontent.com https://images.unsplash.com https://*.paytr.com",
       "connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.google.com https://*.googleapis.com https://apis.google.com https://api.cloudinary.com https://www.paytr.com https://*.paytr.com https://efatura.uyumsoft.com.tr https://efatura-test.uyumsoft.com.tr https://api.resend.com",
       // The PayTR iframe navigates to the card issuer's 3D Secure page (any bank's
       // domain, e.g. *.vakifbank.com.tr), and that navigation is checked against this

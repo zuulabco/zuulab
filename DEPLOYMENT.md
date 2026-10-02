@@ -83,6 +83,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261002T1454_support_message_authors` — support message authors, ticket channel
    - `20261002T1456_rate_limits` — shared rate-limit counters
    - `20261002T1749_marketplace_stores` — marketplace stores and encrypted API credentials
+   - `20261002T1932_marketplace_listings` — marketplace listings, their links to site products and store prices
 
 ---
 

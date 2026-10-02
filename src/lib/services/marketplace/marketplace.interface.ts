@@ -322,6 +322,17 @@ export interface NormalizedMarketplaceProduct {
   currency: string
   status: string
   rawPayload: Record<string, unknown>
+  /** Model code shared by the same product across stores (Trendyol productMainId) */
+  productMainId?: string | null
+  stockCode?: string | null
+  categoryName?: string | null
+  description?: string | null
+  imageUrls?: string[]
+  attributes?: Array<{ name: string; value: string }>
+  vatRate?: number | null
+  onSale?: boolean
+  archived?: boolean
+  productUrl?: string | null
 }
 
 export interface FetchProductsResult {
