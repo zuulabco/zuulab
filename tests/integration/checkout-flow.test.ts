@@ -13,6 +13,9 @@ vi.mock('@/lib/services/notification/notification.service', () => ({
 vi.mock('@/lib/services/admin.service', () => ({
   logAuditEvent: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@/lib/services/marketplace/stock-sync.service', () => ({
+  enqueueStockSyncForProducts: vi.fn().mockResolvedValue(undefined),
+}))
 
 // Use the local PayTR simulator: no credentials, non-production.
 vi.stubEnv('PAYTR_MERCHANT_ID', '')
@@ -27,6 +30,9 @@ const { quoteCart } = await import('@/lib/services/checkout/pricing.service')
 const { createOrder, findOrderByNumber, updateOrderStatus, CheckoutError } = await import('@/lib/services/orders.service')
 const payments = await import('@/lib/services/payment/payment.service')
 const { PayTRPaymentProvider } = await import('@/lib/services/payment/paytr.provider')
+const inventoryAdmin = await import('@/lib/services/inventory-admin.service')
+const reviews = await import('@/lib/services/reviews.service')
+const { loadSnapshot } = await import('@/lib/services/catalog/catalog.service')
 
 const RUN = `itest${Date.now().toString(36)}`
 let productId = ''
@@ -103,6 +109,7 @@ beforeAll(async () => {
 
   const user = await db.orm.public.User.create({
     email: `${RUN}@example.com`,
+    name: 'Test Müşteri',
     role: 'CUSTOMER',
     status: 'ACTIVE',
   } as never)
@@ -113,10 +120,12 @@ afterAll(async () => {
   // Every order in this run belongs to the run's user, so cleanup keys on it.
   const run = (plan: Parameters<ReturnType<typeof db.runtime>["execute"]>[0]) => db.runtime().execute(plan)
   if (userId) {
+    await run(db.raw.sql`DELETE FROM reviews WHERE user_id = ${userId}`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM coupon_usages WHERE user_id = ${userId}`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id = ${userId})`.affectedCount().build())
     await run(db.raw.sql`DELETE FROM orders WHERE user_id = ${userId}`.affectedCount().build())
   }
+  if (productId) await run(db.raw.sql`DELETE FROM inventory_transactions WHERE product_id = ${productId}`.affectedCount().build())
   if (couponId) await run(db.raw.sql`DELETE FROM coupons WHERE id = ${couponId}`.affectedCount().build())
   if (productId) await run(db.raw.sql`DELETE FROM products WHERE id = ${productId}`.affectedCount().build())
   if (userId) await run(db.raw.sql`DELETE FROM users WHERE id = ${userId}`.affectedCount().build())
@@ -275,5 +284,54 @@ describe('coupons', () => {
     const exhausted = await quoteCart({ items: [{ productId, quantity: 1 }], couponCode: coupon.code })
     expect(exhausted.coupon).toBeNull()
     expect(exhausted.couponError).toMatch(/limit/)
+  }, 60_000)
+})
+
+describe('admin stock adjustments', () => {
+  it('adjusts relative to the locked current value, clamps at zero and logs the movement', async () => {
+    await setStock(5)
+    const up = await inventoryAdmin.adminAdjustStock({
+      productId, quantityChange: 3, movementType: 'RESTOCK', reason: 'test restock', changedBy: 'test',
+    })
+    expect(up.newStock).toBe(8)
+
+    // Concurrent adjustments must all apply (no lost updates).
+    await Promise.all(Array.from({ length: 5 }, () => inventoryAdmin.adminAdjustStock({
+      productId, quantityChange: -1, movementType: 'CORRECTION', reason: 'test concurrent', changedBy: 'test',
+    })))
+    expect(await stock()).toBe(3)
+
+    const down = await inventoryAdmin.adminAdjustStock({
+      productId, quantityChange: -50, movementType: 'CORRECTION', reason: 'test clamp', changedBy: 'test',
+    })
+    expect(down.newStock).toBe(0)
+
+    const movements = await inventoryAdmin.adminGetInventoryMovements(productId)
+    expect(movements.length).toBe(7)
+    expect(movements[0].reason).toBe('test clamp')
+  }, 60_000)
+})
+
+describe('reviews', () => {
+  it('requires a paid purchase, stays hidden until approved, then feeds the rating', async () => {
+    const user = { id: userId, email: `${RUN}@example.com`, name: 'Test Müşteri' }
+    // The earlier payment tests left this user with confirmed orders for the product.
+    const review = await reviews.createProductReview(user, { productIdOrSlug: productId, rating: 4, body: 'Gayet güzel bir ürün' })
+    expect(review.status).toBe('PENDING')
+    expect((await reviews.getProductReviews(productId)).stats.totalCount).toBe(0)
+    await expect(
+      reviews.createProductReview(user, { productIdOrSlug: productId, rating: 5, body: 'İkinci yorum denemesi' })
+    ).rejects.toThrow(/DUPLICATE_REVIEW/)
+
+    await reviews.moderateReview('admin', review.id, 'APPROVE')
+    const publicView = await reviews.getProductReviews(productId)
+    expect(publicView.stats.totalCount).toBe(1)
+    expect(publicView.reviews[0].userName).toBe('Test M.')
+    expect(publicView.reviews[0].userEmail).toBe('')
+
+    const snapshot = await loadSnapshot()
+    const p = snapshot.products.find((x) => x.id === productId)
+    expect(p?.reviewCount).toBe(1)
+    expect(p?.rating).toBe(4)
   }, 60_000)
 })

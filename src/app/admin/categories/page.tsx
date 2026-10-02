@@ -13,6 +13,9 @@ interface Category {
   slug: string
   description?: string
   imageUrl?: string
+  isActive?: boolean
+  seoTitle?: string
+  seoDescription?: string
   productCount: number
 }
 
@@ -32,6 +35,9 @@ export default function AdminCategoriesPage() {
   const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
   const [imageUrl, setImageUrl] = useState('')
+  const [isActive, setIsActive] = useState(true)
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   // Delete Modal State
@@ -68,6 +74,9 @@ export default function AdminCategoriesPage() {
     setSlug('')
     setDescription('')
     setImageUrl('')
+    setIsActive(true)
+    setSeoTitle('')
+    setSeoDescription('')
     setIsModalOpen(true)
   }
 
@@ -77,7 +86,32 @@ export default function AdminCategoriesPage() {
     setSlug(cat.slug)
     setDescription(cat.description || '')
     setImageUrl(cat.imageUrl || '')
+    setIsActive(cat.isActive !== false)
+    setSeoTitle(cat.seoTitle || '')
+    setSeoDescription(cat.seoDescription || '')
     setIsModalOpen(true)
+  }
+
+  // Hiding a category hides it and its products from the storefront immediately.
+  const handleToggleActive = async (cat: Category) => {
+    if (!canFetch) return
+    const next = cat.isActive === false
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: cat.id, isActive: next }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        addToast(next ? `'${cat.name}' vitrinde yayında.` : `'${cat.name}' ve ürünleri vitrinden gizlendi.`, 'success')
+        loadCategories()
+      } else {
+        addToast(data.error || 'Durum güncellenemedi.', 'error')
+      }
+    } catch {
+      addToast('Durum güncellenirken bağlantı hatası oluştu.', 'error')
+    }
   }
 
   const handleNameChange = (val: string) => {
@@ -111,6 +145,9 @@ export default function AdminCategoriesPage() {
         slug: slug.trim() || undefined,
         description: description.trim(),
         imageUrl: imageUrl.trim(),
+        isActive,
+        seoTitle: seoTitle.trim(),
+        seoDescription: seoDescription.trim(),
       }
       if (editingCategory) {
         body.id = editingCategory.id
@@ -453,6 +490,15 @@ export default function AdminCategoriesPage() {
                     <div style={{ display: 'inline-flex', gap: '6px' }}>
                       <button
                         type="button"
+                        onClick={() => handleToggleActive(cat)}
+                        className={styles.secondaryButton}
+                        style={{ padding: '4px 10px', fontSize: '12px' }}
+                        title={cat.isActive === false ? 'Vitrinde yayınla' : 'Vitrinden gizle'}
+                      >
+                        {cat.isActive === false ? 'Pasif · Yayınla' : 'Yayında · Gizle'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(cat)}
                         className={styles.secondaryButton}
                         style={{ padding: '4px 10px', fontSize: '12px' }}
@@ -554,6 +600,37 @@ export default function AdminCategoriesPage() {
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 className={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600 }}>
+                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+                Vitrinde yayında (kapalıysa kategori ve ürünleri gizlenir)
+              </label>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>SEO Başlığı</label>
+              <input
+                type="text"
+                maxLength={70}
+                placeholder="Boş bırakılırsa kategori adı kullanılır"
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>SEO Açıklaması</label>
+              <textarea
+                rows={2}
+                maxLength={170}
+                placeholder="Arama sonuçlarında görünen açıklama"
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                className={styles.textarea}
               />
             </div>
 

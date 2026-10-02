@@ -1,5 +1,6 @@
 import 'server-only'
 import { db } from '@/prisma/db'
+import { refreshCatalogStock } from '@/lib/cache/catalog-cache'
 
 /**
  * Stock for direct (storefront) orders.
@@ -102,7 +103,7 @@ async function orderLines(tx: Tx, orderId: string): Promise<StockLine[]> {
  * a negative number is an honest, visible oversell for the admin to resolve.
  */
 export async function commitOrderStock(orderId: string): Promise<{ reacquired: boolean; oversold: boolean }> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     if (await transitionStockState(tx, orderId, ['HELD'], 'COMMITTED')) {
       return { reacquired: false, oversold: false }
     }
@@ -118,6 +119,8 @@ export async function commitOrderStock(orderId: string): Promise<{ reacquired: b
     }
     return { reacquired: false, oversold: false }
   })
+  if (result.reacquired) refreshCatalogStock()
+  return result
 }
 
 /**
@@ -128,7 +131,7 @@ export async function releaseOrderStock(
   orderId: string,
   options: { includeCommitted?: boolean } = {}
 ): Promise<boolean> {
-  return db.transaction(async (tx) => {
+  const released = await db.transaction(async (tx) => {
     const from: Array<'HELD' | 'COMMITTED'> = options.includeCommitted ? ['HELD', 'COMMITTED'] : ['HELD']
     if (!(await transitionStockState(tx, orderId, from, 'RELEASED'))) return false
     for (const line of sorted(await orderLines(tx, orderId))) {
@@ -136,6 +139,8 @@ export async function releaseOrderStock(
     }
     return true
   })
+  if (released) refreshCatalogStock()
+  return released
 }
 
 /**
@@ -149,6 +154,7 @@ export async function reacquireOrderStock(orderId: string): Promise<void> {
       if (!(await decrement(tx, line, false))) throw new InsufficientStockError(line)
     }
   })
+  refreshCatalogStock()
 }
 
 /** Current sellable stock for each line (admin order view). */

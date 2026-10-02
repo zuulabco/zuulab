@@ -5,6 +5,7 @@ import { db } from '@/prisma/db'
 import { round2 } from '@/lib/pricing/money'
 import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
 import { dbNumeric } from '@/lib/db/numeric'
+import { refreshCatalogStock } from '@/lib/cache/catalog-cache'
 import { logAuditEvent } from './admin.service'
 import { createNotification } from './notification/notification.service'
 import type { NotificationEventType } from './notification/notification.interface'
@@ -509,6 +510,8 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
 
   const created = await findOrderByNumber(orderNumber)
   if (!created) throw new Error('Sipariş kaydedildi ancak okunamadı.')
+  // Stock was taken; let the storefront pick up the new numbers.
+  refreshCatalogStock()
 
   await logAuditEvent({
     userId,

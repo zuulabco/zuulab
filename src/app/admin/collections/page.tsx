@@ -14,8 +14,12 @@ interface Collection {
   sortOrder: number
   description: string
   accentColor?: string
-  logoSvg?: string
+  logo?: string
   heroImage?: string
+  shortDescription?: string
+  status?: 'ACTIVE' | 'INACTIVE'
+  seoTitle?: string
+  seoDescription?: string
   productCount: number
 }
 
@@ -36,6 +40,11 @@ export default function AdminCollectionsPage() {
   const [description, setDescription] = useState('')
   const [accentColor, setAccentColor] = useState('#0080c4')
   const [heroImage, setHeroImage] = useState('')
+  const [shortDescription, setShortDescription] = useState('')
+  const [logo, setLogo] = useState('')
+  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE')
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
   const [saving, setSaving] = useState(false)
 
   const loadCollections = async () => {
@@ -70,6 +79,11 @@ export default function AdminCollectionsPage() {
     setDescription('')
     setAccentColor('#0080c4')
     setHeroImage('')
+    setShortDescription('')
+    setLogo('')
+    setStatus('ACTIVE')
+    setSeoTitle('')
+    setSeoDescription('')
     setIsModalOpen(true)
   }
 
@@ -81,7 +95,54 @@ export default function AdminCollectionsPage() {
     setDescription(col.description || '')
     setAccentColor(col.accentColor || '#0080c4')
     setHeroImage(col.heroImage || '')
+    setShortDescription(col.shortDescription || '')
+    setLogo(col.logo || '')
+    setStatus(col.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE')
+    setSeoTitle(col.seoTitle || '')
+    setSeoDescription(col.seoDescription || '')
     setIsModalOpen(true)
+  }
+
+  // Status and delete apply immediately; the storefront follows on the next request.
+  const handleToggleStatus = async (col: Collection) => {
+    if (!canFetch) return
+    const next = col.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'
+    try {
+      const res = await fetch('/api/admin/collections', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: col.id, status: next }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        addToast(next === 'ACTIVE' ? `'${col.name}' vitrinde yayında.` : `'${col.name}' vitrinden kaldırıldı.`, 'success')
+        loadCollections()
+      } else {
+        addToast(data.error || 'Durum güncellenemedi.', 'error')
+      }
+    } catch {
+      addToast('Durum güncellenirken bağlantı hatası oluştu.', 'error')
+    }
+  }
+
+  const handleDelete = async (col: Collection) => {
+    if (!canFetch) return
+    if (!window.confirm(`'${col.name}' koleksiyonu kalıcı olarak silinsin mi?`)) return
+    try {
+      const res = await fetch(`/api/admin/collections?id=${encodeURIComponent(col.id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        addToast(`'${col.name}' silindi.`, 'success')
+        loadCollections()
+      } else {
+        addToast(data.error || 'Koleksiyon silinemedi.', 'error')
+      }
+    } catch {
+      addToast('Silme sırasında bağlantı hatası oluştu.', 'error')
+    }
   }
 
   const handleNameChange = (val: string) => {
@@ -116,7 +177,12 @@ export default function AdminCollectionsPage() {
         sortOrder: Number(sortOrder),
         description: description.trim(),
         accentColor,
-        heroImage: heroImage.trim() || undefined,
+        heroImage: heroImage.trim(),
+        shortDescription: shortDescription.trim(),
+        logo: logo.trim(),
+        status,
+        seoTitle: seoTitle.trim(),
+        seoDescription: seoDescription.trim(),
       }
       if (editingCollection) {
         body.id = editingCollection.id
@@ -453,14 +519,35 @@ export default function AdminCollectionsPage() {
                     {col.productCount} Ürün ↗
                   </Link>
 
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(col)}
-                    className={styles.secondaryButton}
-                    style={{ padding: '4px 12px', fontSize: '12px' }}
-                  >
-                    Düzenle
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(col)}
+                      className={styles.secondaryButton}
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                      title={col.status === 'INACTIVE' ? 'Vitrinde yayınla' : 'Vitrinden kaldır'}
+                    >
+                      {col.status === 'INACTIVE' ? 'Pasif · Yayınla' : 'Yayında · Gizle'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(col)}
+                      className={styles.secondaryButton}
+                      style={{ padding: '4px 12px', fontSize: '12px' }}
+                    >
+                      Düzenle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(col)}
+                      className={styles.secondaryButton}
+                      style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--status-error, #c0392b)' }}
+                      disabled={col.productCount > 0}
+                      title={col.productCount > 0 ? 'Ürünü olan koleksiyon silinemez; pasife alın.' : 'Koleksiyonu sil'}
+                    >
+                      Sil
+                    </button>
+                  </div>
                 </div>
               </div>
             )
@@ -588,6 +675,66 @@ export default function AdminCollectionsPage() {
                   className={styles.input}
                 />
               </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Durum</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+                  className={styles.input}
+                >
+                  <option value="ACTIVE">Yayında</option>
+                  <option value="INACTIVE">Pasif (vitrinde gizli)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Logo URL</label>
+                <input
+                  type="text"
+                  placeholder="/logo.svg veya https://..."
+                  value={logo}
+                  onChange={(e) => setLogo(e.target.value)}
+                  className={styles.input}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Kısa Açıklama (slogan)</label>
+              <input
+                type="text"
+                maxLength={160}
+                placeholder="Kartlarda ve menüde görünen tek satır"
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>SEO Başlığı</label>
+              <input
+                type="text"
+                maxLength={70}
+                placeholder="Boş bırakılırsa koleksiyon adı kullanılır"
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>SEO Açıklaması</label>
+              <textarea
+                rows={2}
+                maxLength={170}
+                placeholder="Arama sonuçlarında görünen açıklama"
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                className={styles.textarea}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>

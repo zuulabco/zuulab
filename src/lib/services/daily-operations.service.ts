@@ -1,5 +1,5 @@
 import 'server-only'
-import { getInventoryStatus } from './inventory.service'
+import { db } from '@/prisma/db'
 import {
   getProductionOrders,
   getLowStockProductsForProduction,
@@ -11,7 +11,6 @@ import { getMarketplaceOrders } from './marketplace/marketplace.service'
 import type { MarketplaceOrder } from './marketplace/marketplace.interface'
 import { ShippingService } from './shipping/shipping.service'
 import { BulkShippingService, type ShippingDailyStats } from './shipping/bulk-shipping.service'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
 import { MaterialService, type MaterialReadinessSummary } from './material.service'
 
 export type PriorityLevel = 'P0' | 'P1' | 'P2' | 'P3'
@@ -330,25 +329,27 @@ export class DailyOperationsService {
       }
     }
 
-    // 2. Fetch authoritative inventory for known products
+    // 2. Live product stock
     const recommendations: ProductionRecommendationItem[] = []
+    const products = await db.orm.public.Product
+      .select('id', 'name', 'sku', 'stock', 'minimumStock', 'lowStockThreshold', 'printerReference')
+      .where({ isActive: true })
+      .all()
 
-    for (const prod of MOCK_PRODUCTS) {
-      const inv = await getInventoryStatus(prod.id)
+    for (const prod of products) {
       const demandInfo = demandMap.get(prod.id)
       const orderDemand = demandInfo ? demandInfo.demand : 0
 
-      // INVENTORY CALCULATION RULES:
-      // availableStock = max(0, physicalStock - reservedStock)
-      // Double-counting prevention:
-      // Orders that already reserved stock have their demand met by physical units in reservation.
-      // Total physical stock in warehouse = inv.stock (reserved + available).
-      // Required new production = max(0, orderDemand - inv.stock).
-      // When reservedStock is 0: inv.stock == inv.available, so max(0, orderDemand - inv.available).
-      const requiredProduction = Math.max(0, orderDemand - inv.stock)
+      // STOCK RULES (checkout/stock.service): products.stock is what is left to sell;
+      // units of paid, unshipped orders were already taken from it at checkout.
+      //   physical on the shelf = stock + open order demand
+      //   production is required only for what was oversold (stock below zero)
+      const available = Math.max(0, prod.stock)
+      const inv = { stock: prod.stock + orderDemand, reserved: orderDemand, available }
+      const requiredProduction = Math.max(0, -prod.stock)
 
       const activeProd = activeByProduct.get(prod.id)
-      const minStock = (prod as any).minimumStock !== undefined ? (prod as any).minimumStock : 5
+      const minStock = prod.minimumStock > 0 ? prod.minimumStock : prod.lowStockThreshold || 5
       const isCriticalStock = inv.available <= minStock
 
       let priority: PriorityLevel = 'P3'
@@ -383,7 +384,7 @@ export class DailyOperationsService {
           hasActiveProduction: Boolean(activeProd && activeProd.count > 0),
           activeProductionStatus: activeProd ? activeProd.status : null,
           activeProductionQty: activeProd ? activeProd.qty : 0,
-          printerReference: (prod as any).printerReference || null,
+          printerReference: prod.printerReference || null,
           actionUrl,
         })
       }
@@ -417,6 +418,14 @@ export class DailyOperationsService {
 
     const blockers: OrderBlockerItem[] = []
 
+    // An open order is short only if its product was oversold (stock below zero);
+    // otherwise its units were taken at checkout and are on the shelf.
+    const productIds = [...new Set(openOrders.flatMap((o) => o.items.map((i) => i.productId)))]
+    const stockRows = productIds.length
+      ? await db.orm.public.Product.select('id', 'stock').where((p) => p.id.in(productIds)).all()
+      : []
+    const stockById = new Map(stockRows.map((r) => [r.id, r.stock]))
+
     for (const ord of openOrders) {
       let isBlocked = false
       let blockerReason = ''
@@ -427,9 +436,9 @@ export class DailyOperationsService {
       const enrichedItems = []
 
       for (const item of ord.items) {
-        const inv = await getInventoryStatus(item.productId)
-        // If available stock is less than required quantity and physical stock cannot satisfy
-        const missingQty = Math.max(0, item.quantity - inv.available)
+        const stock = stockById.get(item.productId) ?? 0
+        const inv = { available: Math.max(0, stock), stock, reserved: 0 }
+        const missingQty = Math.min(item.quantity, Math.max(0, -stock))
         const hasShortage = missingQty > 0
 
         // Look for active production

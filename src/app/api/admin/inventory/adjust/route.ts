@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const isForbidden = error.message?.includes('FORBIDDEN')
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : error.isValidation ? 400 : 500 }
     )
   }
 }

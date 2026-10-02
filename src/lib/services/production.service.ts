@@ -795,23 +795,25 @@ export async function getLowStockProductsForProduction(): Promise<LowStockProduc
     }
   }
 
-  // Iterate all mock/known products
-  for (const prod of MOCK_PRODUCTS) {
-    const inv = await getInventoryStatus(prod.id)
-    const minStock = (prod as any).minimumStock !== undefined ? (prod as any).minimumStock : 5
+  // Live catalog stock (products.stock is the sellable quantity).
+  const products = await db.orm.public.Product
+    .select('id', 'name', 'sku', 'stock', 'minimumStock', 'lowStockThreshold', 'printerReference', 'isActive')
+    .where({ isActive: true })
+    .all()
 
-    if (inv.available < minStock) {
-      const suggestedQty = Math.max(minStock * 2 - inv.available, minStock)
+  for (const prod of products) {
+    const minStock = prod.minimumStock > 0 ? prod.minimumStock : prod.lowStockThreshold || 5
+    if (prod.stock < minStock) {
       lowStockList.push({
         productId: prod.id,
         productName: prod.name,
         sku: prod.sku,
-        currentStock: inv.stock,
-        allocatedStock: inv.reserved,
-        availableStock: inv.available,
+        currentStock: prod.stock,
+        allocatedStock: 0,
+        availableStock: prod.stock,
         minimumStock: minStock,
-        suggestedProductionQty: suggestedQty,
-        printerReference: (prod as any).printerReference || null,
+        suggestedProductionQty: Math.max(minStock * 2 - prod.stock, minStock),
+        printerReference: prod.printerReference || null,
         hasActiveProduction: activeProdSet.has(prod.id),
       })
     }

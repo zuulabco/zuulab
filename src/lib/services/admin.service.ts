@@ -1,8 +1,7 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
-import { SEED_COLLECTIONS } from './db-fallback'
-import { getAllOrders } from './orders.service'
+import { db } from '@/prisma/db'
+import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
+import { getAllOrders, type StoredOrder } from './orders.service'
 import { getProductionSummary, getLowStockProductsForProduction } from './production.service'
 
 export interface AuditLogEntry {
@@ -15,20 +14,9 @@ export interface AuditLogEntry {
   createdAt: string
 }
 
-const inMemoryAuditLogs: AuditLogEntry[] = [
-  {
-    id: 'log-1',
-    userId: 'usr-admin-demo',
-    action: 'SYSTEM_INITIALIZED',
-    entity: 'System',
-    entityId: 'zuulab-core',
-    metadata: { phase: 7, arch: 'admin-commerce-system' },
-    createdAt: new Date().toISOString(),
-  },
-]
-
 /**
- * Records an audit log entry for admin and system events
+ * Records an audit log entry for admin and system events. Never throws: auditing
+ * must not break the action being audited, but a failure is logged loudly.
  */
 export async function logAuditEvent(entry: {
   userId?: string | null
@@ -36,177 +24,235 @@ export async function logAuditEvent(entry: {
   entity: string
   entityId?: string | null
   metadata?: Record<string, unknown> | null
-}) {
-  const log: AuditLogEntry = {
-    id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+}): Promise<AuditLogEntry> {
+  const base = {
+    action: entry.action,
+    entity: entry.entity,
+    entityId: entry.entityId || null,
+    metadata: { ...(entry.metadata ?? {}), ...(entry.userId ? { actorUserId: entry.userId } : {}) } as never,
+  }
+
+  let row: { id: string; createdAt: unknown } | null = null
+  try {
+    // userId is a foreign key to users; system actors ("admin", "system") are not users.
+    row = await db.orm.public.AuditLog.create({ ...base, userId: entry.userId || null })
+  } catch {
+    try {
+      row = await db.orm.public.AuditLog.create(base)
+    } catch (err) {
+      console.error('[admin.service] Audit log write failed:', entry.action, err)
+    }
+  }
+
+  return {
+    id: row?.id ?? `unsaved-${Date.now()}`,
     userId: entry.userId || null,
     action: entry.action,
     entity: entry.entity,
     entityId: entry.entityId || null,
     metadata: entry.metadata || null,
-    createdAt: new Date().toISOString(),
+    createdAt: dbTimestampToIso(row?.createdAt) ?? new Date().toISOString(),
   }
-
-  if (isDatabaseConfigured) {
-    try {
-      await db.orm.public.AuditLog.create({
-        action: entry.action,
-        entity: entry.entity,
-        entityId: entry.entityId || null,
-        metadata: (entry.metadata || undefined) as any,
-      })
-    } catch (err) {
-      console.warn('[admin.service] Failed to write DB audit log:', err)
-    }
-  }
-
-  inMemoryAuditLogs.unshift(log)
-  return log
 }
 
 /**
  * Retrieves recent audit logs
  */
 export async function getAuditLogs(limit = 50, filters?: { action?: string; entity?: string }): Promise<AuditLogEntry[]> {
-  let list = inMemoryAuditLogs
-  if (filters?.action) list = list.filter((l) => l.action === filters.action)
-  if (filters?.entity) list = list.filter((l) => l.entity === filters.entity)
-  return list.slice(0, limit)
+  let query = db.orm.public.AuditLog.orderBy((l) => l.createdAt.desc()).limit(Math.min(limit, 500))
+  if (filters?.action) query = query.where({ action: filters.action })
+  if (filters?.entity) query = query.where({ entity: filters.entity })
+  const rows = await query.all()
+  return rows.map((r) => {
+    const metadata = (r.metadata ?? null) as Record<string, unknown> | null
+    return {
+      id: r.id,
+      userId: r.userId ?? (metadata?.actorUserId as string | undefined) ?? null,
+      action: r.action,
+      entity: r.entity,
+      entityId: r.entityId ?? null,
+      metadata,
+      createdAt: dbTimestampToIso(r.createdAt) ?? '',
+    }
+  })
+}
+
+// ─────────────────────────────────────────────────────────────
+// Dashboard
+// ─────────────────────────────────────────────────────────────
+
+const PAID = new Set(['PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED', 'RETURN_REQUESTED'])
+const TZ = 'Europe/Istanbul'
+const DAY_MS = 24 * 3600 * 1000
+
+/** Calendar parts in Istanbul time, so "today" and month buckets match the business day. */
+function localParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, p) => ({ ...acc, [p.type]: p.value }), {})
+  return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day), key: `${parts.year}-${parts.month}-${parts.day}` }
+}
+
+const TR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt']
+const TR_MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+
+function revenueOf(orders: StoredOrder[]) {
+  return Math.round(orders.reduce((sum, o) => sum + o.totalAmount, 0) * 100) / 100
+}
+
+/** Paid orders bucketed for the revenue charts (7 days, 4 weeks, 3 months, 12 months). */
+function buildCharts(paid: Array<StoredOrder & { at: Date }>, now: Date) {
+  const series = (buckets: Array<{ label: string; match: (d: Date) => boolean }>) =>
+    buckets.map((b) => {
+      const inBucket = paid.filter((o) => b.match(o.at))
+      return { label: b.label, revenue: revenueOf(inBucket), orders: inBucket.length }
+    })
+
+  const days = Array.from({ length: 7 }, (_, i) => new Date(now.getTime() - (6 - i) * DAY_MS))
+  const chart7d = series(days.map((d) => {
+    const key = localParts(d).key
+    return { label: TR_DAYS[new Date(`${key}T12:00:00Z`).getUTCDay()], match: (x: Date) => localParts(x).key === key }
+  }))
+
+  const chart30d = series(Array.from({ length: 4 }, (_, i) => {
+    const end = now.getTime() - (3 - i) * 7 * DAY_MS
+    const start = end - 7 * DAY_MS
+    return { label: `${i + 1}. Hafta`, match: (x: Date) => x.getTime() > start && x.getTime() <= end }
+  }))
+
+  const monthBuckets = (count: number) => {
+    const { y, m } = localParts(now)
+    return Array.from({ length: count }, (_, i) => {
+      const offset = count - 1 - i
+      const month = ((m - 1 - offset) % 12 + 12) % 12
+      const year = y - Math.ceil(Math.max(0, offset - (m - 1)) / 12)
+      return {
+        label: TR_MONTHS[month],
+        match: (x: Date) => {
+          const p = localParts(x)
+          return p.y === year && p.m === month + 1
+        },
+      }
+    })
+  }
+
+  return { '7d': chart7d, '30d': chart30d, '90d': series(monthBuckets(3)), '12m': series(monthBuckets(12)) }
 }
 
 /**
- * Retrieves rich admin overview statistics calculated from real database orders and products
+ * Admin dashboard metrics, all computed from the database. Revenue counts paid
+ * orders only (by payment date), in Istanbul time.
  */
 export async function getAdminOverview() {
-  const allOrders = await getAllOrders()
-  const totalProducts = MOCK_PRODUCTS.length
-  const totalCollections = SEED_COLLECTIONS.length
-  const lowStockCount = MOCK_PRODUCTS.filter((p) => p.stock > 0 && p.stock <= 10).length
-  const outOfStockCount = MOCK_PRODUCTS.filter((p) => p.stock <= 0).length
+  const now = new Date()
+  const today = localParts(now).key
+  const { y, m } = localParts(now)
+  const monthStart = new Date(Date.UTC(y, m - 1, 1) - 3 * 3600 * 1000) // 00:00 Istanbul (UTC+3)
+  const prevMonthStart = new Date(Date.UTC(m === 1 ? y - 1 : y, m === 1 ? 11 : m - 2, 1) - 3 * 3600 * 1000)
 
-  // Real order metrics
-  const now = Date.now()
-  const oneDayAgo = now - 3600000 * 24
-  const sevenDaysAgo = now - 3600000 * 24 * 7
-  const thirtyDaysAgo = now - 3600000 * 24 * 30
+  const [
+    allOrders,
+    products,
+    collectionsCount,
+    customers,
+    customersThisMonth,
+    openTickets,
+    pendingReviews,
+    activeCoupons,
+    productionSummary,
+    lowStockItems,
+  ] = await Promise.all([
+    getAllOrders({ limit: 2000 }),
+    db.orm.public.Product.select('id', 'isActive', 'stock', 'lowStockThreshold').all(),
+    db.orm.public.Collection.where({ status: 'ACTIVE' }).aggregate((a) => ({ n: a.count() })),
+    db.orm.public.User.where({ role: 'CUSTOMER' }).aggregate((a) => ({ n: a.count() })),
+    db.orm.public.User.where({ role: 'CUSTOMER' })
+      .where((u) => u.createdAt.gte(toDbTimestamp(monthStart) as never))
+      .aggregate((a) => ({ n: a.count() })),
+    db.orm.public.SupportTicket.where((t) => t.status.in(['OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER'] as never[]))
+      .aggregate((a) => ({ n: a.count() })),
+    db.orm.public.Review.where({ status: 'PENDING' }).aggregate((a) => ({ n: a.count() })),
+    db.orm.public.Coupon.where({ isActive: true }).aggregate((a) => ({ n: a.count() })),
+    getProductionSummary(),
+    getLowStockProductsForProduction(),
+  ])
 
-  let todayRevenue = 0
-  let weekRevenue = 0
-  let monthRevenue = 34850 // baseline historical store data
+  const paid = allOrders
+    .filter((o) => PAID.has(o.status))
+    .map((o) => ({ ...o, at: new Date(o.paidAt ?? o.createdAt) }))
+  const sevenDaysAgo = now.getTime() - 7 * DAY_MS
 
-  for (const o of allOrders) {
-    const time = new Date(o.createdAt).getTime()
-    if (time >= oneDayAgo) todayRevenue += o.totalAmount
-    if (time >= sevenDaysAgo) weekRevenue += o.totalAmount
-    monthRevenue += o.totalAmount
-  }
-
+  const count = (statuses: string[]) => allOrders.filter((o) => statuses.includes(o.status)).length
   const orderCounts = {
-    total: allOrders.length + 28,
-    newOrders: allOrders.filter((o) => o.status === 'PAYMENT_PENDING' || o.status === 'CONFIRMED').length + 2,
-    processing: allOrders.filter((o) => o.status === 'PREPARING' || o.status === 'IN_PRODUCTION').length + 3,
-    awaitingShipment: allOrders.filter((o) => o.status === 'PACKING').length + 1,
-    shipped: allOrders.filter((o) => o.status === 'SHIPPED').length + 14,
-    delivered: allOrders.filter((o) => o.status === 'DELIVERED').length + 8,
-    cancelled: allOrders.filter((o) => o.status === 'CANCELLED').length,
+    total: allOrders.length,
+    newOrders: count(['CONFIRMED', 'PAYMENT_RECEIVED']),
+    processing: count(['PREPARING', 'IN_PRODUCTION']),
+    awaitingShipment: count(['PACKING']),
+    shipped: count(['SHIPPED']),
+    delivered: count(['DELIVERED']),
+    cancelled: count(['CANCELLED']),
   }
 
-  // Generate real chart data points for 7d, 30d, 90d, 12m
-  const chart7d = [
-    { label: 'Pzt', revenue: 3450, orders: 4 },
-    { label: 'Sal', revenue: 4200, orders: 5 },
-    { label: 'Çar', revenue: 2900, orders: 3 },
-    { label: 'Per', revenue: 5100, orders: 6 },
-    { label: 'Cum', revenue: 6800, orders: 8 },
-    { label: 'Cmt', revenue: 7400, orders: 9 },
-    { label: 'Paz', revenue: 5000 + Math.round(todayRevenue), orders: 6 },
-  ]
+  const activeProducts = products.filter((p) => p.isActive)
+  const lowStockCount = activeProducts.filter((p) => p.stock > 0 && p.stock <= (p.lowStockThreshold || 5)).length
+  const outOfStockCount = activeProducts.filter((p) => p.stock <= 0).length
 
-  const chart30d = [
-    { label: '1. Hafta', revenue: 21500, orders: 24 },
-    { label: '2. Hafta', revenue: 26800, orders: 31 },
-    { label: '3. Hafta', revenue: 24100, orders: 28 },
-    { label: '4. Hafta', revenue: 31200, orders: 36 },
-  ]
+  // Repeat rate: share of paying customers with more than one paid order.
+  const paidPerUser = new Map<string, number>()
+  for (const o of paid) paidPerUser.set(o.userId, (paidPerUser.get(o.userId) ?? 0) + 1)
+  const payingCustomers = paidPerUser.size
+  const repeatCustomers = [...paidPerUser.values()].filter((n) => n > 1).length
 
-  const chart90d = [
-    { label: 'Temmuz', revenue: 84200, orders: 98 },
-    { label: 'Ağustos', revenue: 98400, orders: 114 },
-    { label: 'Eylül', revenue: 103600, orders: 122 },
-  ]
-
-  const chart12m = [
-    { label: 'Oca', revenue: 42000, orders: 48 },
-    { label: 'Şub', revenue: 49000, orders: 55 },
-    { label: 'Mar', revenue: 58000, orders: 66 },
-    { label: 'Nis', revenue: 64000, orders: 72 },
-    { label: 'May', revenue: 71000, orders: 80 },
-    { label: 'Haz', revenue: 78000, orders: 89 },
-    { label: 'Tem', revenue: 84000, orders: 98 },
-    { label: 'Ağu', revenue: 98000, orders: 114 },
-    { label: 'Eyl', revenue: 104000, orders: 122 },
-  ]
-
-  const productionSummary = await getProductionSummary()
-  const lowStockItems = await getLowStockProductsForProduction()
-
-  const channelHealth = [
-    { name: 'ZUULAB Direct', provider: 'DIRECT', status: 'ONLINE', orderCount: allOrders.length + 8, lastSync: new Date().toISOString() },
-    { name: 'Trendyol', provider: 'TRENDYOL', status: 'ONLINE', orderCount: 14, lastSync: new Date(now - 12 * 60000).toISOString() },
-    { name: 'Hepsiburada', provider: 'HEPSIBURADA', status: 'ONLINE', orderCount: 9, lastSync: new Date(now - 8 * 60000).toISOString() },
-  ]
-
-  const ordersByChannel = {
-    direct: allOrders.length + 8,
-    trendyol: 14,
-    hepsiburada: 9,
-  }
-
-  const actionSummary = {
-    newOrders: orderCounts.newOrders,
-    toPrepare: orderCounts.processing,
-    toShip: orderCounts.awaitingShipment,
-    criticalStock: lowStockCount + outOfStockCount,
-    activePrinting: productionSummary?.active || 0,
-    queuedPrinting: productionSummary?.queued || 0,
-    completedAwaitingStock: productionSummary?.completed || 0,
-  }
+  const directOrders = allOrders.filter((o) => (o.channel || 'DIRECT') === 'DIRECT').length
+  const liveSync = (key: string) => process.env[key] === '1' || process.env[key] === 'true'
 
   return {
     sales: {
-      todayRevenue: Math.round(todayRevenue),
-      weekRevenue: Math.round(weekRevenue + 28400),
-      monthRevenue: Math.round(monthRevenue),
-      previousMonthRevenue: 31200,
+      todayRevenue: revenueOf(paid.filter((o) => localParts(o.at).key === today)),
+      weekRevenue: revenueOf(paid.filter((o) => o.at.getTime() >= sevenDaysAgo)),
+      monthRevenue: revenueOf(paid.filter((o) => o.at >= monthStart)),
+      previousMonthRevenue: revenueOf(paid.filter((o) => o.at >= prevMonthStart && o.at < monthStart)),
     },
     orders: orderCounts,
-    ordersByChannel,
-    actionSummary,
-    channelHealth,
+    ordersByChannel: {
+      direct: directOrders,
+      // Marketplace orders are not stored in the order table yet.
+      trendyol: 0,
+      hepsiburada: 0,
+    },
+    actionSummary: {
+      newOrders: orderCounts.newOrders,
+      toPrepare: orderCounts.processing,
+      toShip: orderCounts.awaitingShipment,
+      criticalStock: lowStockCount + outOfStockCount,
+      activePrinting: productionSummary?.active || 0,
+      queuedPrinting: productionSummary?.queued || 0,
+      completedAwaitingStock: productionSummary?.completed || 0,
+    },
+    channelHealth: [
+      { name: 'ZUULAB Direct', provider: 'DIRECT', status: 'ONLINE', orderCount: directOrders, lastSync: now.toISOString() },
+      { name: 'Trendyol', provider: 'TRENDYOL', status: liveSync('TRENDYOL_LIVE_SYNC') ? 'ONLINE' : 'OFFLINE', orderCount: 0, lastSync: null },
+      { name: 'Hepsiburada', provider: 'HEPSIBURADA', status: liveSync('HEPSIBURADA_LIVE_SYNC') ? 'ONLINE' : 'OFFLINE', orderCount: 0, lastSync: null },
+    ],
     products: {
-      totalProducts,
-      activeProducts: totalProducts - outOfStockCount,
+      totalProducts: products.length,
+      activeProducts: activeProducts.length,
       lowStockCount,
       outOfStockCount,
-      totalCollections,
+      totalCollections: collectionsCount.n,
     },
     customers: {
-      totalCustomers: 48,
-      newCustomersThisMonth: 12,
-      repeatCustomerRate: 34,
+      totalCustomers: customers.n,
+      newCustomersThisMonth: customersThisMonth.n,
+      repeatCustomerRate: payingCustomers > 0 ? Math.round((repeatCustomers / payingCustomers) * 100) : 0,
     },
     operations: {
-      openTickets: 2,
-      pendingReviews: 3,
-      activeCoupons: 3,
+      openTickets: openTickets.n,
+      pendingReviews: pendingReviews.n,
+      activeCoupons: activeCoupons.n,
     },
     production: productionSummary,
     lowStock: lowStockItems.slice(0, 10),
-    charts: {
-      '7d': chart7d,
-      '30d': chart30d,
-      '90d': chart90d,
-      '12m': chart12m,
-    },
+    charts: buildCharts(paid, now),
   }
 }
