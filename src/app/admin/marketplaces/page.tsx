@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import styles from '../admin.module.css'
 
@@ -268,9 +269,17 @@ export default function AdminMarketplacesPage() {
             Trendyol ve Hepsiburada mağazalarınızın API bağlantıları ve senkronizasyon ayarları
           </p>
         </div>
-        <button className={styles.primaryButton} onClick={() => { setForm(EMPTY_FORM); setShowAdd(true) }}>
-          + Mağaza Ekle
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/admin/marketplaces/mappings" className={styles.secondaryButton}>
+            Ürün eşleştirme ve aktarım
+          </Link>
+          <Link href="/admin/marketplaces/orders" className={styles.secondaryButton}>
+            Siparişler
+          </Link>
+          <button className={styles.primaryButton} onClick={() => { setForm(EMPTY_FORM); setShowAdd(true) }}>
+            + Mağaza Ekle
+          </button>
+        </div>
       </div>
 
       {notification && (

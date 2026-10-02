@@ -61,7 +61,8 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Pazaryeri & Sistem',
     items: [
       { label: 'Pazaryeri Siparişleri', href: '/marketplaces/orders', tag: 'Havuz' },
-      { label: 'Pazaryerleri & Eşleme', href: '/marketplaces' },
+      { label: 'Ürün Eşleştirme & Aktarım', href: '/marketplaces/mappings' },
+      { label: 'Pazaryeri Mağazaları', href: '/marketplaces' },
       { label: 'e-Faturalar', href: '/invoices' },
       { label: 'Depo & Lojistik', href: '/warehouse', tag: 'İleri' },
       { label: 'Kullanıcılar & Roller', href: '/users', tag: 'RBAC' },
