@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { authenticateRequest } from '@/lib/services/auth.service'
 import { findOrderByNumber } from '@/lib/services/orders.service'
 import { reconcileOrderPayment } from '@/lib/services/payment/payment.service'
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic'
  * the order (order-access cookie). Only the status is returned.
  */
 export async function GET(request: Request) {
+  const limited = await rateLimit(request, 'paymentStatus')
+  if (limited) return limited
+
   const orderNumber = new URL(request.url).searchParams.get('order') || ''
   if (!orderNumber) {
     return NextResponse.json({ success: false, error: 'Sipariş numarası gereklidir.' }, { status: 400 })

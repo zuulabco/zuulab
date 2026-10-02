@@ -1,4 +1,5 @@
-import 'server-only'
+// Reads only process.env. Also loaded by src/instrumentation.ts at server start,
+// which is outside the React server graph, so it does not import 'server-only'.
 
 export interface EnvValidationResult {
   isValid: boolean
@@ -171,7 +172,17 @@ export function validateEnvironment(): EnvValidationResult {
     }
   }
 
-  // 11. APP URL
+  // 11. LIVE-READINESS
+  if (isProduction) {
+    if (paymentProvider === 'PAYTR' && process.env.PAYTR_TEST_MODE !== '0') {
+      warnings.push('PAYTR_TEST_MODE is not "0": PayTR runs in TEST mode and real cards are not charged.')
+    }
+    if (!process.env.SUPPORT_INBOX_EMAIL && !process.env.RESEND_FROM_EMAIL) {
+      warnings.push('SUPPORT_INBOX_EMAIL is not set; new support tickets and contact messages trigger no email alert.')
+    }
+  }
+
+  // 12. APP URL
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (isProduction && (!appUrl || appUrl.includes('localhost') || appUrl.includes('127.0.0.1'))) {
     warnings.push(`NEXT_PUBLIC_APP_URL in production is set to '${appUrl}'. Webhook callbacks require a public HTTPS domain.`)

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { verifyAuthToken } from '@/lib/firebase-admin'
 import { syncOrCreateUser, extractBearerToken, AuthSyncError } from '@/lib/services/auth.service'
 import {
@@ -9,6 +10,9 @@ import {
 } from '@/lib/services/session.service'
 
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'authSync')
+  if (limited) return limited
+
   try {
     const token = extractBearerToken(request)
     const body = await request.json().catch(() => ({}))

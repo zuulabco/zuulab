@@ -81,6 +81,8 @@ export default function AdminLayout({
   const { user, token, canFetch, devLogin, logout, openAuthModal, initAuthListener, checkSession } = useAuthStore()
   const [mounted, setMounted] = useState(false)
   const [isCheckingSession, setIsCheckingSession] = useState(true)
+  // True only after the server confirmed the current user (role from the database).
+  const [serverVerified, setServerVerified] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any>(null)
@@ -91,32 +93,36 @@ export default function AdminLayout({
     setMounted(true)
     const unsubscribe = initAuthListener()
 
-    // If an administrative user is already populated in store, don't show loading blocker
-    if (
-      user &&
-      (user.role === 'ADMIN' ||
-        user.role === 'SUPER_ADMIN' ||
-        user.role === 'ORDER_MANAGER' ||
-        user.role === 'CONTENT_MANAGER' ||
-        user.role === 'SUPPORT' ||
-        user.role === 'STAFF')
-    ) {
-      setIsCheckingSession(false)
-      return () => unsubscribe()
-    }
-
-    // Verify cross-subdomain session cookie from .zuulab.com
-    checkSession().finally(() => {
-      if (!isCancelled) {
-        setIsCheckingSession(false)
-      }
-    })
+    // Always ask the server who this is (session cookie or token, role read from the
+    // database). The user persisted in localStorage is never trusted for access: it
+    // can be stale (role revoked) or edited by hand.
+    checkSession()
+      .then((verified) => {
+        if (!isCancelled && verified) setServerVerified(true)
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsCheckingSession(false)
+        }
+      })
 
     return () => {
       isCancelled = true
       unsubscribe()
     }
   }, [initAuthListener, checkSession])
+
+  // A sign-in from the gate's modal changes `user`; confirm it with the server too.
+  useEffect(() => {
+    if (isCheckingSession || serverVerified || !user) return
+    let isCancelled = false
+    checkSession().then((verified) => {
+      if (!isCancelled && verified) setServerVerified(true)
+    })
+    return () => {
+      isCancelled = true
+    }
+  }, [user, isCheckingSession, serverVerified, checkSession])
 
   // Auto-close mobile drawer on route change
   useEffect(() => {
@@ -166,6 +172,7 @@ export default function AdminLayout({
 
   // Access check: User must have administrative privileges
   const isAdmin =
+    serverVerified &&
     user &&
     (user.role === 'ADMIN' ||
       user.role === 'SUPER_ADMIN' ||

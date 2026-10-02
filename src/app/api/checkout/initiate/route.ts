@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.service'
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { CheckoutError, createOrder, updateOrderStatus } from '@/lib/services/orders.service'
@@ -12,6 +13,9 @@ import {
 } from '@/lib/services/session.service'
 
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'checkout')
+  if (limited) return limited
+
   try {
     const user = await authenticateRequest(request)
     const body = await request.json().catch(() => ({}))

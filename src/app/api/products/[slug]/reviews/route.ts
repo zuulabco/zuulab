@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { getProductReviews, createProductReview } from '@/lib/services/reviews.service'
 import { requireAuth } from '@/lib/services/auth.service'
 import { z } from 'zod'
@@ -32,6 +33,9 @@ export async function GET(request: Request, { params }: RouteProps) {
 }
 
 export async function POST(request: Request, { params }: RouteProps) {
+  const limited = await rateLimit(request, 'review')
+  if (limited) return limited
+
   try {
     const user = await requireAuth(request)
     const { slug } = await params

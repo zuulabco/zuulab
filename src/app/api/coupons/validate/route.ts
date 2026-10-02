@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { z } from 'zod'
 import { validateCoupon } from '@/lib/services/coupons.service'
 import { authenticateRequest } from '@/lib/services/auth.service'
@@ -13,6 +14,9 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'couponValidate')
+  if (limited) return limited
+
   try {
     const parsed = bodySchema.safeParse(await request.json().catch(() => ({})))
     if (!parsed.success) {

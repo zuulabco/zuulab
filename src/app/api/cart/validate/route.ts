@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { cartQuoteSchema } from '@/lib/validations/checkout.schema'
 import { quoteCart } from '@/lib/services/checkout/pricing.service'
 import { authenticateRequest } from '@/lib/services/auth.service'
@@ -11,6 +12,9 @@ export const dynamic = 'force-dynamic'
  * the order and the PayTR session will charge.
  */
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'cartQuote')
+  if (limited) return limited
+
   try {
     const parsed = cartQuoteSchema.safeParse(await request.json().catch(() => ({})))
     if (!parsed.success) {

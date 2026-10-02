@@ -1,153 +1,130 @@
-# Zuulab E-Commerce Platform — Production & Staging Deployment Guide
+# Zuulab E-Commerce Platform — Deployment Guide
 
 ## 1. Deployment Architecture
 
 ```text
 GitHub (main branch)
-   ↓ (Vercel Git Integration / Deploy-on-push)
-Vercel Edge / Serverless Functions
+   ↓ Vercel Git integration (deploy on push)
+Vercel Serverless Functions
    ↓
 Next.js 16.3.6 (App Router + Turbopack)
    ↓
-Managed PostgreSQL (Prisma ORM 8)
+Neon PostgreSQL (Prisma ORM 8)
 ```
 
+- Canonical host: **https://www.zuulab.com** (`zuulab.com` 308-redirects to `www`).
+- Admin panel: **https://dashboard.zuulab.com** (`/admin` on the storefront redirects there).
+
 ### Connected External Services
-- **Authentication**: Firebase Authentication & Firebase Admin SDK (Serverless token verification)
-- **Asset Storage & CDN**: Cloudinary Media Management
-- **Payment Gateway**: PayTR (iFrame)
-- **E-Invoicing**: Uyumsoft e-Fatura & e-Arşiv SOAP Service
-- **Multi-Carrier Shipping**: Sürat Kargo (SOAP Web Service) & Yurtiçi Kargo (KOPS Dispatcher)
-- **Transactional Notifications**: Resend API (Verified Domain)
-- **Scheduled Tasks**: Vercel Cron (`CRON_SECRET` protected)
-- **Error Tracking & Observability**: Sentry Error Monitoring & Structured JSON Logs
+- **Authentication**: Firebase Authentication (client) + Firebase Admin SDK (token verification)
+- **Payments**: PayTR iFrame (only supported gateway)
+- **E-Invoicing**: Uyumsoft e-Fatura / e-Arşiv (integration in progress — Phase 4)
+- **Shipping**: Sürat Kargo (integration in progress — Phase 5; carriers currently `MOCK`)
+- **Email**: Resend
+- **Media**: Cloudinary
+- **Scheduled tasks**: Vercel Cron (`CRON_SECRET`)
+- **Logs**: Vercel runtime logs. Server errors are written as one JSON line each
+  (`event: "request.error"`) by `src/instrumentation.ts`; configuration problems as
+  `event: "config.invalid"` / `"config.warning"` at server start. No Sentry SDK is installed.
 
 ---
 
-## 2. Environment Configuration Matrix
+## 2. Environment Variables (Vercel → Settings → Environment Variables)
 
-The platform is strictly isolated across three tiers: `development`, `staging`, and `production`.
-
-### Variable Reference
-| Variable | Environment | Description |
+| Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Staging / Prod | Managed PostgreSQL connection string (pool-enabled) |
-| `NEXT_PUBLIC_APP_URL` | Staging / Prod | Canonical HTTPS domain (e.g. `https://zuulab.com`) |
-| `NEXT_PUBLIC_FIREBASE_*` | All | Public Firebase Client SDK configuration |
-| `FIREBASE_PROJECT_ID` | Staging / Prod | Firebase Admin SDK Project ID |
-| `FIREBASE_CLIENT_EMAIL` | Staging / Prod | Firebase Admin Service Account email |
-| `FIREBASE_PRIVATE_KEY` | Staging / Prod | PEM-formatted private RSA key (escaped newlines) |
-| `PAYMENT_PROVIDER` | Staging / Prod | `PAYTR` (only supported gateway; `SANDBOX` local dev only) |
-| `PAYTR_MERCHANT_ID` | Staging / Prod | PayTR Merchant ID |
-| `PAYTR_MERCHANT_KEY` | Staging / Prod | PayTR Secret Key |
-| `PAYTR_MERCHANT_SALT` | Staging / Prod | PayTR Hash Salt |
-| `PAYTR_TEST_MODE` | Staging: `1` / Prod: `0` | Controls live payment processing |
-| `INVOICE_PROVIDER` | Staging / Prod | `UYUMSOFT` |
-| `UYUMSOFT_ENV` | Staging: `TEST` / Prod: `PRODUCTION` | Endpoint selector |
-| `UYUMSOFT_USERNAME` | Staging / Prod | Uyumsoft web service username |
-| `UYUMSOFT_PASSWORD` | Staging / Prod | Uyumsoft web service password |
-| `SHIPPING_PROVIDER` | Staging / Prod | Default outbound carrier (`SURAT` / `YURTICI`) |
-| `OUTBOUND_SHIPPING_PROVIDER` | Staging / Prod | Outbound fulfillment carrier |
-| `RETURN_SHIPPING_PROVIDER` | Staging / Prod | Reverse logistics return carrier |
-| `SURAT_CUSTOMER_CODE` | Staging / Prod | Sürat Kargo customer code |
-| `SURAT_PASSWORD` | Staging / Prod | Sürat Kargo web service password |
-| `YURTICI_WS_USERNAME` | Staging / Prod | Yurtiçi Kargo web service username |
-| `YURTICI_WS_PASSWORD` | Staging / Prod | Yurtiçi Kargo web service password |
-| `EMAIL_PROVIDER` | Staging: `MOCK` or `RESEND` / Prod: `RESEND` | Active email provider |
-| `RESEND_API_KEY` | Staging / Prod | Resend REST API key (`re_...`) |
-| `RESEND_FROM_EMAIL` | Staging / Prod | Verified sender (e.g. `ZUULAB <siparis@zuulab.com>`) |
-| `CLOUDINARY_CLOUD_NAME` | All | Cloudinary cloud namespace |
-| `CLOUDINARY_API_KEY` | Staging / Prod | Cloudinary API Key |
-| `CLOUDINARY_API_SECRET`| Staging / Prod | Cloudinary API Secret |
-| `CRON_SECRET` | Staging / Prod | 64+ char random hex bearer token |
-| `SENTRY_DSN` | Staging / Prod | Sentry error monitoring DSN |
+| `DATABASE_URL` | yes | Neon pooled connection string |
+| `NEXT_PUBLIC_APP_URL` | yes | `https://www.zuulab.com` (sitemap, metadata) |
+| `NEXT_PUBLIC_DASHBOARD_URL` | no | Admin panel URL, default `https://dashboard.zuulab.com` |
+| `NEXT_PUBLIC_FIREBASE_*` | yes | Firebase client config |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | yes | Firebase Admin service account |
+| `AUTH_SESSION_SECRET` | yes | 32+ random bytes; signs the `.zuulab.com` session cookie |
+| `ADMIN_BOOTSTRAP_EMAILS` | no | Comma-separated emails that get ADMIN on first verified sign-in |
+| `PAYMENT_PROVIDER` | no | `PAYTR` (default). `SANDBOX` is refused in production |
+| `PAYTR_MERCHANT_ID`, `PAYTR_MERCHANT_KEY`, `PAYTR_MERCHANT_SALT` | yes | PayTR merchant credentials |
+| `PAYTR_TEST_MODE` | yes | `1` while testing, **`0` for live sales** |
+| `INVOICE_PROVIDER` | yes | `UYUMSOFT` |
+| `UYUMSOFT_ENV` | yes | `TEST` or `PRODUCTION` |
+| `UYUMSOFT_USERNAME`, `UYUMSOFT_PASSWORD` | yes | Uyumsoft web service (Integration) user |
+| `SHIPPING_PROVIDER`, `OUTBOUND_SHIPPING_PROVIDER`, `RETURN_SHIPPING_PROVIDER` | yes | `SURAT` once Phase 5 is done |
+| `SURAT_CUSTOMER_CODE`, `SURAT_PASSWORD`, `SURAT_WEB_SERVICE_URL` | yes | Sürat Kargo web service |
+| `SHIPPING_WEBHOOK_SECRET` | yes | HMAC key for carrier webhooks; without it carrier webhooks are rejected |
+| `TRENDYOL_WEBHOOK_SECRET`, `HEPSIBURADA_WEBHOOK_SECRET` | when used | Credential the marketplace echoes on webhooks |
+| `EMAIL_PROVIDER` | yes | `RESEND` in production (`MOCK` sends nothing) |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | yes | Resend key and verified sender |
+| `SUPPORT_INBOX_EMAIL` | yes | Receives new support tickets and contact-form messages |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | yes | Media uploads |
+| `CRON_SECRET` | yes | Bearer token for `/api/cron/*` |
+| `MAINTENANCE_ALLOWED_IPS` | no | IPs that bypass maintenance mode |
+
+After changing variables, redeploy (Deployments → latest → Redeploy).
+`GET /api/health/readiness` reports `configErrors` / `configWarnings` counts; the
+messages themselves are in the server logs.
 
 ---
 
-## 3. Database Migration Deployment Procedure
+## 3. Database Migrations
 
-Zuulab uses **Prisma ORM 8** with on-disk migration packages.
+Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
 
-### Rules:
-1. **NEVER run `prisma migrate dev` in staging or production.**
-2. All database schema migrations are applied deterministically using:
+1. Never run `prisma db update` against production except to reconcile documented drift.
+2. Apply pending migrations **before** deploying code that needs them:
    ```bash
-   npx prisma db migrate
+   npx prisma db migrate --advance-ref db
+   npx prisma db verify          # "Database marker and schema match contract"
    ```
-   Or explicitly targeting connection:
-   ```bash
-   npx prisma db migrate --db "$DATABASE_URL"
-   ```
-3. Verify on-disk migration graph and artifact integrity:
-   ```bash
-   npx prisma migration check
-   npx prisma migration list
-   ```
-4. Current verified migration package:
-   - `migrations/app/20260928T2341_add_returns_rma_shipment_events` (135 atomic schema operations)
+3. Check the graph: `npx prisma migration check`, `npx prisma migration list`.
+4. Current migrations:
+   - `20260928T2341_add_returns_rma_shipment_events` — baseline
+   - `20261002T1021_reconcile_contract_drift` — tables the contract had but the DB lacked
+   - `20261002T1024_checkout_persistence` — order/payment persistence, stock state
+   - `20261002T1025_coupon_limits` — coupon max discount, usage uniqueness
+   - `20261002T1454_support_message_authors` — support message authors, ticket channel
+   - `20261002T1456_rate_limits` — shared rate-limit counters
 
 ---
 
-## 4. Health Check Endpoints
+## 4. Health Checks
 
-- **Liveness Probe**: `GET /api/health/liveness`
-  - Instant process health check for Vercel / Kubernetes load balancers.
-  - Returns `200 OK` `{ "status": "ok", "liveness": true }`.
-- **Readiness Probe**: `GET /api/health/readiness`
-  - Validates active database connection and runtime configuration.
-  - Returns `200 OK` `{ "status": "ok", "database": "connected", "readiness": true }` or `503 Service Unavailable`.
-  - Zero sensitive database connection URLs or stack traces are exposed.
+- `GET /api/health/liveness` → `200 {"status":"ok"}`
+- `GET /api/health/readiness` → `200` when the database answers, else `503`;
+  includes `configErrors` / `configWarnings` counts. No secrets are exposed.
 
 ---
 
-## 5. Scheduled Cron Jobs & Concurrency Safety
+## 5. Scheduled Jobs
 
-Vercel Cron triggers the following endpoints with `Authorization: Bearer $CRON_SECRET`:
-1. `/api/cron/payment-expiration`: Cancels abandoned orders and releases inventory reservations.
-2. `/api/cron/inventory-cleanup`: Releases expired stock holds.
-3. `/api/cron/shipping-sync`: Polls carrier tracking web services for delivery progress.
-4. `/api/cron/notifications-process`: Flushes pending and failed email queues with idempotency.
+`vercel.json` schedules (Hobby plan allows daily jobs):
 
-### Concurrency Protection:
-- All cron endpoints utilize `acquireCronLock(jobName, ttlSeconds)` backed by the PostgreSQL `Setting` table.
-- Simultaneous invocations across multiple serverless instances detect active locks and exit safely with `409 Conflict`, preventing duplicate notifications or race conditions.
+| Path | Schedule | Purpose |
+|---|---|---|
+| `/api/cron/payment-expiration` | daily 03:00 UTC | Backstop: expire unpaid orders and release their stock |
 
----
-
-## 6. Security & Hardening Controls
-
-1. **Security Headers**: Configured in `next.config.ts`:
-   - `Content-Security-Policy` with white-listed domains for Cloudinary, Firebase, PayTR, and Google Fonts.
-   - `X-Frame-Options: SAMEORIGIN` (allows 3D-Secure payment authentication).
-   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-   - `X-Content-Type-Options: nosniff`
-   - `Referrer-Policy: strict-origin-when-cross-origin`
-   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-2. **Production Mock Guards**:
-   - SURAT, YURTICI, PAYTR, UYUMSOFT, and RESEND throw explicit configuration errors when unconfigured in production. Silent mock fallback is forbidden.
-3. **Secret Sanitization**:
-   - `sanitizeContext()` recursively redacts passwords, tokens, API keys, CVVs, and credit card numbers from all error logs and Sentry alerts.
-4. **SEO & Privacy**:
-   - `src/app/robots.ts` disallows indexing of `/admin`, `/hesap`, `/sepet`, `/odeme`, and `/api`.
+Unpaid orders are also expired at every checkout, and each is reconciled with
+PayTR's status API before expiring, so a paid order is never cancelled.
+All cron routes require `Authorization: Bearer $CRON_SECRET` and take a DB lock.
 
 ---
 
-## 7. PostgreSQL Backup & Disaster Recovery Plan
+## 6. Security Controls
 
-### Automated Backups
-- Managed database provider (e.g. Neon / Supabase / AWS RDS) daily snapshot + Point-In-Time-Recovery (PITR) up to 7-30 days.
+1. **Headers** (`next.config.ts`): CSP (`frame-src 'self' https:` for bank 3-D Secure
+   pages inside the PayTR iframe), HSTS, `nosniff`, referrer and permissions policies.
+2. **Payments**: PayTR callbacks require PayTR's HMAC; the simulator only exists in
+   local development without credentials. Lost callbacks are reconciled through PayTR's
+   status API. Refunds use PayTR's refund API, capped at the amount paid.
+3. **Auth**: identity only from verified Firebase tokens; linking an existing record by
+   email requires a verified email; admin UI access is decided by the server.
+4. **Rate limits** (Postgres-backed, shared by all instances): checkout, sign-in sync,
+   coupon checks, cart quotes, search, guest order lookup, payment retry/status,
+   support tickets, reviews, contact form (`src/lib/security/rate-limit-response.ts`).
+5. **Webhooks**: carrier and marketplace webhooks require a shared secret in production.
+6. **robots.txt** disallows `/admin`, `/hesap`, `/sepet`, `/odeme`, `/api`.
 
-### Restore Procedure
-1. Create a fresh PostgreSQL instance or restore to a point in time before incident:
-   ```bash
-   # If restoring from logical dump:
-   pg_restore --clean --no-acl --no-owner -h <host> -U <user> -d <dbname> backup.dump
-   ```
-2. Verify migration consistency:
-   ```bash
-   npx prisma migration check
-   npx prisma db migrate --show
-   ```
-3. Update `DATABASE_URL` in Vercel project environment variables.
-4. Redeploy latest production release on Vercel.
-5. Verify `/api/health/readiness` returns status `200 OK` and `"database": "connected"`.
+---
+
+## 7. Backup & Recovery
+
+- Neon keeps point-in-time history; set retention to at least 7 days.
+- Restore: create a branch/instance at a time before the incident, point
+  `DATABASE_URL` to it, redeploy, check `/api/health/readiness` and `npx prisma db verify`.

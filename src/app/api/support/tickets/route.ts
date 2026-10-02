@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { requireAuth } from '@/lib/services/auth.service'
 import { getCustomerTickets, createTicket, type TicketCategoryType } from '@/lib/services/support.service'
 import { z } from 'zod'
@@ -30,6 +31,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'supportTicket')
+  if (limited) return limited
+
   try {
     const user = await requireAuth(request)
     const body = await request.json().catch(() => ({}))

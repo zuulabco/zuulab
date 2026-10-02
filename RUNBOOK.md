@@ -1,119 +1,64 @@
-# Zuulab E-Commerce — Operational Incident & Outage Runbook
+# Zuulab E-Commerce — Operations Runbook
 
-This document defines standard operating procedures across deployment environments, failure modes, data consistency states, automated retries, and administrator intervention protocols.
+## 1. Current Status
 
----
-
-## 1. Environment Stages & Deployment Status
-
-### CURRENT — DEVELOPMENT (Active Phase)
-* **Status**: Currently active local development and testing environment.
-* **Database**: Local development PostgreSQL database.
-* **Authentication**: Firebase Client SDK + mock development tokens enabled in development mode.
-* **External Providers**: Active fallback to mock/sandbox adapters for PayTR, Sürat Kargo, Yurtiçi Kargo, Uyumsoft e-Fatura, and Resend.
-* **Mock Guard Guarantee**: Production mock fallback guards are active (`NODE_ENV === 'production'` strictly blocks mock execution and requires real external credentials).
-
-### FUTURE — STAGING (Pre-Production Validation)
-* **Goal**: Validate external APIs with vendor test/sandbox credentials before production.
-* **Prerequisites**:
-  * Vendor sandbox API keys (PayTR Test Merchant, Uyumsoft Test Endpoint, Sürat Test WS, Yurtiçi Test WS, Resend Test Domain).
-  * Staging PostgreSQL instance with automated backups.
-  * Preview deployment URL on Vercel (`preview-staging.zuulab.com`).
-* **Validation**: Run end-to-end checkout, invoice XML generation, tracking query, and email dispatch against vendor sandboxes.
-
-### FUTURE — PRODUCTION (Go-Live Rollout)
-* **Goal**: Controlled live release on `https://zuulab.com`.
-* **Prerequisites**: All production credentials provisioned in Vercel Environment Variables.
-* **Procedure**: Sequential deployment, automated database migration, health endpoint verification, DNS propagation, and live smoke test.
+- Production runs on Vercel + Neon, behind **maintenance mode** (only
+  `MAINTENANCE_ALLOWED_IPS` and the admin can reach the storefront).
+- Live: catalog, cart, checkout, PayTR payments (test mode), orders, stock, coupons,
+  customer accounts, support, returns/refunds, admin panel.
+- In progress: Uyumsoft e-invoicing (Phase 4), Sürat Kargo (Phase 5), marketplaces
+  (Phase 7), warehouse/production modules (Phase 8, still on sample data).
 
 ---
 
-## 2. Production Go-Live Readiness Checklist
+## 2. Go-Live Checklist
 
-Use this checklist during the final go-live phase before opening the storefront to public traffic:
+### Before opening the store
+- [ ] All variables in `DEPLOYMENT.md` §2 set in Vercel Production; `/api/health/readiness`
+      shows `configErrors: 0` and the logs show no `config.warning` you did not expect
+- [ ] Migrations applied and `npx prisma db verify` passes
+- [ ] **PayTR panel → notification (bildirim) URL** is exactly
+      `https://www.zuulab.com/api/payments/webhook` (PayTR does not follow the
+      `zuulab.com` → `www` redirect)
+- [ ] Firebase Console → Authorized domains include `www.zuulab.com` and `dashboard.zuulab.com`
+- [ ] Resend domain verified (SPF, DKIM, DMARC); `EMAIL_PROVIDER=RESEND`
+- [ ] Uyumsoft `UYUMSOFT_ENV=PRODUCTION` with the production API user (after Phase 4)
+- [ ] Sürat Kargo credentials and `SHIPPING_PROVIDER=SURAT` (after Phase 5)
+- [ ] Remove test data: test products (`test-urun`, `e2e-otomatik-test-r-n`), test orders
+      and test coupons
+- [ ] Free-shipping threshold and coupons reviewed in the admin settings
 
-- [ ] **Infrastructure & Database**
-  - [ ] Managed PostgreSQL provisioned with SSL/TLS enforced
-  - [ ] Automated daily backups enabled on database provider
-  - [ ] Point-in-Time Recovery (PITR) verified and retention period set (>= 7 days)
-  - [ ] Connection pooling enabled (e.g. pgBouncer / Neon pooler)
-  - [ ] `DATABASE_URL` configured in Vercel Production Environment
-  - [ ] Prisma migration applied via `npx prisma db migrate` (strictly no `prisma migrate dev` or `db push`)
-  - [ ] Database schema verified (no dev seed applied)
-
-- [ ] **Authentication & Security**
-  - [ ] `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` configured in Vercel
-  - [ ] Public Firebase web credentials configured in client environment variables
-  - [ ] Authorized domains in Firebase Console updated to include `zuulab.com` and `www.zuulab.com`
-  - [ ] Mock tokens verified to be strictly rejected in production
-  - [ ] Admin RBAC verified: customer role blocked from `/admin/*` routes
-  - [ ] Customer isolation verified: users cannot access foreign orders or RMA requests
-
-- [ ] **Media & Assets**
-  - [ ] Cloudinary production account provisioned (`CLOUDINARY_CLOUD_NAME`, `API_KEY`, `API_SECRET`)
-  - [ ] Image upload smoke test verified (WebP, PNG, JPEG allowed; >5MB blocked)
-
-- [ ] **Payment Integration**
-  - [ ] `PAYTR_MERCHANT_ID`, `PAYTR_MERCHANT_KEY`, `PAYTR_MERCHANT_SALT` configured
-  - [ ] PayTR callback URL configured in PayTR Merchant Panel: `https://zuulab.com/api/payments/webhook`
-  - [ ] Webhook signature verification and idempotency verified
-  - [ ] Controlled test transaction verified (explicit approval required)
-
-- [ ] **Shipping & Carriers**
-  - [ ] Outbound carrier credentials provisioned (`SURAT_CUSTOMER_CODE`, `SURAT_PASSWORD`, `SURAT_WEB_SERVICE_URL`)
-  - [ ] Return carrier credentials provisioned (`YURTICI_WS_USERNAME`, `YURTICI_WS_PASSWORD`, `YURTICI_ENDPOINT_URL`)
-  - [ ] Shipping label PDF generation and tracking status synchronization verified
-
-- [ ] **E-Invoice & Accounting**
-  - [ ] Uyumsoft production web service credentials provisioned (`UYUMSOFT_USERNAME`, `UYUMSOFT_PASSWORD`)
-  - [ ] `UYUMSOFT_ENV` configured to `PROD`
-  - [ ] Taxpayer lookup and UBL-TR XML generation verified (explicit approval required for live financial documents)
-
-- [ ] **Notifications & Email**
-  - [ ] Resend API key provisioned (`RESEND_API_KEY`)
-  - [ ] Domain verification (SPF, DKIM, DMARC) confirmed for `zuulab.com` in Resend
-  - [ ] `RESEND_FROM_EMAIL` set to `bilgi@zuulab.com`
-  - [ ] Order confirmation and shipment tracking email delivery confirmed
-
-- [ ] **Monitoring & Crons**
-  - [ ] `SENTRY_DSN` configured for server and client
-  - [ ] `CRON_SECRET` configured in Vercel Production Environment
-  - [ ] Cron schedules verified in `vercel.json` and distributed lock verified
-  - [ ] Health endpoints responding (`/api/health/liveness` -> 200, `/api/health/readiness` -> 200)
-
-- [ ] **Domain & Networking**
-  - [ ] Apex domain `zuulab.com` and `www.zuulab.com` mapped to Vercel
-  - [ ] SSL/TLS certificate active and HTTP -> HTTPS 308 redirect verified
-  - [ ] Canonical URLs, `robots.txt`, and `sitemap.xml` verified
+### Switching to live payments
+- [ ] `PAYTR_TEST_MODE=0`, redeploy
+- [ ] One real low-value purchase: order shows **CONFIRMED** in the admin and in
+      "Siparişlerim", stock decreased, confirmation email received
+- [ ] Refund that order from the admin returns flow and confirm the refund in the PayTR panel
+- [ ] Turn maintenance mode off in the admin settings
 
 ---
 
-## 3. Incident Overview Matrix & Failure Modes
+## 3. Incidents
 
-| Disruption Type | System Behavior | Order State | Automated Retry | User Facing Message | Administrator Protocol |
-|---|---|---|---|---|---|
-| **Database Outage (PostgreSQL)** | API routes return 503; `/api/health/readiness` fails; mutations blocked. | Unchanged (Atomic transaction rollback). | Client network backoff. | "Hizmetlerimizde geçici bir kesinti yaşanmaktadır. Lütfen birkaç dakika sonra tekrar deneyin." | Managed PostgreSQL portalından instance/pooler durumunu denetle; read-replica failover veya PITR restore başlat. |
-| **Payment Outage (PayTR)** | Session oluşturulamaz veya webhook yanıt vermez; token alımı zaman aşımına uğrar. | `PAYMENT_PENDING` veya `PAYMENT_FAILED`. | Var (Manuel kullanıcı "Tekrar Dene" butonu). | "Ödeme sağlayıcısına şu anda ulaşılamıyor. Kartınızdan herhangi bir çekim yapılmadı." | PayTR Mağaza Paneli ve PayTR destek kanalını kontrol et; gerekirse bakım modunu aç. |
-| **Shipping Outage (Sürat / Yurtiçi)** | Kargo API SOAP servisi zaman aşımına uğrar; barkod/takip kodu üretilemez. | `CONFIRMED` veya `PREPARING` kalır (Asla düşürülmez). | Var (Admin tek tıkla sevkıyatı tekrar dener). | Müşteri sipariş onayını görür, takip kodu gecikmeli iletilir. | `/admin/shipping` üzerinden aktif kargo firmasını diğer anlaşmalı firmaya çevir (`SURAT` ↔ `YURTICI`). |
-| **Invoice Outage (Uyumsoft)** | UBL-TR SOAP çağrısı 500 döner; fatura kaydı `FAILED` durumuna geçer. | Sipariş `CONFIRMED` / `SHIPPED` kalır (Fatura hatası siparişi iptal etmez). | Var (Admin faturayı "Yeniden Dene" ile tetikleyebilir). | Fatura PDF'i hazırlandığında hesabınızda görünecektir. | `/admin/invoices` listesinden `FAILED` faturaları filtrele; Uyumsoft portal bağlantısını onarıp toplu retry yap. |
-| **Email Outage (Resend)** | Resend REST API bağlantısı başarısız olur; bildirim `FAILED` durumuna düşer. | Sipariş süreci aksamadan devam eder. | Var (Cron kuyruğu azami 3 defaya kadar otomatik dener). | Kullanıcı web arayüzünde sipariş onay sayfasını ve geçmişini görmeye devam eder. | `/admin/notifications` ekranından kuyruğu izle; API key limitlerini ve domain DNS durumunu kontrol et. |
-| **Cloudinary Outage** | Yeni ürün/banner görseli yüklenemez; mevcut görseller Cloudinary CDN cache'inden servis edilir. | Siparişleri etkilemez. | İstemci yükleme hatası döner. | "Görsel yüklenirken bir hata oluştu." | Cloudinary status sayfasını kontrol et; acil durumlar için geçici alternatif CDN URL'si tanımla. |
-| **Firebase Auth Outage** | Yeni giriş yapılamaz; mevcut ID token'ı olan kullanıcılar token expire olana kadar işlem yapabilir. | Misafir checkout veya mevcut oturumlar devam eder. | İstemci SDK otomatik retry uygular. | "Giriş servisinde geçici bir yoğunluk var. Lütfen birazdan tekrar deneyin." | Google Cloud / Firebase Status panosunu incele; yetkilendirme yapılandırmasını kontrol et. |
-| **Vercel Edge Outage** | Edge network 5xx döner; DNS yönlendirmesi aksayabilir. | Veritabanı tutarlılığı korunur. | Vercel Multi-Region failover. | Cloudflare / Tarayıcı hata sayfası. | Vercel status sayfasını denetle; gerekirse DNS A/CNAME kayıtlarını yedek barındırmaya yönlendir. |
+| Situation | What the system does | What to do |
+|---|---|---|
+| **Database down** | API returns errors, readiness `503`; nothing half-written (transactions roll back). Catalog pages keep serving their last cached version. | Check Neon status / pooler; restore via point-in-time if data is damaged. |
+| **PayTR down / token error** | Checkout shows "Ödeme altyapısına şu anda ulaşılamıyor", the order is marked `PAYMENT_FAILED` and its stock released; customer can retry from the failure page. | Check PayTR status; enable maintenance mode if prolonged. |
+| **PayTR callback missing** | The payment page and the expiry job ask PayTR's status API; paid orders are confirmed (`PAYMENT_RECONCILED` in audit logs, reference `status-query:...`). | If you see many `status-query` confirmations, the PayTR notification URL is wrong (§2). |
+| **Refund result unknown** | Return stays `REFUND_PENDING`, refund status `UNKNOWN`; never retried automatically. | Check the order's refund in the PayTR panel, then complete or fail the return manually. |
+| **Payment captured twice** (two attempts paid) | Audit log `PAYMENT_DUPLICATE_CAPTURE`. | Refund the extra payment in the PayTR panel. |
+| **Oversold** (late payment after stock ran out) | Order confirmed, stock goes negative, audit log `ORDER_OVERSOLD`. | Produce or restock, or contact the customer. |
+| **Email provider down** | Orders continue; emails fail and are logged. | Check Resend status and the API key. |
+| **Unexpected server errors** | One `request.error` JSON line per error in Vercel logs (path, route, digest). | Filter Vercel logs by `"event":"request.error"`. |
 
 ---
 
-## 4. Emergency Escalation & Rollback Steps
+## 4. Rollback
 
-### A. Instant Rollback of Vercel Deployment
-1. Vercel Dashboard → `zuulab-e` → **Deployments** sekmesine git.
-2. Bilinen son kararlı yayını (Previous Stable Production Deployment) bul.
-3. Üç nokta menüsünden **"Instant Rollback"** seçeneğini tıkla.
+### Application
+Vercel → Deployments → previous stable production deployment → **Instant Rollback**.
+All migrations so far are additive, so older code runs against the newer schema.
 
-### B. Database Schema Rollback Protocol
-1. Eğer migration sonrasında veri tutarsızlığı veya şema çakışması tespit edilirse:
-   * Asla doğrudan tablo silme işlemi yapma.
-   * `npx prisma migration log` ile son uygulanan operasyonları listele.
-   * Managed PostgreSQL sağlayıcısının Point-In-Time-Recovery (PITR) yedeğinden migration öncesi dakikaya yeni bir instance oluştur.
-2. Yeni bağlantı dizesini (`DATABASE_URL`) Vercel ortamına tanımla ve projeyi redeploy et.
-
+### Database
+Never drop tables by hand. Create a Neon branch/restore at a point before the incident,
+point `DATABASE_URL` to it, redeploy, then verify `/api/health/readiness` and
+`npx prisma db verify`.

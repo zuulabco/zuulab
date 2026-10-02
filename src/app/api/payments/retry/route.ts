@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { retryPayment } from '@/lib/services/payment/payment.service'
 import { authenticateRequest } from '@/lib/services/auth.service'
 import { getOrderByNumber } from '@/lib/services/orders.service'
@@ -16,6 +17,9 @@ import { getPublicOrigin } from '@/lib/config/app-url'
  * number could re-open payment sessions and hold stock.
  */
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, 'paymentRetry')
+  if (limited) return limited
+
   try {
     const body = await request.json().catch(() => ({}))
     const { orderNumber } = body

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/security/rate-limit-response'
 import { authenticateRequest } from '@/lib/services/auth.service'
 import { getOrderByNumber, isInternalHistoryItem } from '@/lib/services/orders.service'
 
@@ -7,6 +8,9 @@ interface Context {
 }
 
 export async function GET(request: Request, { params }: Context) {
+  const limited = await rateLimit(request, 'orderLookup')
+  if (limited) return limited
+
   try {
     const { orderNumber } = await params
     const user = await authenticateRequest(request)
