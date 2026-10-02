@@ -1,0 +1,960 @@
+[
+  {
+    "id": "createNativeEnumType.StockHoldState",
+    "label": "Create enum type \"StockHoldState\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "type",
+        "name": "StockHoldState"
+      }
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "create enum type \"StockHoldState\"",
+        "sql": "CREATE TYPE \"public\".\"StockHoldState\" AS ENUM ('NONE', 'HELD', 'COMMITTED', 'RELEASED')",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "column.public.orders.billing_snapshot",
+    "label": "Add column \"billing_snapshot\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "billing_snapshot",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"billing_snapshot\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "billing_snapshot"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"billing_snapshot\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"billing_snapshot\" jsonb"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"billing_snapshot\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "billing_snapshot"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.channel",
+    "label": "Add column \"channel\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "channel",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"channel\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "channel"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"channel\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"channel\" text DEFAULT 'DIRECT' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"channel\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "channel"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.checkout_key",
+    "label": "Add column \"checkout_key\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "checkout_key",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"checkout_key\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "checkout_key"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"checkout_key\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"checkout_key\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"checkout_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "checkout_key"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.email",
+    "label": "Add column \"email\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "email",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"email\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "email"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"email\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"email\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"email\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "email"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.paid_at",
+    "label": "Add column \"paid_at\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "paid_at",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"paid_at\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "paid_at"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"paid_at\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"paid_at\" timestamp(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"paid_at\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "paid_at"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.payment_expires_at",
+    "label": "Add column \"payment_expires_at\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "payment_expires_at",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"payment_expires_at\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "payment_expires_at"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"payment_expires_at\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"payment_expires_at\" timestamp(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"payment_expires_at\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "payment_expires_at"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.shipping_method",
+    "label": "Add column \"shipping_method\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "shipping_method",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"shipping_method\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "shipping_method"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"shipping_method\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"shipping_method\" text DEFAULT 'STANDARD' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"shipping_method\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "shipping_method"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.stock_state",
+    "label": "Add column \"stock_state\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "stock_state",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"stock_state\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "stock_state"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"stock_state\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"stock_state\" \"StockHoldState\" DEFAULT 'NONE'::\"StockHoldState\" NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"stock_state\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "stock_state"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payments.attempt_number",
+    "label": "Add column \"attempt_number\" to \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "attempt_number",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"attempt_number\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "attempt_number"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"attempt_number\"",
+        "sql": "ALTER TABLE \"public\".\"payments\" ADD COLUMN \"attempt_number\" int4 DEFAULT 1 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"attempt_number\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "attempt_number"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payments.expires_at",
+    "label": "Add column \"expires_at\" to \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "expires_at",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"expires_at\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "expires_at"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"expires_at\"",
+        "sql": "ALTER TABLE \"public\".\"payments\" ADD COLUMN \"expires_at\" timestamp(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"expires_at\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "expires_at"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payments.installment_count",
+    "label": "Add column \"installment_count\" to \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "installment_count",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"installment_count\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "installment_count"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"installment_count\"",
+        "sql": "ALTER TABLE \"public\".\"payments\" ADD COLUMN \"installment_count\" int4"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"installment_count\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "installment_count"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payments.merchant_oid",
+    "label": "Add column \"merchant_oid\" to \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "merchant_oid",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"merchant_oid\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "merchant_oid"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"merchant_oid\"",
+        "sql": "ALTER TABLE \"public\".\"payments\" ADD COLUMN \"merchant_oid\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"merchant_oid\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "merchant_oid"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payments.paid_amount",
+    "label": "Add column \"paid_amount\" to \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "paid_amount",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"paid_amount\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "paid_amount"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"paid_amount\"",
+        "sql": "ALTER TABLE \"public\".\"payments\" ADD COLUMN \"paid_amount\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"paid_amount\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payments",
+          "paid_amount"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.order_items.order_items_order_id_idx",
+    "label": "Create index \"order_items_order_id_idx\" on \"order_items\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "order_items_order_id_idx",
+        "table": "order_items"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"order_items_order_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"order_items_order_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"order_items_order_id_idx\"",
+        "sql": "CREATE INDEX \"order_items_order_id_idx\" ON \"public\".\"order_items\" (\"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"order_items_order_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"order_items_order_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.order_status_history.order_status_history_order_id_idx",
+    "label": "Create index \"order_status_history_order_id_idx\" on \"order_status_history\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "order_status_history_order_id_idx",
+        "table": "order_status_history"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"order_status_history_order_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"order_status_history_order_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"order_status_history_order_id_idx\"",
+        "sql": "CREATE INDEX \"order_status_history_order_id_idx\" ON \"public\".\"order_status_history\" (\"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"order_status_history_order_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"order_status_history_order_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.orders.orders_checkout_key_key",
+    "label": "Create index \"orders_checkout_key_key\" on \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "orders_checkout_key_key",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"orders_checkout_key_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_checkout_key_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"orders_checkout_key_key\"",
+        "sql": "CREATE UNIQUE INDEX \"orders_checkout_key_key\" ON \"public\".\"orders\" (\"checkout_key\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"orders_checkout_key_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_checkout_key_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.orders.orders_status_created_at_idx",
+    "label": "Create index \"orders_status_created_at_idx\" on \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "orders_status_created_at_idx",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"orders_status_created_at_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_status_created_at_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"orders_status_created_at_idx\"",
+        "sql": "CREATE INDEX \"orders_status_created_at_idx\" ON \"public\".\"orders\" (\"status\", \"created_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"orders_status_created_at_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_status_created_at_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.orders.orders_stock_state_payment_expires_at_idx",
+    "label": "Create index \"orders_stock_state_payment_expires_at_idx\" on \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "orders_stock_state_payment_expires_at_idx",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"orders_stock_state_payment_expires_at_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_stock_state_payment_expires_at_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"orders_stock_state_payment_expires_at_idx\"",
+        "sql": "CREATE INDEX \"orders_stock_state_payment_expires_at_idx\" ON \"public\".\"orders\" (\"stock_state\", \"payment_expires_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"orders_stock_state_payment_expires_at_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_stock_state_payment_expires_at_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.orders.orders_user_id_idx",
+    "label": "Create index \"orders_user_id_idx\" on \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "orders_user_id_idx",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"orders_user_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_user_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"orders_user_id_idx\"",
+        "sql": "CREATE INDEX \"orders_user_id_idx\" ON \"public\".\"orders\" (\"user_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"orders_user_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"orders_user_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payments.payments_merchant_oid_key",
+    "label": "Create index \"payments_merchant_oid_key\" on \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "payments_merchant_oid_key",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payments_merchant_oid_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_merchant_oid_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payments_merchant_oid_key\"",
+        "sql": "CREATE UNIQUE INDEX \"payments_merchant_oid_key\" ON \"public\".\"payments\" (\"merchant_oid\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payments_merchant_oid_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_merchant_oid_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payments.payments_order_id_idx",
+    "label": "Create index \"payments_order_id_idx\" on \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "payments_order_id_idx",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payments_order_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_order_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payments_order_id_idx\"",
+        "sql": "CREATE INDEX \"payments_order_id_idx\" ON \"public\".\"payments\" (\"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payments_order_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_order_id_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.payments.payments_status_expires_at_idx",
+    "label": "Create index \"payments_status_expires_at_idx\" on \"payments\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "payments_status_expires_at_idx",
+        "table": "payments"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"payments_status_expires_at_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_status_expires_at_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"payments_status_expires_at_idx\"",
+        "sql": "CREATE INDEX \"payments_status_expires_at_idx\" ON \"public\".\"payments\" (\"status\", \"expires_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"payments_status_expires_at_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"payments_status_expires_at_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.product_collections.product_collections_collection_id_idx",
+    "label": "Create index \"product_collections_collection_id_idx\" on \"product_collections\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "product_collections_collection_id_idx",
+        "table": "product_collections"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"product_collections_collection_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_collections_collection_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"product_collections_collection_id_idx\"",
+        "sql": "CREATE INDEX \"product_collections_collection_id_idx\" ON \"public\".\"product_collections\" (\"collection_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"product_collections_collection_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_collections_collection_id_idx\""
+        ]
+      }
+    ]
+  }
+]

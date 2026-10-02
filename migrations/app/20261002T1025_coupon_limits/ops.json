@@ -1,0 +1,122 @@
+[
+  {
+    "id": "column.public.coupons.max_discount",
+    "label": "Add column \"max_discount\" to \"coupons\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "max_discount",
+        "table": "coupons"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"max_discount\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "max_discount"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"max_discount\"",
+        "sql": "ALTER TABLE \"public\".\"coupons\" ADD COLUMN \"max_discount\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"max_discount\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "max_discount"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.coupon_usages.coupon_usages_coupon_id_order_id_key",
+    "label": "Create index \"coupon_usages_coupon_id_order_id_key\" on \"coupon_usages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "coupon_usages_coupon_id_order_id_key",
+        "table": "coupon_usages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"coupon_usages_coupon_id_order_id_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"coupon_usages_coupon_id_order_id_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"coupon_usages_coupon_id_order_id_key\"",
+        "sql": "CREATE UNIQUE INDEX \"coupon_usages_coupon_id_order_id_key\" ON \"public\".\"coupon_usages\" (\"coupon_id\", \"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"coupon_usages_coupon_id_order_id_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"coupon_usages_coupon_id_order_id_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.coupon_usages.coupon_usages_coupon_id_user_id_idx",
+    "label": "Create index \"coupon_usages_coupon_id_user_id_idx\" on \"coupon_usages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "coupon_usages_coupon_id_user_id_idx",
+        "table": "coupon_usages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"coupon_usages_coupon_id_user_id_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"coupon_usages_coupon_id_user_id_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"coupon_usages_coupon_id_user_id_idx\"",
+        "sql": "CREATE INDEX \"coupon_usages_coupon_id_user_id_idx\" ON \"public\".\"coupon_usages\" (\"coupon_id\", \"user_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"coupon_usages_coupon_id_user_id_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"coupon_usages_coupon_id_user_id_idx\""
+        ]
+      }
+    ]
+  }
+]

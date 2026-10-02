@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
+import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import { FREE_SHIPPING_THRESHOLD, DEFAULT_SHIPPING_METHODS } from '@/lib/services/shipping.service'
@@ -56,14 +57,32 @@ export default function CartPageClient({
       .catch(() => {})
   }, [])
 
-  const sub = subtotal()
+  // Server quote is authoritative; the local numbers only fill the first render.
+  const { quote } = useCartQuote(
+    { items, couponCode: coupon?.code, shippingMethod: 'STANDARD' },
+    { enabled: items.length > 0 }
+  )
+
+  // A coupon that no longer applies (cart changed, limit reached, expired) is dropped
+  // with the server's reason instead of silently showing a discount that won't be given.
+  useEffect(() => {
+    if (quote && coupon && !quote.coupon) {
+      removeCoupon()
+      toast.error(quote.couponError || 'Kupon bu sepet için artık geçerli değil.')
+    }
+  }, [quote, coupon, removeCoupon])
+
+  const localSub = subtotal()
+  const sub = quote?.subtotal ?? localSub
+  const discount = quote ? quote.discountAmount : discountAmount
   const isFreeShipCoupon = coupon?.type === 'FREE_SHIPPING'
-  const isFreeThresholdMet = sub >= freeShippingThreshold
-  const shippingFee = isFreeThresholdMet || isFreeShipCoupon || sub === 0 ? 0 : STANDARD_SHIPPING_FEE
-  const freeShippingRemainder = Math.max(0, freeShippingThreshold - sub)
-  const freeShippingProgress =
-    freeShippingThreshold === 0 ? 100 : Math.min(100, (sub / freeShippingThreshold) * 100)
-  const finalTotal = Math.max(0, sub - discountAmount + shippingFee)
+  const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
+  const shippingFee =
+    quote?.shippingAmount ?? (sub >= threshold || isFreeShipCoupon || sub === 0 ? 0 : STANDARD_SHIPPING_FEE)
+  const isFreeThresholdMet = sub >= threshold
+  const freeShippingRemainder = quote?.remainingForFreeShipping ?? Math.max(0, threshold - sub)
+  const freeShippingProgress = threshold === 0 ? 100 : Math.min(100, (sub / threshold) * 100)
+  const finalTotal = quote?.total ?? Math.max(0, sub - discount + shippingFee)
 
   // Filter recommendations to avoid displaying products already in the cart
   const cartProductIds = new Set(items.map((i) => i.productId))
@@ -84,7 +103,11 @@ export default function CartPageClient({
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, subtotal: sub }),
+        body: JSON.stringify({
+          code,
+          items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+          shippingMethod: 'STANDARD',
+        }),
       })
       const data = await res.json()
 
@@ -93,6 +116,7 @@ export default function CartPageClient({
         setCouponInput('')
         setIsCouponOpen(false)
         toast.success(`"${code}" kupon kodu uygulandı`)
+      } else {
         const msg = data.error || 'Geçersiz veya süresi dolmuş kupon kodu.'
         setCouponError(msg)
         toast.error(msg)
@@ -351,7 +375,7 @@ export default function CartPageClient({
                 <div className={styles.couponInfo}>
                   <span className={styles.couponTag}>{coupon.code}</span>
                   <span className={styles.couponDiscount}>
-                    -{formatPrice(discountAmount)}
+                    -{formatPrice(discount)}
                   </span>
                 </div>
                 <button
@@ -408,10 +432,10 @@ export default function CartPageClient({
               <span className={styles.breakdownNum}>{formatPrice(sub)}</span>
             </div>
 
-            {discountAmount > 0 && (
+            {discount > 0 && (
               <div className={`${styles.breakdownRow} ${styles.discountRow}`}>
                 <span>indirim</span>
-                <span className={styles.breakdownNum}>-{formatPrice(discountAmount)}</span>
+                <span className={styles.breakdownNum}>-{formatPrice(discount)}</span>
               </div>
             )}
 

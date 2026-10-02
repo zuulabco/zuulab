@@ -100,6 +100,15 @@ export function formatBasketForPayTR(
   return basket
 }
 
+/**
+ * PayTR's merchant_oid must be alphanumeric and unique per payment attempt.
+ * Example: order ZUU123456789012, attempt 2 -> "ZUU123456789012A2".
+ */
+export function buildMerchantOid(orderNumber: string, attemptNumber: number): string {
+  const base = orderNumber.replace(/[^A-Za-z0-9]/g, '')
+  return attemptNumber > 1 ? `${base}A${attemptNumber}` : base
+}
+
 // Keys for the local simulator only; never valid against PayTR or in production.
 const DEV_SIMULATION_KEY = 'zuulab-paytr-dev-key'
 const DEV_SIMULATION_SALT = 'zuulab-paytr-dev-salt'
@@ -156,9 +165,7 @@ export class PayTRPaymentProvider implements PaymentProvider {
    */
   async createSession(request: PaymentSessionRequest): Promise<PaymentSessionResult> {
     const attemptNumber = request.attemptNumber || 1
-    const merchantOid = attemptNumber > 1 
-      ? `${request.orderNumber}-ATT${attemptNumber}` 
-      : request.orderNumber
+    const merchantOid = request.merchantOid || buildMerchantOid(request.orderNumber, attemptNumber)
 
     const paymentId = `paytr_${Date.now()}_${Math.floor(Math.random() * 10000)}`
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString()
@@ -275,8 +282,9 @@ export class PayTRPaymentProvider implements PaymentProvider {
     incomingSignature?: string
   ): Promise<WebhookVerificationResult> {
     const merchantOid = String(payload.merchant_oid || payload.orderNumber || '')
-    // Extract base order number (stripping attempt suffix if present, e.g. "ZUU-20261234-ATT2" -> "ZUU-20261234")
-    const orderNumber = merchantOid.split('-ATT')[0]
+    // Informational only: payments are matched on merchantOid. Handles both the
+    // current "ZUU…A2" and the legacy "ZUU-…-ATT2" attempt suffixes.
+    const orderNumber = merchantOid.split('-ATT')[0].replace(/A\d+$/, '')
     const statusRaw = String(payload.status || '').toLowerCase()
     const isSuccess = statusRaw === 'success' || statusRaw === 'succeeded'
 
@@ -329,11 +337,15 @@ export class PayTRPaymentProvider implements PaymentProvider {
       isValid = false
     }
 
+    const installmentCount = payload.installment_count !== undefined ? Number(payload.installment_count) : NaN
+
     return {
       isValid,
       paymentId,
       orderNumber,
+      merchantOid,
       amount: amountInTL,
+      installmentCount: Number.isFinite(installmentCount) ? installmentCount : undefined,
       currency: 'TRY',
       status: isSuccess ? 'SUCCEEDED' : 'FAILED',
       transactionRef,
@@ -393,19 +405,16 @@ export class PayTRPaymentProvider implements PaymentProvider {
    * Test helper to generate a mathematically valid PayTR webhook payload with official signature
    */
   generateTestWebhook(
-    orderNumber: string,
-    paymentId: string,
+    merchantOid: string,
     amountTL: number,
     status: 'SUCCESS' | 'FAILED',
-    failureReason?: string,
-    attemptNumber: number = 1
+    failureReason?: string
   ): { payload: Record<string, unknown>; signature: string } {
     // Signing with real merchant secrets would let anyone who can reach the caller
     // forge a paid callback, so the simulator only ever uses the dev keys.
     if (!isPayTRSimulationAllowed(this.isLiveConfigured)) {
       throw new Error('PAYTR_SIMULATION_DISABLED: Test ödeme simülasyonu bu ortamda kapalıdır.')
     }
-    const merchantOid = attemptNumber > 1 ? `${orderNumber}-ATT${attemptNumber}` : orderNumber
     const statusStr = status === 'SUCCESS' ? 'success' : 'failed'
     const totalAmountKurus = String(Math.round(amountTL * 100))
 
@@ -415,11 +424,9 @@ export class PayTRPaymentProvider implements PaymentProvider {
     return {
       payload: {
         merchant_oid: merchantOid,
-        orderNumber,
         status: statusStr,
         total_amount: totalAmountKurus,
         hash: signature,
-        paymentId,
         payment_amount: totalAmountKurus,
         failed_reason_msg: failureReason,
         transactionRef: `PAYTR-TRX-${Date.now()}`,

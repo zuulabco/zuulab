@@ -10,6 +10,7 @@ import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { calculateShipping } from '@/lib/services/shipping.service'
+import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 
 const CITIES = [
@@ -77,6 +78,25 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
+
+  // Authoritative price from the server; the page never computes the charged total.
+  const {
+    quote,
+    loading: quoteLoading,
+    error: quoteError,
+    refresh: refreshQuote,
+  } = useCartQuote({ items, couponCode: coupon?.code, shippingMethod }, { enabled: items.length > 0 })
+
+  // One id per checkout attempt: a double click or network retry reuses it and gets
+  // the same order back; it is renewed when the server rejects the attempt.
+  const checkoutKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (quote && coupon && !quote.coupon) {
+      removeCoupon()
+      toast.error(quote.couponError || 'Kupon bu sepet için artık geçerli değil.')
+    }
+  }, [quote, coupon, removeCoupon])
 
   // Saved addresses for logged in user
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
@@ -249,14 +269,19 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
     )
   }
 
-  const sub = subtotal()
-  const isFreeShipCoupon = coupon?.type === 'FREE_SHIPPING'
-  const shippingCalc = calculateShipping(sub, shippingMethod, isFreeShipCoupon, freeShippingThreshold)
-  const effectiveShipping = shippingCalc.shippingFee
-  const grandTotal = Math.max(0, sub - discountAmount + effectiveShipping)
-  const remainingForFree = shippingCalc.remainingForFreeShipping
-  const freeShippingProgress =
-    freeShippingThreshold === 0 ? 100 : Math.min(100, Math.round((sub / freeShippingThreshold) * 100))
+  const sub = quote?.subtotal ?? subtotal()
+  const discount = quote ? quote.discountAmount : discountAmount
+  const isFreeShipCoupon = (quote ? quote.coupon?.type : coupon?.type) === 'FREE_SHIPPING'
+  const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
+  // Per-method prices for the option cards; the selected method's fee comes from the quote.
+  const shippingCalc = calculateShipping(sub, shippingMethod, isFreeShipCoupon, threshold)
+  const quoteIsCurrent = Boolean(quote) && !quoteLoading && quote?.shippingMethod === shippingMethod
+  const effectiveShipping = quoteIsCurrent ? quote!.shippingAmount : shippingCalc.shippingFee
+  const grandTotal = quoteIsCurrent ? quote!.total : Math.max(0, sub - discount + effectiveShipping)
+  const remainingForFree = quote?.remainingForFreeShipping ?? shippingCalc.remainingForFreeShipping
+  const freeShippingProgress = threshold === 0 ? 100 : Math.min(100, Math.round((sub / threshold) * 100))
+  const cartIssues = quote?.issues ?? []
+  const canSubmit = quoteIsCurrent && cartIssues.length === 0
 
 
 
@@ -272,7 +297,11 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, subtotal: sub }),
+        body: JSON.stringify({
+          code,
+          items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+          shippingMethod,
+        }),
       })
       const data = await res.json()
       if (data.success && data.data?.valid) {
@@ -341,6 +370,17 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
       return
     }
 
+    if (!canSubmit) {
+      const msg = cartIssues[0]?.message || quoteError || 'Sepet tutarı güncelleniyor, lütfen birkaç saniye sonra tekrar deneyin.'
+      setErrorMessage(msg)
+      toast.error(msg)
+      return
+    }
+
+    if (!checkoutKeyRef.current) {
+      checkoutKeyRef.current = crypto.randomUUID().replace(/-/g, '')
+    }
+
     submittingRef.current = true
     setLoading(true)
 
@@ -380,7 +420,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
           couponCode: coupon?.code || null,
           customerNote: customerNote.trim() || null,
           savedAddressId: selectedAddressId || undefined,
-          expectedTotal: grandTotal,
+          expectedTotal: quote!.total,
+          checkoutKey: checkoutKeyRef.current,
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -391,6 +432,12 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
       const data = await res.json()
       if (!data.success) {
+        // The server answered, so this attempt is finished; the next submit is a new one.
+        checkoutKeyRef.current = null
+        if (res.status === 409) {
+          // Price, coupon or stock changed: show the customer the new numbers.
+          await refreshQuote()
+        }
         throw new Error(data.error || 'Ödeme oturumu başlatılamadı.')
       }
 
@@ -477,6 +524,21 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
               <div className={styles.errorContent}>
                 <span className={styles.errorTitle}>sipariş oluşturulamadı</span>
                 <span className={styles.errorText}>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
+          {cartIssues.length > 0 && (
+            <div className={styles.errorBanner} role="alert" aria-live="polite">
+              <span className={styles.errorIcon} aria-hidden="true">!</span>
+              <div className={styles.errorContent}>
+                <span className={styles.errorTitle}>sepetinizi güncelleyin</span>
+                {cartIssues.map((issue) => (
+                  <span key={`${issue.productId}:${issue.variantId ?? ''}`} className={styles.errorText}>
+                    {issue.message}
+                  </span>
+                ))}
+                <Link href="/sepet" className={styles.legalLink}>sepete dön →</Link>
               </div>
             </div>
           )}
@@ -981,7 +1043,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
             <div className={styles.desktopSubmitWrap}>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !canSubmit}
                 className={styles.submitBtn}
               >
                 {loading ? (
@@ -1051,7 +1113,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
               <div className={styles.appliedCouponBadge}>
                 <div className={styles.appliedCouponInfo}>
                   <span className={styles.couponCode}>{coupon.code}</span>
-                  <span className={styles.couponDiscount}>(-{formatPrice(discountAmount)})</span>
+                  <span className={styles.couponDiscount}>(-{formatPrice(discount)})</span>
                 </div>
                 <button
                   type="button"
@@ -1088,10 +1150,10 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
               <span className={styles.priceValue}>{formatPrice(sub)}</span>
             </div>
 
-            {discountAmount > 0 && (
+            {discount > 0 && (
               <div className={`${styles.priceRow} ${styles.discountRow}`}>
                 <span>indirim ({coupon?.code})</span>
-                <span className={styles.priceValue}>-{formatPrice(discountAmount)}</span>
+                <span className={styles.priceValue}>-{formatPrice(discount)}</span>
               </div>
             )}
 
@@ -1126,7 +1188,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
         <button
           type="submit"
           form="checkout-form"
-          disabled={loading}
+          disabled={loading || !canSubmit}
           className={styles.mobileBottomBtn}
         >
           {loading ? 'işleniyor...' : 'ödemeyi tamamla →'}

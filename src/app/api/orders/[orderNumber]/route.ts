@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/services/auth.service'
-import { getOrderByNumber } from '@/lib/services/orders.service'
+import { getOrderByNumber, isInternalHistoryItem } from '@/lib/services/orders.service'
 
 interface Context {
   params: Promise<{ orderNumber: string }>
@@ -75,7 +75,7 @@ export async function GET(request: Request, { params }: Context) {
         totalAmount: i.totalAmount,
         imageUrl: i.imageUrl,
       })),
-      statusHistory: order.statusHistory.map((h: any) => ({
+      statusHistory: order.statusHistory.filter((h: any) => !isInternalHistoryItem(h)).map((h: any) => ({
         id: h.id,
         status: h.status,
         note: h.note,

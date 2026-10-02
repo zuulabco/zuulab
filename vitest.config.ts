@@ -11,6 +11,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Integration tests share one database; run files one at a time.
+    fileParallelism: false,
     environment: 'node',
   },
 })

@@ -116,20 +116,12 @@ export const useCartStore = create<CartState>()(
         }))
       },
 
+      // `discount` is the amount the server computed for this cart. Pages display the
+      // live server quote (useCartQuote); this value is only a last-known snapshot.
       applyCoupon: (code, discount, type) => {
-        const sub = get().subtotal()
-        let calculated = 0
-        if (type === 'PERCENTAGE') {
-          calculated = (sub * discount) / 100
-        } else if (type === 'FIXED') {
-          calculated = Math.min(discount, sub)
-        } else if (type === 'FREE_SHIPPING') {
-          calculated = discount
-        }
-
         set({
           coupon: { code, discount, type },
-          discountAmount: Math.round(calculated * 100) / 100,
+          discountAmount: Math.round(discount * 100) / 100,
         })
       },
 

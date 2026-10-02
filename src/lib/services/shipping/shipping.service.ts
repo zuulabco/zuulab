@@ -211,8 +211,9 @@ export class ShippingService {
     if (newStatus === 'SHIPPED') {
       shipment.shippedAt = now
 
-      // Phase 18 Inventory Commit: Physical stock decrement occurs when package is physically dispatched
-      if (shipment.orderId || shipment.marketplaceOrderId || shipment.orderNumber) {
+      // Marketplace orders commit their channel reservation on dispatch. Storefront
+      // orders took their stock at checkout (checkout/stock.service), so nothing here.
+      if (shipment.channel === 'MARKETPLACE' && (shipment.marketplaceOrderId || shipment.orderNumber)) {
         try {
           let itemsToCommit: Array<{ productId: string; quantity: number }> = []
           if (shipment.orderNumber) {
@@ -243,8 +244,9 @@ export class ShippingService {
     } else if (newStatus === 'CANCELLED') {
       shipment.cancelledAt = now
 
-      // Release reserved inventory if cancelled before SHIPPED
-      if (currentStatus !== 'SHIPPED' && currentStatus !== 'DELIVERED') {
+      // Cancelling a shipment is not cancelling the order: a storefront order keeps its
+      // stock until the order itself is cancelled. Only marketplace holds are released.
+      if (shipment.channel === 'MARKETPLACE' && currentStatus !== 'SHIPPED' && currentStatus !== 'DELIVERED') {
         try {
           let itemsToRelease: Array<{ productId: string; quantity: number }> = []
           if (shipment.orderNumber) {

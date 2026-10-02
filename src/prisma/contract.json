@@ -2256,6 +2256,17 @@
                   "kind": "scalar"
                 }
               },
+              "maxDiscount": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
+                }
+              },
               "maxUses": {
                 "nullable": true,
                 "type": {
@@ -2391,6 +2402,9 @@
                 },
                 "isActive": {
                   "column": "is_active"
+                },
+                "maxDiscount": {
+                  "column": "max_discount"
                 },
                 "maxUses": {
                   "column": "max_uses"
@@ -4179,6 +4193,27 @@
                   "kind": "scalar"
                 }
               },
+              "billingSnapshot": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
+              "channel": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "checkoutKey": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "couponCode": {
                 "nullable": true,
                 "type": {
@@ -4221,6 +4256,13 @@
                   }
                 }
               },
+              "email": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -4233,6 +4275,26 @@
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
+                }
+              },
+              "paidAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "paymentExpiresAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
                 }
               },
               "shipToAddress": {
@@ -4295,6 +4357,13 @@
                   }
                 }
               },
+              "shippingMethod": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "status": {
                 "nullable": false,
                 "type": {
@@ -4302,6 +4371,16 @@
                   "kind": "scalar",
                   "typeParams": {
                     "typeName": "OrderStatus"
+                  }
+                }
+              },
+              "stockState": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "StockHoldState"
                   }
                 }
               },
@@ -4534,6 +4613,15 @@
                 "adminNote": {
                   "column": "admin_note"
                 },
+                "billingSnapshot": {
+                  "column": "billing_snapshot"
+                },
+                "channel": {
+                  "column": "channel"
+                },
+                "checkoutKey": {
+                  "column": "checkout_key"
+                },
                 "couponCode": {
                   "column": "coupon_code"
                 },
@@ -4549,11 +4637,20 @@
                 "discountAmount": {
                   "column": "discount_amount"
                 },
+                "email": {
+                  "column": "email"
+                },
                 "id": {
                   "column": "id"
                 },
                 "orderNumber": {
                   "column": "order_number"
+                },
+                "paidAt": {
+                  "column": "paid_at"
+                },
+                "paymentExpiresAt": {
+                  "column": "payment_expires_at"
                 },
                 "shipToAddress": {
                   "column": "ship_to_address"
@@ -4579,8 +4676,14 @@
                 "shippingCost": {
                   "column": "shipping_cost"
                 },
+                "shippingMethod": {
+                  "column": "shipping_method"
+                },
                 "status": {
                   "column": "status"
+                },
+                "stockState": {
+                  "column": "stock_state"
                 },
                 "subtotal": {
                   "column": "subtotal"
@@ -5115,6 +5218,13 @@
                   }
                 }
               },
+              "attemptNumber": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -5130,6 +5240,16 @@
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
+                }
+              },
+              "expiresAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
                 }
               },
               "failedAt": {
@@ -5156,7 +5276,21 @@
                   "kind": "scalar"
                 }
               },
+              "installmentCount": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "ipAddress": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "merchantOid": {
                 "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
@@ -5168,6 +5302,17 @@
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
+                }
+              },
+              "paidAmount": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
                 }
               },
               "paidAt": {
@@ -5255,11 +5400,17 @@
                 "amount": {
                   "column": "amount"
                 },
+                "attemptNumber": {
+                  "column": "attempt_number"
+                },
                 "createdAt": {
                   "column": "created_at"
                 },
                 "currency": {
                   "column": "currency"
+                },
+                "expiresAt": {
+                  "column": "expires_at"
                 },
                 "failedAt": {
                   "column": "failed_at"
@@ -5270,11 +5421,20 @@
                 "id": {
                   "column": "id"
                 },
+                "installmentCount": {
+                  "column": "installment_count"
+                },
                 "ipAddress": {
                   "column": "ip_address"
                 },
+                "merchantOid": {
+                  "column": "merchant_oid"
+                },
                 "orderId": {
                   "column": "order_id"
+                },
+                "paidAmount": {
+                  "column": "paid_amount"
                 },
                 "paidAt": {
                   "column": "paid_at"
@@ -14639,6 +14799,16 @@
               ],
               "typeName": "ShippingShipmentStatus"
             },
+            "StockHoldState": {
+              "kind": "postgres-enum",
+              "members": [
+                "NONE",
+                "HELD",
+                "COMMITTED",
+                "RELEASED"
+              ],
+              "typeName": "StockHoldState"
+            },
             "StockSyncStatus": {
               "kind": "postgres-enum",
               "members": [
@@ -16285,7 +16455,24 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "coupon_id",
+                    "order_id"
+                  ],
+                  "name": "coupon_usages_coupon_id_order_id_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
+                    "coupon_id",
+                    "user_id"
+                  ],
+                  "name": "coupon_usages_coupon_id_user_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -16348,6 +16535,15 @@
                   },
                   "nativeType": "bool",
                   "nullable": false
+                },
+                "max_discount": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
                 },
                 "max_uses": {
                   "codecId": "pg/int4@1",
@@ -17988,7 +18184,15 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "order_id"
+                  ],
+                  "name": "order_items_order_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -18155,7 +18359,15 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "order_id"
+                  ],
+                  "name": "order_status_history_order_id_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -18171,6 +18383,25 @@
                   "nullable": true
                 },
                 "admin_note": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "billing_snapshot": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
+                },
+                "channel": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "DIRECT"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "checkout_key": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": true
@@ -18215,6 +18446,11 @@
                     "scale": 2
                   }
                 },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -18224,6 +18460,22 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "paid_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "payment_expires_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
                 },
                 "ship_to_address": {
                   "codecId": "pg/text@1",
@@ -18277,6 +18529,15 @@
                     "scale": 2
                   }
                 },
+                "shipping_method": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "STANDARD"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "status": {
                   "codecId": "pg/enum@1",
                   "default": {
@@ -18291,6 +18552,24 @@
                   "valueSet": {
                     "entityKind": "valueSet",
                     "entityName": "OrderStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "stock_state": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "NONE"
+                  },
+                  "nativeType": "StockHoldState",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "StockHoldState"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "StockHoldState",
                     "namespaceId": "public",
                     "plane": "storage"
                   }
@@ -18399,10 +18678,40 @@
               "indexes": [
                 {
                   "columns": [
+                    "checkout_key"
+                  ],
+                  "name": "orders_checkout_key_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
                     "order_number"
                   ],
                   "name": "orders_order_number_key",
                   "unique": true
+                },
+                {
+                  "columns": [
+                    "status",
+                    "created_at"
+                  ],
+                  "name": "orders_status_created_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "stock_state",
+                    "payment_expires_at"
+                  ],
+                  "name": "orders_stock_state_payment_expires_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "user_id"
+                  ],
+                  "name": "orders_user_id_idx",
+                  "unique": false
                 }
               ],
               "primaryKey": {
@@ -18502,6 +18811,15 @@
                     "scale": 2
                   }
                 },
+                "attempt_number": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 1
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
                 "created_at": {
                   "codecId": "pg/timestamp-temporal@1",
                   "default": {
@@ -18523,6 +18841,14 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "expires_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
                 "failed_at": {
                   "codecId": "pg/timestamp-temporal@1",
                   "nativeType": "timestamp",
@@ -18541,7 +18867,17 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "installment_count": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "ip_address": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "merchant_oid": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": true
@@ -18550,6 +18886,15 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "paid_amount": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 10,
+                    "scale": 2
+                  }
                 },
                 "paid_at": {
                   "codecId": "pg/timestamp-temporal@1",
@@ -18635,7 +18980,30 @@
                   }
                 }
               ],
-              "indexes": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "merchant_oid"
+                  ],
+                  "name": "payments_merchant_oid_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
+                    "order_id"
+                  ],
+                  "name": "payments_order_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "status",
+                    "expires_at"
+                  ],
+                  "name": "payments_status_expires_at_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -18721,6 +19089,13 @@
                 }
               ],
               "indexes": [
+                {
+                  "columns": [
+                    "collection_id"
+                  ],
+                  "name": "product_collections_collection_id_idx",
+                  "unique": false
+                },
                 {
                   "columns": [
                     "product_id",
@@ -25874,6 +26249,15 @@
                 "FAILED"
               ]
             },
+            "StockHoldState": {
+              "kind": "valueSet",
+              "values": [
+                "NONE",
+                "HELD",
+                "COMMITTED",
+                "RELEASED"
+              ]
+            },
             "StockSyncStatus": {
               "kind": "valueSet",
               "values": [
@@ -26091,7 +26475,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "75115e7b4751c6f8f9ac5046ab9049957cb005f1c83dd911bb78a63e4f66f2f7"
+    "storageHash": "cbc26e14b11e003714392972b471404b6e1a678e04e995700c1c56aa22c18960"
   },
   "execution": {
     "executionHash": "e047b7f2775d90d6b8f8b6704e7cbe406d0f5ee12f3346f9fe36a8c6678d7fc9",

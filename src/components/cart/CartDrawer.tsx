@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
+import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import { FREE_SHIPPING_THRESHOLD, DEFAULT_SHIPPING_METHODS } from '@/lib/services/shipping.service'
@@ -26,6 +27,7 @@ export default function CartDrawer() {
     subtotal,
     itemCount,
     discountAmount,
+    coupon,
   } = useCartStore()
 
   // Transition lifecycle for smooth entrance and exit animations
@@ -92,16 +94,21 @@ export default function CartDrawer() {
     }
   }, [isRendered, isDrawerOpen, isExiting, closeDrawer])
 
+  const { quote } = useCartQuote(
+    { items, couponCode: coupon?.code, shippingMethod: 'STANDARD' },
+    { enabled: isDrawerOpen && items.length > 0 }
+  )
+
   if (!isRendered) return null
 
   const count = itemCount()
-  const sub = subtotal()
-  const isFreeThresholdMet = sub >= freeShippingThreshold
-  const shippingFee = isFreeThresholdMet || sub === 0 ? 0 : STANDARD_SHIPPING_FEE
-  const freeShippingRemainder = Math.max(0, freeShippingThreshold - sub)
-  const freeShippingProgress =
-    freeShippingThreshold === 0 ? 100 : Math.min(100, (sub / freeShippingThreshold) * 100)
-  const finalTotal = Math.max(0, sub - discountAmount + shippingFee)
+  const sub = quote?.subtotal ?? subtotal()
+  const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
+  const isFreeThresholdMet = sub >= threshold
+  const shippingFee = quote?.shippingAmount ?? (isFreeThresholdMet || sub === 0 ? 0 : STANDARD_SHIPPING_FEE)
+  const freeShippingRemainder = quote?.remainingForFreeShipping ?? Math.max(0, threshold - sub)
+  const freeShippingProgress = threshold === 0 ? 100 : Math.min(100, (sub / threshold) * 100)
+  const finalTotal = quote?.total ?? Math.max(0, sub - discountAmount + shippingFee)
 
   const handleCheckout = () => {
     closeDrawer()

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.service'
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
-import { createOrder } from '@/lib/services/orders.service'
-import { initiatePayment } from '@/lib/services/payment/payment.service'
+import { CheckoutError, createOrder, updateOrderStatus } from '@/lib/services/orders.service'
+import { cleanupExpiredReservations, initiatePayment } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import {
   createOrderAccessToken,
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       savedAddressId,
       items,
       email,
+      checkoutKey,
     } = parsed.data
 
     let effectiveShippingAddress = {
@@ -87,7 +88,13 @@ export async function POST(request: Request) {
       effectiveUserId = guestCustomer.id
     }
 
-    // 2. Create Order (calculates prices & shipping authoritatively, reserves inventory)
+    // Return stock held by abandoned checkouts before this one competes for it. The
+    // scheduled cron does the same; doing it here keeps stock correct even if it lags.
+    await cleanupExpiredReservations(20).catch((err) =>
+      console.warn('[checkout/initiate] Expired reservation cleanup failed:', err)
+    )
+
+    // 2. Create Order (prices, stock hold and expected-total check are authoritative)
     const order = await createOrder({
       userId: effectiveUserId,
       items,
@@ -98,20 +105,32 @@ export async function POST(request: Request) {
       billingAddress,
       addressId: verifiedAddressId,
       customerNote: customerNote || undefined,
+      email,
+      checkoutKey,
+      expectedTotal,
     })
 
     // 3. Initiate Payment session with provider
     const clientIp = getClientIp(new Headers(request.headers))
-    const paymentSession = await initiatePayment({
-      orderNumber: order.orderNumber,
-      customer: {
-        fullName: shippingAddress.fullName,
-        email,
-        phone: shippingAddress.phone,
-      },
-      ipAddress: clientIp,
-      clientExpectedTotal: expectedTotal,
-    })
+    let paymentSession: Awaited<ReturnType<typeof initiatePayment>>
+    try {
+      paymentSession = await initiatePayment({
+        orderNumber: order.orderNumber,
+        customer: {
+          fullName: effectiveShippingAddress.fullName,
+          email,
+          phone: effectiveShippingAddress.phone,
+        },
+        ipAddress: clientIp,
+      })
+    } catch (err) {
+      // No session means the customer cannot pay; give the stock back right away.
+      // The order stays retryable from the payment-failed page.
+      if (order.status === 'PAYMENT_PENDING') {
+        await updateOrderStatus(order.orderNumber, 'PAYMENT_FAILED', 'Ödeme oturumu açılamadı.', 'system').catch(() => {})
+      }
+      throw err
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -140,10 +159,29 @@ export async function POST(request: Request) {
 
     return response
   } catch (error: any) {
+    if (error instanceof CheckoutError) {
+      // 409: the cart, price or stock changed; the client re-renders from `quote`.
+      return NextResponse.json(
+        {
+          success: false,
+          code: error.code,
+          error: error.message,
+          issues: error.details?.issues,
+          quote: error.details?.quote,
+        },
+        { status: 409 }
+      )
+    }
     console.error('[checkout/initiate] Error:', error)
+    const isPaymentGateway = String(error?.message || '').startsWith('PAYTR_')
     return NextResponse.json(
-      { success: false, error: error.message || 'Ödeme oturumu başlatılamadı.' },
-      { status: 400 }
+      {
+        success: false,
+        error: isPaymentGateway
+          ? 'Ödeme altyapısına şu anda ulaşılamıyor. Lütfen birkaç dakika sonra tekrar deneyin.'
+          : error.message || 'Ödeme oturumu başlatılamadı.',
+      },
+      { status: isPaymentGateway ? 502 : 400 }
     )
   }
 }

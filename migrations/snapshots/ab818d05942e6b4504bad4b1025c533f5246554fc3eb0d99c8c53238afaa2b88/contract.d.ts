@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'cbc26e14b11e003714392972b471404b6e1a678e04e995700c1c56aa22c18960'>;
+  StorageHashBase<'ab818d05942e6b4504bad4b1025c533f5246554fc3eb0d99c8c53238afaa2b88'>;
 export type ExecutionHash =
   ExecutionHashBase<'e047b7f2775d90d6b8f8b6704e7cbe406d0f5ee12f3346f9fe36a8c6678d7fc9'>;
 export type ProfileHash =
@@ -472,7 +472,6 @@ export type FieldOutputTypes = {
       readonly discountValue: Numeric<10, 2>;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly isActive: CodecTypes['pg/bool@1']['output'];
-      readonly maxDiscount: Numeric<10, 2> | null;
       readonly maxUses: CodecTypes['pg/int4@1']['output'] | null;
       readonly maxUsesPerUser: CodecTypes['pg/int4@1']['output'] | null;
       readonly minCartAmount: Numeric<10, 2> | null;
@@ -1830,7 +1829,6 @@ export type FieldInputTypes = {
       readonly discountValue: CodecTypes['pg/numeric@1']['input'];
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly isActive: CodecTypes['pg/bool@1']['input'];
-      readonly maxDiscount: CodecTypes['pg/numeric@1']['input'] | null;
       readonly maxUses: CodecTypes['pg/int4@1']['input'] | null;
       readonly maxUsesPerUser: CodecTypes['pg/int4@1']['input'] | null;
       readonly minCartAmount: CodecTypes['pg/numeric@1']['input'] | null;
@@ -3195,7 +3193,6 @@ export type StorageColumnTypes = {
       readonly discount_value: Numeric<10, 2>;
       readonly id: CodecTypes['pg/text@1']['output'];
       readonly is_active: CodecTypes['pg/bool@1']['output'];
-      readonly max_discount: Numeric<10, 2> | null;
       readonly max_uses: CodecTypes['pg/int4@1']['output'] | null;
       readonly max_uses_per_user: CodecTypes['pg/int4@1']['output'] | null;
       readonly min_cart_amount: Numeric<10, 2> | null;
@@ -4553,7 +4550,6 @@ export type StorageColumnInputTypes = {
       readonly discount_value: CodecTypes['pg/numeric@1']['input'];
       readonly id: CodecTypes['pg/text@1']['input'];
       readonly is_active: CodecTypes['pg/bool@1']['input'];
-      readonly max_discount: CodecTypes['pg/numeric@1']['input'] | null;
       readonly max_uses: CodecTypes['pg/int4@1']['input'] | null;
       readonly max_uses_per_user: CodecTypes['pg/int4@1']['input'] | null;
       readonly min_cart_amount: CodecTypes['pg/numeric@1']['input'] | null;
@@ -5946,7 +5942,6 @@ export namespace Models {
     discountValue: Numeric<10, 2>;
     id: CodecTypes['pg/text@1']['output'];
     isActive: CodecTypes['pg/bool@1']['output'];
-    maxDiscount: Numeric<10, 2> | null;
     maxUses: CodecTypes['pg/int4@1']['output'] | null;
     maxUsesPerUser: CodecTypes['pg/int4@1']['output'] | null;
     minCartAmount: Numeric<10, 2> | null;
@@ -8474,18 +8469,7 @@ type ContractBase = Omit<
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [];
-              indexes: readonly [
-                {
-                  readonly name: 'coupon_usages_coupon_id_order_id_key';
-                  readonly columns: readonly ['coupon_id', 'order_id'];
-                  readonly unique: true;
-                },
-                {
-                  readonly name: 'coupon_usages_coupon_id_user_id_idx';
-                  readonly columns: readonly ['coupon_id', 'user_id'];
-                  readonly unique: false;
-                },
-              ];
+              indexes: readonly [];
               foreignKeys: readonly [
                 {
                   readonly source: {
@@ -8572,12 +8556,6 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/bool@1', true>;
                   };
-                };
-                readonly max_discount: {
-                  readonly nativeType: 'numeric';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                  readonly typeParams: { readonly precision: 10; readonly scale: 2 };
                 };
                 readonly max_uses: {
                   readonly nativeType: 'int4';
@@ -17956,14 +17934,6 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
-              readonly maxDiscount: {
-                readonly nullable: true;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly typeParams: { readonly precision: 10; readonly scale: 2 };
-                };
-              };
               readonly maxUses: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -18056,7 +18026,6 @@ type ContractBase = Omit<
                 readonly discountValue: { readonly column: 'discount_value' };
                 readonly id: { readonly column: 'id' };
                 readonly isActive: { readonly column: 'is_active' };
-                readonly maxDiscount: { readonly column: 'max_discount' };
                 readonly maxUses: { readonly column: 'max_uses' };
                 readonly maxUsesPerUser: { readonly column: 'max_uses_per_user' };
                 readonly minCartAmount: { readonly column: 'min_cart_amount' };

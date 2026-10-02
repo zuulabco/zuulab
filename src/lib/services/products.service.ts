@@ -1,9 +1,6 @@
 import 'server-only'
 import { db, isDatabaseConfigured } from '@/prisma/db'
 import { MOCK_PRODUCTS, MOCK_CATEGORIES, type MockProduct, type MockCategory } from '@/lib/mock-data'
-import { SEED_COUPONS } from './db-fallback'
-import { FREE_SHIPPING_THRESHOLD } from './shipping.service'
-import { getFreeShippingThreshold } from './settings/store-settings.service'
 
 export interface ProductFilterOptions {
   collectionSlug?: string
@@ -16,34 +13,6 @@ export interface ProductFilterOptions {
   offset?: number
 }
 
-export interface VerifiedCartItem {
-  productId: string
-  variantId: string | null
-  name: string
-  sku: string
-  price: number
-  quantity: number
-  subtotal: number
-  imageUrl: string | null
-  taxRate: number
-  inStock: boolean
-}
-
-export interface VerifiedCartSummary {
-  items: VerifiedCartItem[]
-  subtotal: number
-  discountAmount: number
-  shippingAmount: number
-  totalAmount: number
-  freeShippingThreshold: number
-  coupon: {
-    code: string
-    discount: number
-    type: string
-  } | null
-}
-
-const STANDARD_SHIPPING_FEE = 49.9
 
 /**
  * Maps database product records and related entities into full storefront Product shape
@@ -397,92 +366,3 @@ export async function getCategories(): Promise<MockCategory[]> {
   return [...MOCK_CATEGORIES]
 }
 
-/**
- * Price Security & Cart Verification
- * Never trusts prices submitted by browser. Recalculates everything directly from PostgreSQL DB.
- */
-export async function verifyAndCalculateCart(
-  items: Array<{ productId: string; variantId?: string | null; quantity: number }>,
-  couponCode?: string | null
-): Promise<VerifiedCartSummary> {
-  const verifiedItems: VerifiedCartItem[] = []
-  let subtotal = 0
-
-  for (const item of items) {
-    const product = await getProductById(item.productId)
-    if (!product || !product.isActive) continue
-
-    const variant = item.variantId
-      ? product.variants?.find((v) => v.id === item.variantId)
-      : null
-
-    const unitPrice = variant?.price ?? product.price
-    const maxStock = variant?.stock ?? product.stock
-    const validQty = Math.max(1, Math.min(item.quantity, maxStock > 0 ? maxStock : 1))
-    const itemSubtotal = unitPrice * validQty
-
-    subtotal += itemSubtotal
-
-    verifiedItems.push({
-      productId: product.id,
-      variantId: item.variantId || null,
-      name: product.name,
-      sku: variant?.sku || product.sku,
-      price: unitPrice,
-      quantity: validQty,
-      subtotal: itemSubtotal,
-      imageUrl: product.images[0]?.url || null,
-      taxRate: product.taxRate || 20,
-      inStock: maxStock >= validQty,
-    })
-  }
-
-  // Calculate Coupon discount server-side
-  let discountAmount = 0
-  let couponInfo: VerifiedCartSummary['coupon'] = null
-
-  if (couponCode) {
-    const cleanCode = couponCode.trim().toUpperCase()
-    const foundCoupon = SEED_COUPONS.find(
-      (c) => c.code === cleanCode && c.isActive
-    )
-
-    if (foundCoupon) {
-      if (!foundCoupon.minCartAmount || subtotal >= foundCoupon.minCartAmount) {
-        if (foundCoupon.type === 'PERCENTAGE') {
-          discountAmount = (subtotal * foundCoupon.discountValue) / 100
-        } else if (foundCoupon.type === 'FIXED') {
-          discountAmount = Math.min(subtotal, foundCoupon.discountValue)
-        } else if (foundCoupon.type === 'FREE_SHIPPING') {
-          discountAmount = STANDARD_SHIPPING_FEE
-        }
-
-        couponInfo = {
-          code: foundCoupon.code,
-          discount: discountAmount,
-          type: foundCoupon.type,
-        }
-      }
-    }
-  }
-
-  // Shipping calculation
-  const freeShippingThreshold = await getFreeShippingThreshold()
-  const isFreeShipCoupon = couponInfo?.type === 'FREE_SHIPPING'
-  const shippingAmount =
-    subtotal >= freeShippingThreshold || subtotal === 0 || isFreeShipCoupon
-      ? 0
-      : STANDARD_SHIPPING_FEE
-
-  const totalAmount = Math.max(0, subtotal - discountAmount + shippingAmount)
-
-  return {
-    items: verifiedItems,
-    subtotal,
-    discountAmount,
-    shippingAmount,
-    totalAmount,
-    freeShippingThreshold,
-    coupon: couponInfo,
-  }
-}

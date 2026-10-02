@@ -38,6 +38,8 @@ export interface PaymentSessionRequest {
   merchantFailUrl?: string
   callbackUrl?: string
   attemptNumber?: number
+  /** Identifier sent to the provider; must be unique per attempt (PayTR: alphanumeric). */
+  merchantOid?: string
 }
 
 export interface PaymentSessionResult {
@@ -54,7 +56,11 @@ export interface WebhookVerificationResult {
   isValid: boolean
   paymentId: string
   orderNumber: string
+  /** The identifier we sent when opening the session; the authoritative match key. */
+  merchantOid?: string
+  /** Amount actually charged; includes installment interest when installments were used. */
   amount: number
+  installmentCount?: number
   currency?: string
   status: 'SUCCEEDED' | 'FAILED'
   transactionRef?: string

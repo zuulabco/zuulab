@@ -1,11 +1,23 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
-import { verifyAndCalculateCart } from './products.service'
-import { calculateShipping } from './shipping.service'
-import { getFreeShippingThreshold } from './settings/store-settings.service'
-import { releaseInventoryReservation, reserveInventory, getInventoryStatus, commitInventoryReservation } from './inventory.service'
+import crypto from 'crypto'
+import { or } from '@prisma/orm-postgres/orm-client'
+import { db } from '@/prisma/db'
+import { round2 } from '@/lib/pricing/money'
+import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
+import { dbNumeric } from '@/lib/db/numeric'
 import { logAuditEvent } from './admin.service'
 import { createNotification } from './notification/notification.service'
+import type { NotificationEventType } from './notification/notification.interface'
+import { quoteCart, type CartIssue, type CartQuote } from './checkout/pricing.service'
+import {
+  InsufficientStockError,
+  currentStockFor,
+  holdStockForNewOrder,
+  releaseOrderStock,
+} from './checkout/stock.service'
+
+/** How long a new order holds stock while the customer pays (PayTR session is 30 min). */
+export const PAYMENT_HOLD_MINUTES = 35
 
 export interface CreateOrderPayload {
   userId: string
@@ -37,6 +49,11 @@ export interface CreateOrderPayload {
   }
   addressId?: string | null
   customerNote?: string
+  email?: string
+  /** Browser-generated id of this checkout attempt; a resubmit returns the same order. */
+  checkoutKey?: string
+  /** Total the customer was shown; checkout is refused if the server total differs. */
+  expectedTotal?: number
 }
 
 export interface OrderStatusHistoryItem {
@@ -54,6 +71,8 @@ export interface StoredOrder {
   status: string
   paymentStatus: string
   fulfillmentStatus: string
+  stockState: string
+  channel: string
   subtotal: number
   discountAmount: number
   shippingAmount: number
@@ -66,11 +85,16 @@ export interface StoredOrder {
   billingAddressSnapshot?: CreateOrderPayload['billingAddress']
   customerNote: string | null
   addressId?: string | null
+  paymentExpiresAt: string | null
+  paidAt: string | null
   createdAt: string
   updatedAt: string
   statusHistory: OrderStatusHistoryItem[]
   items: Array<{
+    id: string
     productId: string
+    variantId: string | null
+    variantInfo: string | null
     productName: string
     sku: string
     quantity: number
@@ -81,289 +105,20 @@ export interface StoredOrder {
   }>
 }
 
-const inMemoryOrders: StoredOrder[] = ((globalThis as any).__inMemoryOrders = (globalThis as any).__inMemoryOrders || [])
-
-if (inMemoryOrders.length === 0) {
-  const now = Date.now()
-  inMemoryOrders.push(
-    {
-      id: 'ord-seed-01',
-      orderNumber: 'ZUU-20268491',
-      userId: 'usr-cust-1',
-      status: 'CONFIRMED',
-      paymentStatus: 'PAID',
-      fulfillmentStatus: 'UNFULFILLED',
-      subtotal: 558,
-      discountAmount: 0,
-      shippingAmount: 0,
-      shippingMethod: 'STANDARD',
-      taxAmount: 93,
-      totalAmount: 558,
-      couponCode: null,
-      customerEmail: 'ahmet.yilmaz@gmail.com',
-      shippingAddressSnapshot: {
-        fullName: 'Ahmet Yılmaz',
-        phone: '0532 555 1234',
-        addressLine: 'Bağdat Cad. No: 142 D: 5',
-        city: 'İstanbul',
-        district: 'Kadıköy',
-        postalCode: '34710',
-        country: 'TR',
-        email: 'ahmet.yilmaz@gmail.com',
-      },
-      customerNote: 'Lütfen kutulamaya özen gösterin, hediye olacaktır.',
-      createdAt: new Date(now - 1000 * 60 * 45).toISOString(),
-      updatedAt: new Date(now - 1000 * 60 * 45).toISOString(),
-      statusHistory: [
-        {
-          id: 'hist-1',
-          status: 'CONFIRMED',
-          note: 'PayTR üzerinden ödeme onaylandı (₺558.00).',
-          createdAt: new Date(now - 1000 * 60 * 45).toISOString(),
-          createdBy: 'PayTR Webhook',
-        },
-      ],
-      items: [
-        {
-          productId: 'prod-zk1',
-          productName: 'Mini Dinozor Serisi — 6 Figür',
-          sku: 'ZUU-KD-001',
-          quantity: 2,
-          unitPrice: 279,
-          totalAmount: 558,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1000&q=80',
-        },
-      ],
-      ...({ channel: 'DIRECT' } as any),
-    },
-    {
-      id: 'ord-seed-02',
-      orderNumber: 'ZUU-20268492',
-      userId: 'usr-cust-2',
-      status: 'PREPARING',
-      paymentStatus: 'PAID',
-      fulfillmentStatus: 'PROCESSING',
-      subtotal: 798,
-      discountAmount: 50,
-      shippingAmount: 0,
-      shippingMethod: 'EXPRESS',
-      taxAmount: 124.67,
-      totalAmount: 748,
-      couponCode: 'ZUU50',
-      customerEmail: 'zeynep.kaya@outlook.com',
-      shippingAddressSnapshot: {
-        fullName: 'Zeynep Kaya',
-        phone: '0544 321 9876',
-        addressLine: 'Tunalı Hilmi Cad. No: 88 D: 12',
-        city: 'Ankara',
-        district: 'Çankaya',
-        postalCode: '06680',
-        country: 'TR',
-        email: 'zeynep.kaya@outlook.com',
-      },
-      customerNote: null,
-      createdAt: new Date(now - 1000 * 60 * 120).toISOString(),
-      updatedAt: new Date(now - 1000 * 60 * 60).toISOString(),
-      statusHistory: [
-        {
-          id: 'hist-2a',
-          status: 'PREPARING',
-          note: 'Paketleme masasına aktarıldı.',
-          createdAt: new Date(now - 1000 * 60 * 60).toISOString(),
-          createdBy: 'depo-sorumlusu',
-        },
-        {
-          id: 'hist-2b',
-          status: 'CONFIRMED',
-          note: 'Ödeme onaylandı.',
-          createdAt: new Date(now - 1000 * 60 * 120).toISOString(),
-          createdBy: 'PayTR Webhook',
-        },
-      ],
-      items: [
-        {
-          productId: 'prod-zk2',
-          productName: 'Eğitim Geometri Seti — Montessori',
-          sku: 'ZUU-KD-002',
-          quantity: 1,
-          unitPrice: 349,
-          totalAmount: 349,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=1000&q=80',
-        },
-        {
-          productId: 'prod-zl1',
-          productName: 'Voronoi Geometrik Vazo — Minimalist Sanat',
-          sku: 'ZUU-VOR-001',
-          quantity: 1,
-          unitPrice: 449,
-          totalAmount: 449,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=1000&q=80',
-        },
-      ],
-      ...({ channel: 'DIRECT' } as any),
-    },
-    {
-      id: 'ord-seed-03',
-      orderNumber: 'ZUU-20268493',
-      userId: 'usr-cust-3',
-      status: 'SHIPPED',
-      paymentStatus: 'PAID',
-      fulfillmentStatus: 'SHIPPED',
-      subtotal: 649,
-      discountAmount: 0,
-      shippingAmount: 49.90,
-      shippingMethod: 'STANDARD',
-      taxAmount: 108.17,
-      totalAmount: 698.90,
-      couponCode: null,
-      customerEmail: 'can.ozdemir@gmail.com',
-      shippingAddressSnapshot: {
-        fullName: 'Can Özdemir',
-        phone: '0555 111 2233',
-        addressLine: 'Karşıyaka Mah. 1748 Sok. No: 15',
-        city: 'İzmir',
-        district: 'Karşıyaka',
-        postalCode: '35580',
-        country: 'TR',
-        email: 'can.ozdemir@gmail.com',
-      },
-      customerNote: 'Site güvenliğine bırakılabilir.',
-      createdAt: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
-      updatedAt: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
-      statusHistory: [
-        {
-          id: 'hist-3a',
-          status: 'SHIPPED',
-          note: 'Yurtiçi Kargo kuryesine teslim edildi. Takip: 139847192837',
-          createdAt: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
-          createdBy: 'yurtici-kops-agent',
-        },
-      ],
-      items: [
-        {
-          productId: 'prod-lt1',
-          productName: 'Litofan Ay Lambası — Dokunmatik Ambiyans',
-          sku: 'ZUU-LIT-004',
-          quantity: 1,
-          unitPrice: 649,
-          totalAmount: 649,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1000&q=80',
-        },
-      ],
-      ...({ channel: 'TRENDYOL' } as any),
-    },
-    {
-      id: 'ord-seed-04',
-      orderNumber: 'ZUU-20268494',
-      userId: 'usr-cust-4',
-      status: 'PAYMENT_PENDING',
-      paymentStatus: 'PENDING',
-      fulfillmentStatus: 'UNFULFILLED',
-      subtotal: 589,
-      discountAmount: 0,
-      shippingAmount: 0,
-      shippingMethod: 'STANDARD',
-      taxAmount: 98.17,
-      totalAmount: 589,
-      couponCode: null,
-      customerEmail: 'elif.demir@hotmail.com',
-      shippingAddressSnapshot: {
-        fullName: 'Elif Demir',
-        phone: '0533 999 8877',
-        addressLine: 'Fener Mah. 1965 Sok. Lara Apt.',
-        city: 'Antalya',
-        district: 'Muratpaşa',
-        postalCode: '07160',
-        country: 'TR',
-        email: 'elif.demir@hotmail.com',
-      },
-      customerNote: null,
-      createdAt: new Date(now - 1000 * 60 * 15).toISOString(),
-      updatedAt: new Date(now - 1000 * 60 * 15).toISOString(),
-      statusHistory: [
-        {
-          id: 'hist-4',
-          status: 'PAYMENT_PENDING',
-          note: 'PayTR 3D Secure ekranı başlatıldı.',
-          createdAt: new Date(now - 1000 * 60 * 15).toISOString(),
-          createdBy: 'checkout',
-        },
-      ],
-      items: [
-        {
-          productId: 'prod-zl2',
-          productName: 'Aura Spiralli Masa Lambası',
-          sku: 'ZUU-AUR-002',
-          quantity: 1,
-          unitPrice: 589,
-          totalAmount: 589,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1000&q=80',
-        },
-      ],
-      ...({ channel: 'HEPSIBURADA' } as any),
-    },
-    {
-      id: 'ord-seed-05',
-      orderNumber: 'ZUU-20268495',
-      userId: 'usr-cust-5',
-      status: 'DELIVERED',
-      paymentStatus: 'PAID',
-      fulfillmentStatus: 'DELIVERED',
-      subtotal: 389,
-      discountAmount: 0,
-      shippingAmount: 0,
-      shippingMethod: 'STANDARD',
-      taxAmount: 64.83,
-      totalAmount: 389,
-      couponCode: null,
-      customerEmail: 'murat.celik@gmail.com',
-      shippingAddressSnapshot: {
-        fullName: 'Murat Çelik',
-        phone: '0505 444 3322',
-        addressLine: 'Nilüfer Barış Mah. Ihlamur Cad.',
-        city: 'Bursa',
-        district: 'Nilüfer',
-        postalCode: '16140',
-        country: 'TR',
-        email: 'murat.celik@gmail.com',
-      },
-      customerNote: null,
-      createdAt: new Date(now - 1000 * 60 * 60 * 72).toISOString(),
-      updatedAt: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
-      statusHistory: [
-        {
-          id: 'hist-5',
-          status: 'DELIVERED',
-          note: 'Teslimat tamamlandı (Alıcı bizzat teslim aldı).',
-          createdAt: new Date(now - 1000 * 60 * 60 * 24).toISOString(),
-          createdBy: 'yurtici-webhook',
-        },
-      ],
-      items: [
-        {
-          productId: 'prod-zl3',
-          productName: 'Hexagon Modüler Duvar Paneli — 6 Parça',
-          sku: 'ZUU-HEX-003',
-          quantity: 1,
-          unitPrice: 389,
-          totalAmount: 389,
-          taxRate: 20,
-          imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80',
-        },
-      ],
-      ...({ channel: 'DIRECT' } as any),
-    }
-  )
+export class CheckoutError extends Error {
+  constructor(
+    public code: 'CART_INVALID' | 'COUPON_INVALID' | 'PRICE_CHANGED' | 'OUT_OF_STOCK' | 'EMPTY_CART',
+    message: string,
+    public details?: { issues?: CartIssue[]; quote?: CartQuote }
+  ) {
+    super(message)
+    this.name = 'CheckoutError'
+  }
 }
 
 export const VALID_ORDER_TRANSITIONS: Record<string, string[]> = {
   PAYMENT_PENDING: ['PAYMENT_RECEIVED', 'CONFIRMED', 'PAYMENT_FAILED', 'CANCELLED'],
-  PAYMENT_FAILED: ['PAYMENT_PENDING', 'CANCELLED'],
+  PAYMENT_FAILED: ['PAYMENT_PENDING', 'CONFIRMED', 'CANCELLED'],
   PAYMENT_RECEIVED: ['CONFIRMED', 'PREPARING', 'CANCELLED'],
   CONFIRMED: ['PREPARING', 'IN_PRODUCTION', 'CANCELLED'],
   PREPARING: ['IN_PRODUCTION', 'PACKING', 'SHIPPED', 'CANCELLED'],
@@ -376,26 +131,255 @@ export const VALID_ORDER_TRANSITIONS: Record<string, string[]> = {
   CANCELLED: [],
 }
 
-/**
- * Generates a unique, collision-resistant branded order number: e.g. ZUU-202684918234
- */
+const PAID_STATUSES = new Set([
+  'PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING',
+  'SHIPPED', 'DELIVERED', 'RETURN_REQUESTED', 'RETURNED', 'PARTIALLY_REFUNDED',
+])
+
+function derivePaymentStatus(status: string, paidAt: unknown): string {
+  if (status === 'PAYMENT_PENDING') return 'PENDING'
+  if (status === 'PAYMENT_FAILED') return 'FAILED'
+  if (status === 'CANCELLED') return paidAt ? 'REFUND_PENDING' : 'CANCELLED'
+  if (status === 'RETURNED' || status === 'PARTIALLY_REFUNDED') return 'REFUNDED'
+  return PAID_STATUSES.has(status) ? 'PAID' : 'PENDING'
+}
+
+function deriveFulfillmentStatus(status: string): string {
+  switch (status) {
+    case 'SHIPPED': return 'SHIPPED'
+    case 'DELIVERED': return 'DELIVERED'
+    case 'CANCELLED': return 'CANCELLED'
+    case 'RETURN_REQUESTED':
+    case 'RETURNED':
+    case 'PARTIALLY_REFUNDED': return 'RETURNED'
+    default: return 'UNFULFILLED'
+  }
+}
+
+/** ZUU + 12 digits from a CSPRNG; uniqueness is enforced by the DB index. */
 function generateOrderNumber(): string {
-  const currentYear = new Date().getFullYear()
-  let candidate = ''
-  let attempts = 0
+  const digits = crypto.randomInt(0, 1_000_000_000_000).toString().padStart(12, '0')
+  return `ZUU${digits}`
+}
 
-  do {
-    const timeFragment = Date.now().toString().slice(-4)
-    const rand = Math.floor(1000 + Math.random() * 9000)
-    candidate = `ZUU-${currentYear}${timeFragment}${rand}`
-    attempts++
-  } while (inMemoryOrders.some((o) => o.orderNumber === candidate) && attempts < 10)
+function isUniqueViolation(err: unknown, column: string): boolean {
+  const text = String((err as { message?: string })?.message ?? err) + JSON.stringify(err ?? {})
+  return /unique|duplicate key|23505/i.test(text) && text.includes(column)
+}
 
-  return candidate
+// ─────────────────────────────────────────────────────────────
+// Reads
+// ─────────────────────────────────────────────────────────────
+
+function withRelations() {
+  return db.orm.public.Order
+    .include('items')
+    .include('statusHistory', (h) => h.orderBy((x) => x.createdAt.desc()))
+    .include('user', (u) => u.select('id', 'email'))
+}
+
+type OrderRow = Awaited<ReturnType<ReturnType<typeof withRelations>['all']>>[number]
+
+function toStoredOrder(row: OrderRow): StoredOrder {
+  const billing = (row.billingSnapshot ?? undefined) as StoredOrder['billingAddressSnapshot']
+  const email = row.email || row.user?.email || undefined
+  return {
+    id: row.id,
+    orderNumber: row.orderNumber,
+    userId: row.userId,
+    status: row.status,
+    paymentStatus: derivePaymentStatus(row.status, row.paidAt),
+    fulfillmentStatus: deriveFulfillmentStatus(row.status),
+    stockState: row.stockState,
+    channel: row.channel || 'DIRECT',
+    subtotal: Number(row.subtotal),
+    discountAmount: Number(row.discountAmount),
+    shippingAmount: Number(row.shippingCost),
+    shippingMethod: row.shippingMethod === 'EXPRESS' ? 'EXPRESS' : 'STANDARD',
+    taxAmount: Number(row.taxAmount),
+    totalAmount: Number(row.total),
+    couponCode: row.couponCode ?? null,
+    customerEmail: email,
+    shippingAddressSnapshot: {
+      fullName: row.shipToName,
+      phone: row.shipToPhone,
+      addressLine: row.shipToAddress,
+      city: row.shipToCity,
+      district: row.shipToDistrict,
+      postalCode: row.shipToPostal,
+      country: row.shipToCountry,
+      email,
+    },
+    billingAddressSnapshot: billing,
+    customerNote: row.customerNote ?? null,
+    addressId: row.addressId ?? null,
+    paymentExpiresAt: dbTimestampToIso(row.paymentExpiresAt),
+    paidAt: dbTimestampToIso(row.paidAt),
+    createdAt: dbTimestampToIso(row.createdAt) ?? new Date(0).toISOString(),
+    updatedAt: dbTimestampToIso(row.updatedAt) ?? new Date(0).toISOString(),
+    statusHistory: (row.statusHistory ?? []).map((h) => ({
+      id: h.id,
+      status: h.status,
+      note: h.note ?? null,
+      createdAt: dbTimestampToIso(h.createdAt) ?? '',
+      createdBy: h.createdBy ?? null,
+    })),
+    items: (row.items ?? []).map((i) => ({
+      id: i.id,
+      productId: i.productId,
+      variantId: i.variantId ?? null,
+      variantInfo: i.variantInfo ?? null,
+      productName: i.productName,
+      sku: i.sku,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+      totalAmount: Number(i.total),
+      taxRate: Number(i.taxRate),
+      imageUrl: i.imageUrl ?? null,
+    })),
+  }
+}
+
+export async function findOrderByNumber(orderNumber: string): Promise<StoredOrder | null> {
+  const row = await withRelations().where({ orderNumber }).first()
+  return row ? toStoredOrder(row) : null
+}
+
+const INTERNAL_NOTE_AUTHOR_PREFIX = 'internal-note:'
+
+/** Staff-only history rows (internal notes) must never reach the customer. */
+export function isInternalHistoryItem(item: { createdBy?: string | null }): boolean {
+  return Boolean(item.createdBy?.startsWith(INTERNAL_NOTE_AUTHOR_PREFIX))
 }
 
 /**
- * Authoritatively creates a real order and reserves inventory
+ * Retrieves orders for a specific user (customer-facing: internal notes removed)
+ */
+export async function getUserOrders(userId: string): Promise<StoredOrder[]> {
+  const rows = await withRelations()
+    .where({ userId })
+    .orderBy((o) => o.createdAt.desc())
+    .limit(100)
+    .all()
+  return rows.map(toStoredOrder).map((o) => ({
+    ...o,
+    statusHistory: o.statusHistory.filter((h) => !isInternalHistoryItem(h)),
+  }))
+}
+
+/** Adds a staff-only note to the order timeline. */
+export async function addInternalOrderNote(orderNumber: string, note: string, adminEmail: string): Promise<OrderStatusHistoryItem | null> {
+  const order = await db.orm.public.Order.select('id', 'status').where({ orderNumber }).first()
+  if (!order) return null
+  const row = await db.orm.public.OrderStatusHistory.create({
+    orderId: order.id,
+    status: order.status,
+    note: `[Dahili Not] ${note}`,
+    createdBy: `${INTERNAL_NOTE_AUTHOR_PREFIX}admin:${adminEmail}`,
+  })
+  return {
+    id: row.id,
+    status: row.status,
+    note: row.note ?? null,
+    createdAt: dbTimestampToIso(row.createdAt) ?? new Date().toISOString(),
+    createdBy: row.createdBy ?? null,
+  }
+}
+
+/**
+ * Retrieves an order by order number with strict ownership authorization
+ */
+export async function getOrderByNumber(
+  orderNumber: string,
+  userId?: string,
+  isAdmin = false
+  // Callers read admin-only extras (currentStock, …) without a shared type yet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any | null> {
+  const found = await findOrderByNumber(orderNumber)
+  if (!found) return null
+
+  // Security check: non-admin can only view their own order
+  if (!isAdmin && userId && found.userId !== userId) {
+    return null
+  }
+
+  if (isAdmin) {
+    const stockOf = await currentStockFor(found.items)
+    return {
+      ...found,
+      items: found.items.map((item) => {
+        const stock = stockOf(item)
+        return {
+          ...item,
+          currentStock: stock,
+          availableStock: stock,
+          hasStockShortage: stock < 0,
+        }
+      }),
+    }
+  }
+
+  return found
+}
+
+const PAYMENT_STATUS_FILTER: Record<string, string[]> = {
+  PENDING: ['PAYMENT_PENDING'],
+  FAILED: ['PAYMENT_FAILED'],
+  PAID: [...PAID_STATUSES].filter((s) => s !== 'RETURNED' && s !== 'PARTIALLY_REFUNDED'),
+  SUCCEEDED: [...PAID_STATUSES],
+  REFUNDED: ['RETURNED', 'PARTIALLY_REFUNDED'],
+  CANCELLED: ['CANCELLED'],
+}
+
+/**
+ * Retrieves all orders for the admin panel with optional filters
+ */
+export async function getAllOrders(filters?: {
+  status?: string
+  paymentStatus?: string
+  search?: string
+  channel?: string
+  limit?: number
+}): Promise<StoredOrder[]> {
+  let query = withRelations()
+
+  if (filters?.channel && filters.channel !== 'ALL') {
+    const channel = filters.channel
+    query = query.where((o) => o.channel.eq(channel))
+  }
+  if (filters?.status && filters.status !== 'ALL') {
+    const status = filters.status
+    query = query.where((o) => o.status.eq(status as never))
+  }
+  if (filters?.paymentStatus && filters.paymentStatus !== 'ALL') {
+    const statuses = PAYMENT_STATUS_FILTER[filters.paymentStatus] ?? []
+    query = query.where((o) => o.status.in(statuses as never[]))
+  }
+  if (filters?.search && filters.search.trim()) {
+    const q = `%${filters.search.trim().replace(/[%_\\]/g, (c) => `\\${c}`)}%`
+    query = query.where((o) => or(o.orderNumber.ilike(q), o.shipToName.ilike(q), o.email.ilike(q)))
+  }
+
+  const rows = await query
+    .orderBy((o) => o.createdAt.desc())
+    .limit(Math.min(filters?.limit ?? 500, 2000))
+    .all()
+  return rows.map(toStoredOrder)
+}
+
+// ─────────────────────────────────────────────────────────────
+// Create
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Creates an order from a server-side quote and holds its stock, atomically.
+ *
+ * - Prices, discount, shipping and VAT come from `quoteCart`, never from the client.
+ * - The cart must be fulfillable as-is; nothing is silently dropped or reduced.
+ * - If `expectedTotal` differs from the server total the order is refused, so the
+ *   customer is never charged an amount they were not shown.
+ * - `checkoutKey` makes a resubmitted checkout return the original order.
  */
 export async function createOrder(payload: CreateOrderPayload): Promise<StoredOrder> {
   const {
@@ -408,141 +392,152 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     billingAddress,
     addressId,
     customerNote,
+    checkoutKey,
+    expectedTotal,
   } = payload
+  const email = (payload.email || shippingAddress.email || '').trim().toLowerCase() || null
 
-  // 1. Authoritative price recalculation
-  const verifiedCart = await verifyAndCalculateCart(items, couponCode)
-
-  if (verifiedCart.items.length === 0) {
-    throw new Error('Sipariş oluşturmak için sepetinizde geçerli ürün bulunamadı.')
-  }
-
-  // 2. Shipping calculation
-  const freeShippingThreshold = await getFreeShippingThreshold()
-  const shippingCalc = calculateShipping(
-    verifiedCart.subtotal,
-    shippingMethod,
-    verifiedCart.coupon?.type === 'FREE_SHIPPING',
-    freeShippingThreshold
-  )
-
-  const effectiveShipping = shippingCalc.shippingFee
-  const taxAmount = Math.round(verifiedCart.subtotal * 0.2 * 100) / 100
-  const finalTotal = Math.max(
-    0,
-    verifiedCart.subtotal - verifiedCart.discountAmount + effectiveShipping
-  )
-
-  const orderNumber = generateOrderNumber()
-
-  // 3. Reserve inventory before finalizing order initiation
-  const reservationResult = await reserveInventory(
-    items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-    orderNumber
-  )
-
-  if (!reservationResult.success) {
-    throw new Error(reservationResult.error || 'Stok rezervasyonu başarısız oldu.')
-  }
-
-  const now = new Date().toISOString()
-  const initialHistory: OrderStatusHistoryItem = {
-    id: `hist-${Date.now()}-1`,
-    status: 'PAYMENT_PENDING',
-    note: 'Sipariş oluşturuldu, ödeme bekleniyor.',
-    createdAt: now,
-    createdBy: 'system',
-  }
-
-  const orderRecord: StoredOrder = {
-    id: `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    orderNumber,
-    userId,
-    status: 'PAYMENT_PENDING',
-    paymentStatus: 'PENDING',
-    fulfillmentStatus: 'UNFULFILLED',
-    subtotal: verifiedCart.subtotal,
-    discountAmount: verifiedCart.discountAmount,
-    shippingAmount: effectiveShipping,
-    shippingMethod,
-    taxAmount,
-    totalAmount: finalTotal,
-    couponCode: verifiedCart.coupon?.code || null,
-    customerEmail: shippingAddress.email,
-    shippingAddressSnapshot: shippingAddress,
-    billingAddressSnapshot: billingSameAsShipping ? shippingAddress : billingAddress,
-    addressId: addressId || null,
-    customerNote: customerNote || null,
-    createdAt: now,
-    updatedAt: now,
-    statusHistory: [initialHistory],
-    items: verifiedCart.items.map((i) => ({
-      productId: i.productId,
-      productName: i.name,
-      sku: i.sku,
-      quantity: i.quantity,
-      unitPrice: i.price,
-      totalAmount: i.subtotal,
-      taxRate: i.taxRate || 20,
-      imageUrl: i.imageUrl,
-    })),
-  }
-
-  // 4. Persist to PostgreSQL if configured
-  if (isDatabaseConfigured) {
-    try {
-      const createdDbOrder = await db.orm.public.Order.create({
-        orderNumber,
-        userId,
-        addressId: addressId || null,
-        status: 'PAYMENT_PENDING',
-        subtotal: verifiedCart.subtotal.toString() as any,
-        discountAmount: verifiedCart.discountAmount.toString() as any,
-        shippingCost: effectiveShipping.toString() as any,
-        taxAmount: taxAmount.toString() as any,
-        total: finalTotal.toString() as any,
-        shipToName: shippingAddress.fullName,
-        shipToPhone: shippingAddress.phone,
-        shipToAddress: shippingAddress.addressLine,
-        shipToCity: shippingAddress.city,
-        shipToDistrict: shippingAddress.district,
-        shipToPostal: shippingAddress.postalCode,
-        shipToCountry: shippingAddress.country || 'TR',
-        couponCode: verifiedCart.coupon?.code || null,
-        customerNote: customerNote || null,
-      })
-      if (createdDbOrder?.id) {
-        orderRecord.id = createdDbOrder.id
+  if (checkoutKey) {
+    const existing = await withRelations().where({ checkoutKey }).first()
+    if (existing) {
+      if (existing.userId !== userId) {
+        throw new CheckoutError('CART_INVALID', 'Geçersiz ödeme isteği. Lütfen sayfayı yenileyin.')
       }
-    } catch (err) {
-      console.warn('[orders.service] DB order create failed, falling back to memory:', err)
+      return toStoredOrder(existing)
     }
   }
 
-  inMemoryOrders.unshift(orderRecord)
+  const quote = await quoteCart({ items, couponCode, shippingMethod, userId })
+
+  if (quote.lines.length === 0) {
+    throw new CheckoutError('EMPTY_CART', 'Sipariş oluşturmak için sepetinizde geçerli ürün bulunamadı.', { quote })
+  }
+  if (quote.issues.length > 0) {
+    throw new CheckoutError('CART_INVALID', quote.issues[0].message, { issues: quote.issues, quote })
+  }
+  if (couponCode && couponCode.trim() && !quote.coupon) {
+    throw new CheckoutError('COUPON_INVALID', quote.couponError || 'Kupon kodu geçersiz.', { quote })
+  }
+  if (expectedTotal !== undefined && Math.abs(round2(expectedTotal) - quote.total) > 0.009) {
+    throw new CheckoutError(
+      'PRICE_CHANGED',
+      'Sepet tutarı güncellendi. Lütfen yeni tutarı kontrol edip tekrar deneyin.',
+      { quote }
+    )
+  }
+
+  const billing = billingSameAsShipping ? shippingAddress : billingAddress
+  const expiresAt = new Date(Date.now() + PAYMENT_HOLD_MINUTES * 60 * 1000)
+
+  let orderNumber = ''
+  for (let attempt = 0; ; attempt++) {
+    orderNumber = generateOrderNumber()
+    try {
+      await db.transaction(async (tx) => {
+        const order = await tx.orm.public.Order.create({
+          orderNumber,
+          userId,
+          addressId: addressId || null,
+          status: 'PAYMENT_PENDING',
+          subtotal: dbNumeric(quote.subtotal),
+          discountAmount: dbNumeric(quote.discountAmount),
+          shippingCost: dbNumeric(quote.shippingAmount),
+          taxAmount: dbNumeric(quote.taxAmount),
+          total: dbNumeric(quote.total),
+          shipToName: shippingAddress.fullName,
+          shipToPhone: shippingAddress.phone,
+          shipToAddress: shippingAddress.addressLine,
+          shipToCity: shippingAddress.city,
+          shipToDistrict: shippingAddress.district,
+          shipToPostal: shippingAddress.postalCode,
+          shipToCountry: shippingAddress.country || 'TR',
+          couponId: quote.coupon?.id ?? null,
+          couponCode: quote.coupon?.code ?? null,
+          customerNote: customerNote || null,
+          email,
+          shippingMethod: quote.shippingMethod,
+          billingSnapshot: (billing ?? null) as never,
+          channel: 'DIRECT',
+          checkoutKey: checkoutKey ?? null,
+          stockState: 'NONE',
+          paymentExpiresAt: toDbTimestamp(expiresAt) as never,
+        })
+
+        for (const line of quote.lines) {
+          await tx.orm.public.OrderItem.create({
+            orderId: order.id,
+            productId: line.productId,
+            variantId: line.variantId,
+            productName: line.name,
+            variantInfo: line.variantInfo,
+            sku: line.sku,
+            quantity: line.quantity,
+            unitPrice: dbNumeric(line.unitPrice),
+            taxRate: dbNumeric(line.taxRate),
+            total: dbNumeric(line.lineTotal),
+            imageUrl: line.imageUrl,
+          })
+        }
+
+        await tx.orm.public.OrderStatusHistory.create({
+          orderId: order.id,
+          status: 'PAYMENT_PENDING',
+          note: 'Sipariş oluşturuldu, ödeme bekleniyor.',
+          createdBy: 'system',
+        })
+
+        await holdStockForNewOrder(
+          tx,
+          order.id,
+          quote.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, name: l.name }))
+        )
+      })
+      break
+    } catch (err) {
+      if (err instanceof InsufficientStockError) {
+        throw new CheckoutError('OUT_OF_STOCK', err.message)
+      }
+      if (checkoutKey && isUniqueViolation(err, 'checkout_key')) {
+        // A concurrent submit of the same checkout won the race; return its order.
+        const winner = await findByCheckoutKey(checkoutKey)
+        if (winner && winner.userId === userId) return winner
+      }
+      if (attempt < 4 && isUniqueViolation(err, 'order_number')) continue
+      throw err
+    }
+  }
+
+  const created = await findOrderByNumber(orderNumber)
+  if (!created) throw new Error('Sipariş kaydedildi ancak okunamadı.')
 
   await logAuditEvent({
     userId,
     action: 'ORDER_CREATED',
     entity: 'Order',
     entityId: orderNumber,
-    metadata: {
-      total: finalTotal,
-      itemCount: orderRecord.items.length,
-      shippingMethod,
-    },
+    metadata: { total: created.totalAmount, itemCount: created.items.length, shippingMethod },
   })
 
-  // Trigger notification asynchronously (non-blocking)
   createNotification({ orderNumber, eventType: 'ORDER_CREATED' }).catch((err) => {
     console.warn('[orders.service] Error sending ORDER_CREATED notification:', err)
   })
 
-  return orderRecord
+  return created
 }
 
+async function findByCheckoutKey(checkoutKey: string): Promise<StoredOrder | null> {
+  const row = await withRelations().where({ checkoutKey }).first()
+  return row ? toStoredOrder(row) : null
+}
+
+// ─────────────────────────────────────────────────────────────
+// Status
+// ─────────────────────────────────────────────────────────────
+
 /**
- * Validates and updates order status through the central transition machine
+ * Validates and updates order status through the central transition machine.
+ * The status change is a compare-and-set on the current status, so two concurrent
+ * callers (e.g. a duplicated webhook) cannot both apply the same transition.
  */
 export async function updateOrderStatus(
   orderNumber: string,
@@ -550,100 +545,60 @@ export async function updateOrderStatus(
   note?: string,
   changedBy = 'system'
 ): Promise<{ success: boolean; order?: StoredOrder; error?: string }> {
-  const order = inMemoryOrders.find((o) => o.orderNumber === orderNumber)
+  const order = await findOrderByNumber(orderNumber)
   if (!order) {
     return { success: false, error: 'Sipariş bulunamadı.' }
   }
 
-  const allowed = VALID_ORDER_TRANSITIONS[order.status] || []
+  const fromStatus = order.status
+  const allowed = VALID_ORDER_TRANSITIONS[fromStatus] || []
   if (!allowed.includes(targetStatus)) {
-    return {
-      success: false,
-      error: `Geçersiz durum geçişi: '${order.status}' durumundaki sipariş '${targetStatus}' yapılamaz.`,
-    }
+    const error = `Geçersiz durum geçişi: '${fromStatus}' durumundaki sipariş '${targetStatus}' yapılamaz.`
+    console.error(`[orders.service] ${orderNumber}: ${error}`)
+    return { success: false, error }
   }
 
-  const now = new Date().toISOString()
-  const historyItem: OrderStatusHistoryItem = {
-    id: `hist-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    status: targetStatus,
-    note: note || `Sipariş durumu güncellendi: ${targetStatus}`,
-    createdAt: now,
-    createdBy: changedBy,
+  const applied = await db.transaction(async (tx) => {
+    const plan = db.raw.sql`UPDATE orders SET status = ${targetStatus}::"OrderStatus", updated_at = now() WHERE id = ${order.id} AND status = ${fromStatus}::"OrderStatus"`.affectedCount().build()
+    const { affectedRows } = await tx.execute(plan)
+    if (affectedRows !== 1) return false
+    await tx.orm.public.OrderStatusHistory.create({
+      orderId: order.id,
+      status: targetStatus as never,
+      note: note || `Sipariş durumu güncellendi: ${targetStatus}`,
+      createdBy: changedBy,
+    })
+    return true
+  })
+
+  if (!applied) {
+    return { success: false, error: 'Sipariş durumu eşzamanlı olarak değiştirildi. Lütfen tekrar deneyin.' }
   }
 
-  order.status = targetStatus
-  order.updatedAt = now
-  order.statusHistory.unshift(historyItem)
+  if (targetStatus === 'CANCELLED' || targetStatus === 'PAYMENT_FAILED') {
+    // Unshipped goods go back on the shelf whether or not the order had been paid.
+    await releaseOrderStock(order.id, { includeCommitted: targetStatus === 'CANCELLED' })
+  }
 
-  // Handle inventory and fulfillment status based on status change
   if (targetStatus === 'CANCELLED') {
-    // Release inventory reservation for any order cancelled before shipment
-    await releaseInventoryReservation(
-      order.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      orderNumber,
-      {
-        context: 'DIRECT',
-        reason: `Sipariş İptal Edildi (${orderNumber}) - Rezervasyon Serbest Bırakma`,
-      }
-    )
-    order.fulfillmentStatus = 'CANCELLED'
-
     await logAuditEvent({
       action: 'ORDER_CANCELLED',
       entity: 'Order',
       entityId: orderNumber,
       metadata: { changedBy, note },
     })
-  } else if (targetStatus === 'SHIPPED') {
-    order.fulfillmentStatus = 'SHIPPED'
-    await commitInventoryReservation(
-      order.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      orderNumber,
-      {
-        context: 'DIRECT',
-        reason: `Sipariş Sevk Edildi (${orderNumber}) - Fiziksel Stok Düşümü`,
-      }
-    )
-  } else if (targetStatus === 'DELIVERED') {
-    order.fulfillmentStatus = 'DELIVERED'
-  } else if (targetStatus === 'CONFIRMED' || targetStatus === 'PAYMENT_RECEIVED') {
-    order.paymentStatus = 'PAID'
-  }
-
-  // Update in PostgreSQL if configured
-  if (isDatabaseConfigured) {
-    try {
-      await db.orm.public.Order.where({ orderNumber }).update({
-        status: targetStatus as any,
-      })
-      await db.orm.public.OrderStatusHistory.create({
-        orderId: order.id,
-        status: targetStatus as any,
-        note: note || null,
-        createdBy: changedBy,
-      })
-    } catch (err) {
-      console.warn('[orders.service] DB status update failed:', err)
-    }
   }
 
   await logAuditEvent({
     action: 'ORDER_STATUS_CHANGED',
     entity: 'Order',
     entityId: orderNumber,
-    metadata: {
-      fromStatus: order.status,
-      toStatus: targetStatus,
-      changedBy,
-      note,
-    },
+    metadata: { fromStatus, toStatus: targetStatus, changedBy, note },
   })
 
-  // Trigger transactional notifications asynchronously (non-blocking)
-  let notifType: any = null
+  let notifType: NotificationEventType | null = null
   if (targetStatus === 'CONFIRMED') notifType = 'ORDER_CONFIRMED'
-  else if (targetStatus === 'PREPARING' || targetStatus === 'PROCESSING') notifType = 'ORDER_PREPARING'
+  else if (targetStatus === 'PREPARING') notifType = 'ORDER_PREPARING'
   else if (targetStatus === 'SHIPPED') notifType = 'ORDER_SHIPPED'
   else if (targetStatus === 'DELIVERED') notifType = 'ORDER_DELIVERED'
   else if (targetStatus === 'CANCELLED') notifType = 'ORDER_CANCELLED'
@@ -658,104 +613,10 @@ export async function updateOrderStatus(
     })
   }
 
-  return { success: true, order }
+  return { success: true, order: (await findOrderByNumber(orderNumber)) ?? undefined }
 }
 
-/**
- * Retrieves orders for a specific user
- */
-export async function getUserOrders(userId: string): Promise<StoredOrder[]> {
-  return inMemoryOrders.filter((o) => o.userId === userId)
-}
-
-/**
- * Retrieves an order by order number with strict ownership authorization
- */
-export async function getOrderByNumber(
-  orderNumber: string,
-  userId?: string,
-  isAdmin = false
-): Promise<any | null> {
-  const found = inMemoryOrders.find((o) => o.orderNumber === orderNumber)
-  if (!found) return null
-
-  // Security check: non-admin can only view their own order
-  if (!isAdmin && userId && found.userId !== userId) {
-    return null
-  }
-
-  if (isAdmin) {
-    const enrichedItems = await Promise.all(
-      found.items.map(async (item) => {
-        try {
-          const inv = await getInventoryStatus(item.productId)
-          return {
-            ...item,
-            currentStock: inv.stock,
-            availableStock: inv.available,
-            hasStockShortage: inv.available < item.quantity,
-          }
-        } catch {
-          return {
-            ...item,
-            currentStock: 0,
-            availableStock: 0,
-            hasStockShortage: true,
-          }
-        }
-      })
-    )
-
-    return {
-      ...found,
-      channel: (found as any).channel || 'DIRECT',
-      items: enrichedItems,
-    }
-  }
-
-  return found
-}
-
-/**
- * Retrieves all orders for the admin panel with optional filters
- */
-export async function getAllOrders(filters?: {
-  status?: string
-  paymentStatus?: string
-  search?: string
-  channel?: string
-  limit?: number
-}): Promise<StoredOrder[]> {
-  let list = inMemoryOrders.map((o) => ({
-    ...o,
-    channel: (o as any).channel || 'DIRECT',
-  }))
-
-  if (filters?.channel && filters.channel !== 'ALL') {
-    list = list.filter((o: any) => o.channel === filters.channel)
-  }
-
-  if (filters?.status && filters.status !== 'ALL') {
-    list = list.filter((o) => o.status === filters.status)
-  }
-
-  if (filters?.paymentStatus && filters.paymentStatus !== 'ALL') {
-    list = list.filter((o) => o.paymentStatus === filters.paymentStatus)
-  }
-
-  if (filters?.search) {
-    const q = filters.search.toLowerCase()
-    list = list.filter(
-      (o) =>
-        o.orderNumber.toLowerCase().includes(q) ||
-        o.shippingAddressSnapshot.fullName.toLowerCase().includes(q) ||
-        (o.customerEmail && o.customerEmail.toLowerCase().includes(q))
-    )
-  }
-
-  if (filters?.limit) {
-    list = list.slice(0, filters.limit)
-  }
-
-  return list
+/** Marks the order paid (used by the payment service inside its own flow). */
+export async function markOrderPaid(orderId: string, paidAt: Date): Promise<void> {
+  await db.orm.public.Order.where({ id: orderId }).update({ paidAt: toDbTimestamp(paidAt) as never })
 }

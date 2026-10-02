@@ -505,6 +505,7 @@ model ProductCollection {
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
 
   @@unique([productId, collectionId])
+  @@index([collectionId])
   @@map("product_collections")
 }
 
@@ -634,6 +635,19 @@ model Order {
   customerNote   String?              @map("customer_note") @db.Text
   adminNote      String?              @map("admin_note") @db.Text
 
+  // Checkout
+  email            String?            @map("email")
+  shippingMethod   String             @default("STANDARD") @map("shipping_method")
+  billingSnapshot  Json?              @map("billing_snapshot")
+  channel          String             @default("DIRECT")
+  // Client-generated key; a repeated checkout submit returns the same order.
+  checkoutKey      String?            @unique @map("checkout_key")
+  // Stock held by this order: HELD at checkout, COMMITTED on payment, RELEASED on
+  // failure/expiry/cancel. Transitions are compare-and-set so they run exactly once.
+  stockState       StockHoldState     @default(NONE) @map("stock_state")
+  paymentExpiresAt DateTime?          @map("payment_expires_at")
+  paidAt           DateTime?          @map("paid_at")
+
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
 
@@ -649,7 +663,17 @@ model Order {
   couponUsages   CouponUsage[]
   returnRequests ReturnRequest[]
 
+  @@index([userId])
+  @@index([status, createdAt])
+  @@index([stockState, paymentExpiresAt])
   @@map("orders")
+}
+
+enum StockHoldState {
+  NONE
+  HELD
+  COMMITTED
+  RELEASED
 }
 
 model OrderItem {
@@ -670,6 +694,7 @@ model OrderItem {
   product     Product         @relation(fields:[productId], references:[id])
   variant     ProductVariant? @relation(fields:[variantId], references:[id])
 
+  @@index([orderId])
   @@map("order_items")
 }
 
@@ -683,6 +708,7 @@ model OrderStatusHistory {
 
   order     Order       @relation(fields:[orderId], references:[id], onDelete: Cascade)
 
+  @@index([orderId])
   @@map("order_status_history")
 }
 
@@ -717,11 +743,20 @@ model Payment {
   failureReason String?         @map("failure_reason")
   rawResponse   Json?           @map("raw_response") // full provider response
   ipAddress     String?         @map("ip_address")
+  // Identifier sent to the provider (PayTR merchant_oid); callbacks are matched on it.
+  merchantOid   String?         @unique @map("merchant_oid")
+  attemptNumber Int             @default(1) @map("attempt_number")
+  expiresAt     DateTime?       @map("expires_at")
+  // Amount actually captured; exceeds `amount` when the customer chose installments.
+  paidAmount    Decimal?        @db.Decimal(10, 2) @map("paid_amount")
+  installmentCount Int?         @map("installment_count")
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
   order         Order           @relation(fields:[orderId], references:[id])
 
+  @@index([orderId])
+  @@index([status, expiresAt])
   @@map("payments")
 }
 
@@ -908,6 +943,7 @@ model Coupon {
   type           CouponType
   discountValue  Decimal       @db.Decimal(10, 2) @map("discount_value")
   minCartAmount  Decimal?      @db.Decimal(10, 2) @map("min_cart_amount")
+  maxDiscount    Decimal?      @db.Decimal(10, 2) @map("max_discount") // cap for PERCENTAGE coupons
   maxUses        Int?          @map("max_uses")
   maxUsesPerUser Int?          @default(1) @map("max_uses_per_user")
   currentUses    Int           @default(0) @map("current_uses")
@@ -935,6 +971,8 @@ model CouponUsage {
   user     User     @relation(fields:[userId], references:[id])
   order    Order?   @relation(fields:[orderId], references:[id])
 
+  @@unique([couponId, orderId])
+  @@index([couponId, userId])
   @@map("coupon_usages")
 }
 

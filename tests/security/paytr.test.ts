@@ -52,13 +52,13 @@ describe('PayTR simulator', () => {
   it('refuses to sign test callbacks with real merchant secrets', () => {
     stubEnv({ ...LIVE, NODE_ENV: 'development' })
     const provider = new PayTRPaymentProvider()
-    expect(() => provider.generateTestWebhook('ZUU1', 'p1', 100, 'SUCCESS')).toThrow(/SIMULATION_DISABLED/)
+    expect(() => provider.generateTestWebhook('ZUU1', 100, 'SUCCESS')).toThrow(/SIMULATION_DISABLED/)
   })
 
   it('works locally without credentials and its signature verifies', async () => {
     stubEnv({ PAYTR_MERCHANT_ID: '', PAYTR_MERCHANT_KEY: '', PAYTR_MERCHANT_SALT: '', NODE_ENV: 'development' })
     const provider = new PayTRPaymentProvider()
-    const { payload, signature } = provider.generateTestWebhook('ZUU1', 'p1', 100, 'SUCCESS')
+    const { payload, signature } = provider.generateTestWebhook('ZUU1', 100, 'SUCCESS')
     const result = await provider.verifyWebhook(payload, signature)
     expect(result.isValid).toBe(true)
   })

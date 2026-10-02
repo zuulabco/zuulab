@@ -28,25 +28,38 @@ export const addressSchema = z.object({
   country: z.string().optional(),
 })
 
+export const cartItemsSchema = z
+  .array(
+    z.object({
+      productId: z.string().min(1, 'Ürün ID zorunludur.'),
+      variantId: z.string().nullable().optional(),
+      quantity: z.number().int().min(1, 'Miktar en az 1 olmalıdır.').max(99, 'Miktar en fazla 99 olabilir.'),
+    })
+  )
+  .max(50, 'Sepette en fazla 50 farklı ürün bulunabilir.')
+
+export const shippingMethodSchema = z.enum(['STANDARD', 'EXPRESS']).default('STANDARD')
+
+/** Body of the cart quote and coupon endpoints. */
+export const cartQuoteSchema = z.object({
+  items: cartItemsSchema,
+  couponCode: z.string().trim().max(30).optional().nullable(),
+  shippingMethod: shippingMethodSchema,
+})
+
 export const checkoutInitiateSchema = z.object({
   email: z.string().email('Geçerli bir e-posta adresi giriniz.'),
   shippingAddress: addressSchema,
   billingSameAsShipping: z.boolean().default(true),
   billingAddress: addressSchema.optional(),
-  shippingMethod: z.enum(['STANDARD', 'EXPRESS']).default('STANDARD'),
+  shippingMethod: shippingMethodSchema,
   couponCode: z.string().trim().max(30).optional().nullable(),
   customerNote: z.string().max(500).optional().nullable(),
   expectedTotal: z.number().optional(),
   savedAddressId: z.string().optional(),
-  items: z
-    .array(
-      z.object({
-        productId: z.string().min(1, 'Ürün ID zorunludur.'),
-        variantId: z.string().nullable().optional(),
-        quantity: z.number().int().min(1, 'Miktar en az 1 olmalıdır.'),
-      })
-    )
-    .min(1, 'Sepetinizde en az 1 ürün bulunmalıdır.'),
+  // Generated once per checkout attempt by the browser; repeated submits reuse it.
+  checkoutKey: z.string().min(16).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
+  items: cartItemsSchema.min(1, 'Sepetinizde en az 1 ürün bulunmalıdır.'),
 })
 
 export type AddressInput = z.infer<typeof addressSchema>

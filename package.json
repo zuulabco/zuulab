@@ -10,7 +10,8 @@
     "lint": "eslint",
     "contract:emit": "prisma contract emit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run tests/security tests/unit",
+    "test:integration": "vitest run tests/integration"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
