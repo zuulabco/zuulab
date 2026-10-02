@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductCatalogClient, { ProductCatalogSkeleton } from './ProductCatalogClient'
-import { getProducts, getCategories } from '@/lib/services/products.service'
+import { getProducts, getCategories, getCollections } from '@/lib/services/products.service'
 
 export const metadata: Metadata = {
   title: 'ürünler — zuulab',
@@ -11,9 +11,10 @@ export const metadata: Metadata = {
 }
 
 export default async function ProductsPage() {
-  const [{ items: products }, categories] = await Promise.all([
-    getProducts({ limit: 100 }),
+  const [{ items: products }, categories, collections] = await Promise.all([
+    getProducts({ limit: 5000 }),
     getCategories(),
+    getCollections(),
   ])
 
   return (
@@ -30,6 +31,7 @@ export default async function ProductsPage() {
         <ProductCatalogClient
           products={products}
           categories={categories}
+          collections={collections}
         />
       </Suspense>
     </div>

@@ -4,8 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/lib/mock-data'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import type { StoreNavigation } from '@/types/navigation'
 import { formatPrice } from '@/lib/utils'
 import styles from './SearchBar.module.css'
 
@@ -18,22 +17,32 @@ const SUGGESTED_QUERIES = [
   'toptan stand',
 ]
 
-const POPULAR_DISCOVERY = {
-  collections: [
-    { name: 'zuukids', slug: 'zuukids' },
-    { name: 'zuulife', slug: 'zuulife' },
-    { name: 'zuulight', slug: 'zuulight' },
-  ],
-  categories: [
-    { name: 'Aydınlatmalar', slug: 'aydinlatmalar' },
-    { name: 'Figürler', slug: 'figurler' },
-    { name: 'Masaüstü & Organizer', slug: 'masaustu-organizer' },
-  ],
+interface SearchProduct {
+  id: string
+  slug: string
+  name: string
+  price: number
+  categoryName: string
+  image: string | null
+}
+
+/** Lowercase, Turkish-aware, accent-free; mirrors the server's search normalisation. */
+function normalize(text: string): string {
+  return text
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
 }
 
 const STORAGE_KEY = 'zuulab_recent_searches'
 
-export default function SearchBar() {
+export default function SearchBar({ navigation }: { navigation: StoreNavigation }) {
+  // Discovery shortcuts follow the live catalog navigation.
+  const POPULAR_DISCOVERY = {
+    collections: navigation.collections.slice(0, 3),
+    categories: navigation.categories.slice(0, 3),
+  }
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [recentSearches, setRecentSearches] = useState<string[]>([])
@@ -99,49 +108,44 @@ export default function SearchBar() {
     closeSearch()
   }
 
-  // 1. Filter matching products
-  const matchingProducts = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return MOCK_PRODUCTS.filter((p) => {
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        p.categoryName.toLowerCase().includes(q) ||
-        (p.collectionWorld && p.collectionWorld.toLowerCase().includes(q)) ||
-        (p.collections && p.collections.some((c) => c.toLowerCase().includes(q))) ||
-        p.material.toLowerCase().includes(q) ||
-        (p.shortDescription && p.shortDescription.toLowerCase().includes(q))
-      )
-    }).slice(0, 4)
-  }, [query])
+  // 1. Matching products come from the server (database catalog), debounced.
+  const [productResults, setProductResults] = useState<{ q: string; items: SearchProduct[] }>({ q: '', items: [] })
+  const trimmedQuery = query.trim()
+  // Only show results that belong to the current query.
+  const matchingProducts = trimmedQuery.length >= 2 && productResults.q === trimmedQuery ? productResults.items : []
+  useEffect(() => {
+    const q = trimmedQuery
+    if (q.length < 2) return
+    const controller = new AbortController()
+    const handle = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((data) => setProductResults({ q, items: data.success ? (data.products as SearchProduct[]).slice(0, 4) : [] }))
+        .catch(() => {})
+    }, 200)
+    return () => {
+      clearTimeout(handle)
+      controller.abort()
+    }
+  }, [trimmedQuery])
 
-  // 2. Filter matching collections
+  // 2. Matching collections (from the live navigation)
   const matchingCollections = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normalize(query.trim())
     if (!q) return []
-    return ALL_COLLECTIONS.filter((c) => {
-      return (
-        c.name.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        (c.tagline && c.tagline.toLowerCase().includes(q)) ||
-        (c.description && c.description.toLowerCase().includes(q))
-      )
-    }).slice(0, 3)
-  }, [query])
+    return navigation.collections
+      .filter((c) => normalize(`${c.name} ${c.slug} ${c.tagline}`).includes(q))
+      .slice(0, 3)
+  }, [query, navigation.collections])
 
-  // 3. Filter matching categories
+  // 3. Matching categories (from the live navigation)
   const matchingCategories = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = normalize(query.trim())
     if (!q) return []
-    return MOCK_CATEGORIES.filter((cat) => {
-      return (
-        cat.name.toLowerCase().includes(q) ||
-        cat.slug.toLowerCase().includes(q) ||
-        (cat.description && cat.description.toLowerCase().includes(q))
-      )
-    }).slice(0, 3)
-  }, [query])
+    return navigation.categories
+      .filter((cat) => normalize(`${cat.name} ${cat.slug}`).includes(q))
+      .slice(0, 3)
+  }, [query, navigation.categories])
 
   const totalMatches = matchingProducts.length + matchingCollections.length + matchingCategories.length
 
@@ -230,9 +234,9 @@ export default function SearchBar() {
                             }}
                           >
                             <div className={styles.productThumb}>
-                              {p.images[0] && (
+                              {p.image && (
                                 <Image
-                                  src={p.images[0].url}
+                                  src={p.image}
                                   alt={p.name}
                                   fill
                                   sizes="48px"
@@ -302,7 +306,7 @@ export default function SearchBar() {
                       <div className={styles.entityList}>
                         {matchingCategories.map((cat) => (
                           <Link
-                            key={cat.id}
+                            key={cat.slug}
                             href={`/kategori/${cat.slug}`}
                             className={styles.entityItem}
                             onClick={() => {

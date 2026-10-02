@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { SITE_URL } from '@/lib/config/urls'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import React from 'react'
 import ToastContainer from '@/components/common/ToastContainer'
@@ -27,7 +28,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://zuulab.com'
+    SITE_URL
   ),
   title: {
     default: 'zuulab — 3d baskı ürünleri',

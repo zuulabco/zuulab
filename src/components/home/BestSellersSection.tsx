@@ -1,11 +1,10 @@
 import Link from 'next/link'
-import type { MockProduct } from '@/lib/mock-data'
-import { formatMockProductToListItem } from '@/lib/mock-data'
+import { toProductListItem, type CatalogProduct } from '@/types/catalog'
 import ProductCard from './ProductCard'
 import styles from './BestSellersSection.module.css'
 
 interface Props {
-  products: MockProduct[]
+  products: CatalogProduct[]
 }
 
 export default function BestSellersSection({ products }: Props) {
@@ -32,7 +31,7 @@ export default function BestSellersSection({ products }: Props) {
           {products.slice(0, 4).map((product, index) => (
             <ProductCard
               key={product.id}
-              product={formatMockProductToListItem(product)}
+              product={toProductListItem(product)}
               priority={index < 2}
             />
           ))}

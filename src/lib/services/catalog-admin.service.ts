@@ -1,9 +1,24 @@
 import 'server-only'
-import { db, isDatabaseConfigured } from '@/prisma/db'
-import { type Product, type MockProduct } from '@/lib/mock-data'
-import { SEED_COLLECTIONS, SEED_CATEGORIES } from './db-fallback'
+import { db } from '@/prisma/db'
+import { slugify } from '@/lib/utils'
+import { dbNumeric } from '@/lib/db/numeric'
+import { dbTimestampToIso } from '@/lib/db/time'
+import { invalidateCatalog } from '@/lib/cache/catalog-cache'
+import type { CatalogProduct } from '@/types/catalog'
 import { logAuditEvent } from './admin.service'
-import { CATEGORY_CONFIGS } from '@/config/categories'
+
+/**
+ * Admin catalog management. Postgres is the only store: no mock or seed
+ * fallbacks, so what the admin sees is exactly what the storefront serves.
+ *
+ * Every mutation ends with invalidateCatalog(), which expires the storefront
+ * catalog cache (and the pages built from it) so the change is visible on the
+ * next request.
+ *
+ * Collection membership lives in product_collections (one product, many
+ * collections). products.collection_id is kept in sync as the primary collection
+ * for older readers.
+ */
 
 export interface AdminProductFilter {
   search?: string
@@ -29,7 +44,9 @@ export interface AdminProductPayload {
   costPrice?: number | null
   stock: number
   lowStockThreshold?: number
+  /** Primary collection (slug or id); used when `collections` is not sent. */
   collectionId?: string | null
+  /** All collections (slugs or ids); the first one is the primary collection. */
   collections?: string[]
   categoryId: string
   status?: 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'OUT_OF_STOCK'
@@ -41,372 +58,325 @@ export interface AdminProductPayload {
   variants?: Array<{ name: string; value: string; sku?: string; priceAdjustment?: number; stock: number }>
 }
 
-/**
- * Helper to map DB Product + relations into Product shape
- */
-async function mapDbProduct(
-  p: any,
-  images: any[] = [],
-  variants: any[] = [],
-  categories: any[] = [],
-  productCollections: any[] = []
-): Promise<Product> {
-  const cat =
-    categories.find((c) => c.id === p.categoryId || c.slug === p.categoryId) ||
-    Object.values(CATEGORY_CONFIGS).find((c) => c.id === p.categoryId || c.slug === p.categoryId)
-  const categoryId = cat ? cat.id : p.categoryId
-  const categoryName = cat ? cat.name : p.categoryId
-  const categorySlug = cat ? cat.slug : p.categoryId
+export type AdminProduct = CatalogProduct & {
+  status: 'ACTIVE' | 'ARCHIVED'
+  collectionId: string | null
+  cost: number | null
+  costPrice: number | null
+  lowStockThreshold: number
+  primaryImage: { url: string; alt: string; isPrimary: boolean }
+}
 
-  const collSlugs = productCollections
-    .filter((pc) => pc.productId === p.id)
-    .map((pc) => pc.collectionId.replace(/^col-/, ''))
-
-  if (collSlugs.length === 0 && p.collectionId) {
-    collSlugs.push(p.collectionId.replace(/^col-/, ''))
+class CatalogValidationError extends Error {
+  statusCode = 400
+  isValidation = true
+  constructor(message: string) {
+    super(message)
+    this.name = 'CatalogValidationError'
   }
-  if (collSlugs.length === 0) collSlugs.push('general')
+}
 
-  const prodImages = images
-    .filter((img) => img.productId === p.id)
-    .map((img) => ({
-      url: img.url,
-      alt: img.alt || p.name,
-      isPrimary: img.isPrimary,
-    }))
+// ─────────────────────────────────────────────────────────────
+// Products: reads
+// ─────────────────────────────────────────────────────────────
 
-  if (prodImages.length === 0) {
-    prodImages.push({ url: '/placeholder.png', alt: p.name, isPrimary: true })
-  }
+async function loadAdminProducts(productIds?: string[]): Promise<AdminProduct[]> {
+  const products = productIds
+    ? await db.orm.public.Product.where((p) => p.id.in(productIds)).all()
+    : await db.orm.public.Product.all()
+  if (products.length === 0) return []
+  const ids = products.map((p) => p.id)
 
-  const prodVariants = variants
-    .filter((v) => v.productId === p.id)
-    .map((v) => ({
-      id: v.id,
-      name: v.name,
-      value: v.value,
-      price: v.price ? Number(v.price) : Number(p.price),
-      stock: v.stock,
-      sku: v.sku || `${p.sku}-${v.id}`,
-    }))
+  const [images, variants, categories, collections, links, ratings] = await Promise.all([
+    db.orm.public.ProductImage.where((i) => i.productId.in(ids)).orderBy((i) => i.sortOrder.asc()).all(),
+    db.orm.public.ProductVariant.where((v) => v.productId.in(ids)).orderBy((v) => v.sortOrder.asc()).all(),
+    db.orm.public.Category.all(),
+    db.orm.public.Collection.all(),
+    db.orm.public.ProductCollection.where((l) => l.productId.in(ids)).orderBy((l) => l.sortOrder.asc()).all(),
+    db.orm.public.Review.where({ status: 'APPROVED' })
+      .groupBy('productId')
+      .aggregate((a) => ({ count: a.count(), avg: a.avg('rating') })),
+  ])
 
-  return {
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    sku: p.sku,
-    description: p.description || '',
-    shortDescription: p.shortDescription || '',
-    categoryId,
-    categoryName,
-    categorySlug,
-    category: categorySlug,
-    collections: collSlugs,
-    collectionWorld: (collSlugs[0] || 'general') as any,
-    collectionId: p.collectionId,
-    price: Number(p.price),
-    oldPrice: p.oldPrice ? Number(p.oldPrice) : undefined,
-    cost: p.cost ? Number(p.cost) : Math.round(Number(p.price) * 0.35),
-    costPrice: p.costPrice ? Number(p.costPrice) : Math.round(Number(p.price) * 0.35),
-    taxRate: Number(p.taxRate || 20),
-    weight: p.weight ? Number(p.weight) : 0,
-    material: p.material || 'PLA Premium',
-    productionTime: p.productionTime || '1-3 iş günü',
-    isFeatured: Boolean(p.isFeatured || p.featured),
-    isBestSeller: Boolean(p.isBestSeller || p.bestSeller),
-    isNew: Boolean(p.isNew),
-    isActive: p.isActive,
-    status: p.isActive ? 'ACTIVE' : 'ARCHIVED',
-    stock: p.stock || 0,
-    rating: 5.0,
-    reviewCount: p.salesCount || 10,
-    images: prodImages,
-    primaryImage: prodImages.find((i) => i.isPrimary) || prodImages[0],
-    variants: prodVariants,
-    specifications: [],
-  } as Product
+  const categoryById = new Map(categories.map((c) => [c.id, c]))
+  const collectionById = new Map(collections.map((c) => [c.id, c]))
+  const ratingByProduct = new Map(
+    (ratings as Array<{ productId: string; count: number; avg: number | null }>).map((r) => [r.productId, r])
+  )
+
+  return products.map((p) => {
+    const category = categoryById.get(p.categoryId)
+    const linkIds = links.filter((l) => l.productId === p.id).map((l) => l.collectionId)
+    const collectionIds = linkIds.length > 0 ? linkIds : p.collectionId ? [p.collectionId] : []
+    const collectionSlugs = collectionIds
+      .map((id) => collectionById.get(id)?.slug)
+      .filter((s): s is string => Boolean(s))
+
+    const productImages = images
+      .filter((i) => i.productId === p.id)
+      .map((i) => ({ url: i.url, alt: i.alt || p.name, isPrimary: i.isPrimary }))
+    if (productImages.length === 0) productImages.push({ url: '/placeholder.png', alt: p.name, isPrimary: true })
+    const primaryImage = productImages.find((i) => i.isPrimary) ?? productImages[0]
+
+    const rating = ratingByProduct.get(p.id)
+    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      sku: p.sku,
+      description: p.description || '',
+      shortDescription: p.shortDescription || '',
+      categoryId: p.categoryId,
+      categoryName: category?.name ?? p.categoryId,
+      categorySlug: category?.slug ?? p.categoryId,
+      category: category?.slug ?? p.categoryId,
+      collections: collectionSlugs,
+      collectionWorld: collectionSlugs[0],
+      collectionId: collectionIds[0] ?? null,
+      price: Number(p.price),
+      oldPrice: num(p.oldPrice) ?? undefined,
+      cost: num(p.cost),
+      costPrice: num(p.costPrice) ?? num(p.cost),
+      taxRate: Number(p.taxRate ?? 20),
+      weight: p.weightGrams ?? num(p.weight) ?? 0,
+      material: p.material || '',
+      productionTime: p.productionTime || '',
+      isFeatured: Boolean(p.isFeatured || p.featured),
+      isBestSeller: Boolean(p.isBestSeller || p.bestSeller),
+      isNew: Boolean(p.isNew),
+      isActive: p.isActive,
+      status: p.isActive ? 'ACTIVE' : 'ARCHIVED',
+      stock: p.stock,
+      lowStockThreshold: p.lowStockThreshold,
+      rating: rating?.avg ? Math.round(Number(rating.avg) * 10) / 10 : 0,
+      reviewCount: rating?.count ?? 0,
+      images: productImages,
+      primaryImage,
+      variants: variants
+        .filter((v) => v.productId === p.id)
+        .map((v) => ({
+          id: v.id,
+          name: v.name,
+          value: v.value,
+          price: num(v.price) ?? Number(p.price),
+          stock: v.stock,
+          sku: v.sku || p.sku,
+        })),
+      specifications: [],
+      sortOrder: p.sortOrder,
+      createdAt: dbTimestampToIso(p.createdAt) ?? undefined,
+    }
+  })
 }
 
 /**
- * Retrieves catalog products for the admin panel with full metrics and costPrice
+ * Retrieves catalog products for the admin panel (all statuses, with cost data)
  */
 export async function adminGetProducts(filters: AdminProductFilter = {}) {
-  let list: Product[] = []
-
-  if (isDatabaseConfigured) {
-    try {
-      const [dbProducts, dbImages, dbVariants, dbCategories, dbProductCollections] = await Promise.all([
-        db.orm.public.Product.all(),
-        db.orm.public.ProductImage.all(),
-        db.orm.public.ProductVariant.all(),
-        db.orm.public.Category.all(),
-        db.orm.public.ProductCollection.all(),
-      ])
-
-      list = await Promise.all(
-        dbProducts.map((p) => mapDbProduct(p, dbImages, dbVariants, dbCategories, dbProductCollections))
-      )
-    } catch (e) {
-      console.error('[catalog-admin.service] adminGetProducts DB error:', e)
-    }
-  }
-
-  // Fallback to memory/seed only if DB empty
-  if (list.length === 0) {
-    list = [...(await import('@/lib/mock-data')).MOCK_PRODUCTS]
-  }
+  let list = await loadAdminProducts()
 
   if (filters.search) {
-    const q = filters.search.toLowerCase()
+    const q = filters.search.toLocaleLowerCase('tr-TR')
     list = list.filter(
       (p) =>
-        p.name.toLowerCase().includes(q) ||
+        p.name.toLocaleLowerCase('tr-TR').includes(q) ||
         p.sku.toLowerCase().includes(q) ||
         p.slug.toLowerCase().includes(q)
     )
   }
-
   if (filters.collection && filters.collection !== 'ALL') {
-    list = list.filter(
-      (p) =>
-        (p as any).collections?.includes(filters.collection) ||
-        (p as any).collectionId === filters.collection ||
-        p.category === filters.collection
-    )
+    const c = filters.collection
+    list = list.filter((p) => p.collections.includes(c) || p.collectionId === c)
   }
-
   if (filters.category && filters.category !== 'ALL') {
-    list = list.filter(
-      (p) => p.categoryId === filters.category || p.categorySlug === filters.category
-    )
+    list = list.filter((p) => p.categoryId === filters.category || p.categorySlug === filters.category)
   }
-
   if (filters.status && filters.status !== 'ALL') {
-    list = list.filter((p) => ((p as any).status || (p.isActive ? 'ACTIVE' : 'ARCHIVED')) === filters.status)
+    list = list.filter((p) => p.status === filters.status)
   }
-
   if (filters.stockLevel) {
-    if (filters.stockLevel === 'in_stock') list = list.filter((p) => p.stock > 10)
-    else if (filters.stockLevel === 'low_stock') list = list.filter((p) => p.stock > 0 && p.stock <= 10)
+    if (filters.stockLevel === 'in_stock') list = list.filter((p) => p.stock > p.lowStockThreshold)
+    else if (filters.stockLevel === 'low_stock') list = list.filter((p) => p.stock > 0 && p.stock <= p.lowStockThreshold)
     else if (filters.stockLevel === 'out_of_stock') list = list.filter((p) => p.stock <= 0)
   }
+  if (filters.featured !== undefined) list = list.filter((p) => p.isFeatured === filters.featured)
+  if (filters.bestSeller !== undefined) list = list.filter((p) => p.isBestSeller === filters.bestSeller)
 
-  if (filters.featured !== undefined) {
-    list = list.filter((p) => p.isFeatured === filters.featured)
-  }
+  if (filters.sort === 'price_asc') list.sort((a, b) => a.price - b.price)
+  else if (filters.sort === 'price_desc') list.sort((a, b) => b.price - a.price)
+  else if (filters.sort === 'stock_asc') list.sort((a, b) => a.stock - b.stock)
+  else if (filters.sort === 'stock_desc') list.sort((a, b) => b.stock - a.stock)
+  else list.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
 
-  if (filters.bestSeller !== undefined) {
-    list = list.filter((p) => p.isBestSeller === filters.bestSeller)
-  }
-
-  // Sorting
-  if (filters.sort === 'price_asc') {
-    list.sort((a, b) => a.price - b.price)
-  } else if (filters.sort === 'price_desc') {
-    list.sort((a, b) => b.price - a.price)
-  } else if (filters.sort === 'stock_asc') {
-    list.sort((a, b) => a.stock - b.stock)
-  } else if (filters.sort === 'stock_desc') {
-    list.sort((a, b) => b.stock - a.stock)
-  }
-
-  const total = list.length
   const limit = filters.limit || 50
   const offset = filters.offset || 0
-
-  return {
-    total,
-    items: list.slice(offset, offset + limit),
-  }
+  return { total: list.length, items: list.slice(offset, offset + limit) }
 }
 
 /**
- * Retrieves a single product by ID with full costPrice for admin
+ * Retrieves a single product by ID with full cost data for admin
  */
-export async function adminGetProductById(id: string): Promise<Product | null> {
-  if (isDatabaseConfigured) {
-    try {
-      const dbProd = await db.orm.public.Product.where({ id }).first()
-      if (dbProd) {
-        const [images, variants, categories, pcs] = await Promise.all([
-          db.orm.public.ProductImage.where({ productId: id }).all(),
-          db.orm.public.ProductVariant.where({ productId: id }).all(),
-          db.orm.public.Category.all(),
-          db.orm.public.ProductCollection.where({ productId: id }).all(),
-        ])
-        return mapDbProduct(dbProd, images, variants, categories, pcs)
-      }
-    } catch (e) {
-      console.error('[catalog-admin.service] adminGetProductById error:', e)
-    }
-  }
-
-  return null
+export async function adminGetProductById(id: string): Promise<AdminProduct | null> {
+  const [product] = await loadAdminProducts([id])
+  return product ?? null
 }
 
+// ─────────────────────────────────────────────────────────────
+// Lookups & helpers
+// ─────────────────────────────────────────────────────────────
+
 /**
- * Resolves a category by ID or slug from PostgreSQL or CATEGORY_CONFIGS
+ * Resolves a category by ID or slug
  */
 export async function findCategoryByIdOrSlug(
   identifier?: string | null
 ): Promise<{ id: string; name: string; slug: string } | null> {
-  if (!identifier || typeof identifier !== 'string') return null
-  const trimmed = identifier.trim()
+  const trimmed = typeof identifier === 'string' ? identifier.trim() : ''
   if (!trimmed) return null
-
-  // 1. Check PostgreSQL categories table if database configured
-  if (isDatabaseConfigured) {
-    try {
-      const byId = await db.orm.public.Category.where({ id: trimmed }).first()
-      if (byId) {
-        return { id: byId.id, name: byId.name, slug: byId.slug }
-      }
-      const bySlug = await db.orm.public.Category.where({ slug: trimmed }).first()
-      if (bySlug) {
-        return { id: bySlug.id, name: bySlug.name, slug: bySlug.slug }
-      }
-    } catch (e) {
-      console.warn('[catalog-admin.service] findCategoryByIdOrSlug DB lookup error:', e)
-    }
-  }
-
-  // 2. Check static CATEGORY_CONFIGS (fallback / offline)
-  const config =
-    CATEGORY_CONFIGS[trimmed] ||
-    Object.values(CATEGORY_CONFIGS).find(
-      (c) => c.id === trimmed || c.slug === trimmed
-    )
-
-  if (config) {
-    return {
-      id: config.id,
-      name: config.name,
-      slug: config.slug,
-    }
-  }
-
-  // 3. Check SEED_CATEGORIES (fallback)
-  const seedCat = SEED_CATEGORIES.find((c: any) => c.id === trimmed || c.slug === trimmed)
-  if (seedCat) {
-    return {
-      id: seedCat.id,
-      name: seedCat.name,
-      slug: seedCat.slug,
-    }
-  }
-
-  return null
+  const row =
+    (await db.orm.public.Category.where({ id: trimmed }).first()) ??
+    (await db.orm.public.Category.where({ slug: trimmed }).first())
+  return row ? { id: row.id, name: row.name, slug: row.slug } : null
 }
 
+/** Maps collection slugs or ids to ids, rejecting unknown ones. */
+async function resolveCollectionIds(values: string[]): Promise<string[]> {
+  const wanted = [...new Set(values.map((v) => v.trim()).filter(Boolean))]
+  if (wanted.length === 0) return []
+  const rows = await db.orm.public.Collection.all()
+  const ids: string[] = []
+  for (const value of wanted) {
+    const match = rows.find((c) => c.id === value || c.slug === value)
+    if (!match) throw new CatalogValidationError(`Geçersiz koleksiyon: '${value}'.`)
+    if (!ids.includes(match.id)) ids.push(match.id)
+  }
+  return ids
+}
+
+/** Makes product_collections exactly `collectionIds` (in order) and mirrors the primary into products.collection_id. */
+async function syncProductCollections(productId: string, collectionIds: string[]): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.execute(db.raw.sql`DELETE FROM product_collections WHERE product_id = ${productId}`.affectedCount().build())
+    for (let i = 0; i < collectionIds.length; i++) {
+      await tx.orm.public.ProductCollection.create({ productId, collectionId: collectionIds[i], sortOrder: i })
+    }
+    await tx.orm.public.Product.where({ id: productId }).update({ collectionId: collectionIds[0] ?? null })
+  })
+}
+
+/** Returns `base`, or `base-2`, `base-3`… if taken by another row. */
+async function uniqueValue(base: string, taken: (value: string) => Promise<boolean>): Promise<string> {
+  let candidate = base
+  for (let n = 2; await taken(candidate); n++) candidate = `${base}-${n}`
+  return candidate
+}
+
+function requireSlug(value: string, label: string): string {
+  const slug = slugify(value)
+  if (!slug) throw new CatalogValidationError(`${label} için geçerli bir kısa ad (slug) üretilemedi.`)
+  return slug
+}
+
+function requirePrice(value: unknown, label: string): number {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0) throw new CatalogValidationError(`${label} geçerli bir tutar olmalıdır.`)
+  return n
+}
+
+// ─────────────────────────────────────────────────────────────
+// Products: writes
+// ─────────────────────────────────────────────────────────────
+
 /**
- * Creates a new product in PostgreSQL catalog
+ * Creates a new product
  */
 export async function adminCreateProduct(payload: AdminProductPayload, adminEmail = 'system') {
-  const slug =
-    payload.slug ||
-    payload.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
+  if (!payload.name?.trim()) throw new CatalogValidationError('Ürün adı zorunludur.')
+  const price = requirePrice(payload.price, 'Fiyat')
 
-  const sku = payload.sku || `ZUU-${Math.floor(1000 + Math.random() * 9000)}`
-  const id = `prod-${Date.now()}`
-
-  const resolvedCategory = await findCategoryByIdOrSlug(payload.categoryId)
-  if (!resolvedCategory) {
-    const error: any = new Error(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
-    error.statusCode = 400
-    error.isValidation = true
-    throw error
+  const category = await findCategoryByIdOrSlug(payload.categoryId)
+  if (!category) {
+    throw new CatalogValidationError(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
   }
-  const categoryId = resolvedCategory.id
-  const collections =
-    payload.collections || (payload.collectionId ? [payload.collectionId] : ['zuukids'])
-  const primaryCol = collections[0] || 'zuukids'
-  const collectionId = primaryCol.startsWith('col-') ? primaryCol : `col-${primaryCol}`
+  const collectionIds = await resolveCollectionIds(
+    payload.collections ?? (payload.collectionId ? [payload.collectionId] : [])
+  )
 
-  const cost = payload.costPrice || Math.round(payload.price * 0.35)
-  const isActive = payload.status !== 'ARCHIVED' && payload.status !== 'DRAFT'
+  const slug = await uniqueValue(requireSlug(payload.slug || payload.name, 'Ürün'), async (s) =>
+    Boolean(await db.orm.public.Product.where({ slug: s }).first())
+  )
+  const sku = await uniqueValue(
+    (payload.sku?.trim() || `ZUU-${slug.toUpperCase().slice(0, 12)}`).toUpperCase(),
+    async (s) => Boolean(await db.orm.public.Product.where({ sku: s }).first())
+  )
+  const id = `prod-${Date.now()}`
+  const cost = payload.costPrice !== undefined && payload.costPrice !== null ? requirePrice(payload.costPrice, 'Maliyet') : null
 
-  if (isDatabaseConfigured) {
-    // 1. Insert Product into PostgreSQL
-    await db.orm.public.Product.create({
+  await db.transaction(async (tx) => {
+    await tx.orm.public.Product.create({
       id,
-      name: payload.name,
+      name: payload.name.trim(),
       slug,
       sku,
       description: payload.description || '',
       shortDescription: payload.shortDescription || '',
-      categoryId,
-      collectionId,
-      price: String(payload.price) as any,
-      oldPrice: payload.compareAtPrice ? (String(payload.compareAtPrice) as any) : null,
-      cost: String(cost) as any,
-      costPrice: String(cost) as any,
-      stock: payload.stock || 0,
-      lowStockThreshold: payload.lowStockThreshold || 5,
-      material: payload.material || 'PLA Premium',
+      categoryId: category.id,
+      collectionId: collectionIds[0] ?? null,
+      price: dbNumeric(price),
+      oldPrice: payload.compareAtPrice ? dbNumeric(requirePrice(payload.compareAtPrice, 'Eski fiyat')) : null,
+      cost: cost !== null ? dbNumeric(cost) : null,
+      costPrice: cost !== null ? dbNumeric(cost) : null,
+      stock: Math.max(0, Math.floor(Number(payload.stock) || 0)),
+      lowStockThreshold: payload.lowStockThreshold ?? 5,
+      material: payload.material || null,
       isFeatured: Boolean(payload.featured),
       featured: Boolean(payload.featured),
       isBestSeller: Boolean(payload.bestSeller),
       bestSeller: Boolean(payload.bestSeller),
-      isActive,
+      isActive: payload.status !== 'ARCHIVED' && payload.status !== 'DRAFT',
       trackInventory: true,
       minimumStock: 0,
-      taxRate: '20' as any,
-      weight: '150' as any,
-    })
+      taxRate: dbNumeric(20),
+    } as never)
 
-    // 2. Insert Image if provided
-    const imgUrl = payload.imageUrl || payload.images?.[0]?.url
-    if (imgUrl) {
-      await db.orm.public.ProductImage.create({
-        id: `img-${id}-0`,
+    const images = payload.images?.length
+      ? payload.images
+      : payload.imageUrl
+        ? [{ url: payload.imageUrl, isPrimary: true }]
+        : []
+    for (let i = 0; i < images.length; i++) {
+      await tx.orm.public.ProductImage.create({
         productId: id,
-        url: imgUrl,
-        alt: payload.name,
-        isPrimary: true,
-        sortOrder: 0,
-        type: 'IMAGE',
+        url: images[i].url,
+        alt: images[i].alt || payload.name,
+        isPrimary: images[i].isPrimary ?? i === 0,
+        sortOrder: i,
+        type: 'PRODUCT',
       })
     }
 
-    // 3. Insert Product Collections
-    for (let i = 0; i < collections.length; i++) {
-      const c = collections[i]
-      const colFk = c.startsWith('col-') ? c : `col-${c}`
-      try {
-        await db.orm.public.ProductCollection.create({
-          id: `pc-${id}-${c}`,
-          productId: id,
-          collectionId: colFk,
-          sortOrder: i,
-        })
-      } catch {
-        // Safe ignore collection relation conflict
-      }
+    for (let i = 0; i < collectionIds.length; i++) {
+      await tx.orm.public.ProductCollection.create({ productId: id, collectionId: collectionIds[i], sortOrder: i })
     }
 
-    // 4. Insert Variants if provided
-    if (payload.variants && payload.variants.length > 0) {
-      for (let i = 0; i < payload.variants.length; i++) {
-        const v = payload.variants[i]
-        const vPrice = v.priceAdjustment ? payload.price + v.priceAdjustment : payload.price
-        await db.orm.public.ProductVariant.create({
-          id: `var-${id}-${i}`,
-          productId: id,
-          name: v.name,
-          value: v.value,
-          price: String(vPrice) as any,
-          stock: v.stock || payload.stock || 0,
-          sku: v.sku || `${sku}-${i + 1}`,
-          isActive: true,
-          sortOrder: i,
-        })
-      }
+    for (let i = 0; i < (payload.variants ?? []).length; i++) {
+      const v = payload.variants![i]
+      await tx.orm.public.ProductVariant.create({
+        productId: id,
+        name: v.name,
+        value: v.value,
+        price: dbNumeric(v.priceAdjustment ? price + v.priceAdjustment : price),
+        stock: Math.max(0, Math.floor(Number(v.stock) || 0)),
+        sku: v.sku || `${sku}-${i + 1}`,
+        isActive: true,
+        sortOrder: i,
+      })
     }
-  }
+  })
 
+  invalidateCatalog()
   await logAuditEvent({
     action: 'PRODUCT_CREATED',
     entity: 'Product',
@@ -414,33 +384,48 @@ export async function adminCreateProduct(payload: AdminProductPayload, adminEmai
     metadata: { name: payload.name, sku, adminEmail },
   })
 
-  const created = await adminGetProductById(id)
-  return created!
+  return (await adminGetProductById(id))!
 }
 
 /**
- * Updates an existing product in PostgreSQL catalog
+ * Updates an existing product
  */
 export async function adminUpdateProduct(id: string, payload: Partial<AdminProductPayload>, adminEmail = 'system') {
-  const existing = await adminGetProductById(id)
+  const existing = await db.orm.public.Product.where({ id }).first()
   if (!existing) {
     throw new Error('Güncellenecek ürün bulunamadı.')
   }
 
-  const updateFields: any = {}
+  const updateFields: Record<string, unknown> = {}
 
-  if (payload.name !== undefined) updateFields.name = payload.name
-  if (payload.slug !== undefined) updateFields.slug = payload.slug
-  if (payload.sku !== undefined) updateFields.sku = payload.sku
+  if (payload.name !== undefined) {
+    if (!payload.name.trim()) throw new CatalogValidationError('Ürün adı boş olamaz.')
+    updateFields.name = payload.name.trim()
+  }
+  if (payload.slug !== undefined && payload.slug !== existing.slug) {
+    const slug = requireSlug(payload.slug, 'Ürün')
+    const clash = await db.orm.public.Product.where({ slug }).first()
+    if (clash && clash.id !== id) throw new CatalogValidationError(`'${slug}' kısa adı başka bir üründe kullanılıyor.`)
+    updateFields.slug = slug
+  }
+  if (payload.sku !== undefined && payload.sku !== existing.sku) {
+    const sku = payload.sku.trim().toUpperCase()
+    const clash = await db.orm.public.Product.where({ sku }).first()
+    if (clash && clash.id !== id) throw new CatalogValidationError(`'${sku}' SKU'su başka bir üründe kullanılıyor.`)
+    updateFields.sku = sku
+  }
   if (payload.description !== undefined) updateFields.description = payload.description
   if (payload.shortDescription !== undefined) updateFields.shortDescription = payload.shortDescription
-  if (payload.price !== undefined) updateFields.price = String(payload.price)
-  if (payload.compareAtPrice !== undefined) updateFields.oldPrice = payload.compareAtPrice ? String(payload.compareAtPrice) : null
-  if (payload.costPrice !== undefined) {
-    updateFields.cost = String(payload.costPrice)
-    updateFields.costPrice = String(payload.costPrice)
+  if (payload.price !== undefined) updateFields.price = dbNumeric(requirePrice(payload.price, 'Fiyat'))
+  if (payload.compareAtPrice !== undefined) {
+    updateFields.oldPrice = payload.compareAtPrice ? dbNumeric(requirePrice(payload.compareAtPrice, 'Eski fiyat')) : null
   }
-  if (payload.stock !== undefined) updateFields.stock = payload.stock
+  if (payload.costPrice !== undefined) {
+    const cost = payload.costPrice === null ? null : dbNumeric(requirePrice(payload.costPrice, 'Maliyet'))
+    updateFields.cost = cost
+    updateFields.costPrice = cost
+  }
+  if (payload.stock !== undefined) updateFields.stock = Math.max(0, Math.floor(Number(payload.stock) || 0))
   if (payload.lowStockThreshold !== undefined) updateFields.lowStockThreshold = payload.lowStockThreshold
   if (payload.material !== undefined) updateFields.material = payload.material
   if (payload.featured !== undefined) {
@@ -451,103 +436,93 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
     updateFields.isBestSeller = payload.bestSeller
     updateFields.bestSeller = payload.bestSeller
   }
-  if (payload.status !== undefined) {
-    updateFields.isActive = payload.status === 'ACTIVE'
-  }
+  if (payload.status !== undefined) updateFields.isActive = payload.status === 'ACTIVE'
   if (payload.categoryId !== undefined) {
-    const resolvedCategory = await findCategoryByIdOrSlug(payload.categoryId)
-    if (!resolvedCategory) {
-      const error: any = new Error(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
-      error.statusCode = 400
-      error.isValidation = true
-      throw error
+    const category = await findCategoryByIdOrSlug(payload.categoryId)
+    if (!category) {
+      throw new CatalogValidationError(`Geçersiz kategori: '${payload.categoryId}'. Lütfen geçerli bir kategori seçin.`)
     }
-    updateFields.categoryId = resolvedCategory.id
-  }
-  if (payload.collectionId !== undefined) {
-    const colId = payload.collectionId
-      ? payload.collectionId.startsWith('col-')
-        ? payload.collectionId
-        : `col-${payload.collectionId}`
-      : null
-    updateFields.collectionId = colId
+    updateFields.categoryId = category.id
   }
 
-  if (isDatabaseConfigured && Object.keys(updateFields).length > 0) {
-    await db.orm.public.Product.where({ id }).update(updateFields)
+  // Collections: the full list wins; a lone collectionId replaces the primary only.
+  let collectionIds: string[] | null = null
+  if (payload.collections !== undefined) {
+    collectionIds = await resolveCollectionIds(payload.collections)
+  } else if (payload.collectionId !== undefined) {
+    collectionIds = payload.collectionId ? await resolveCollectionIds([payload.collectionId]) : []
+  }
 
-    // If price changed, sync all variant prices to the new canonical price.
-    // ProductVariant.price is used by cart/checkout, so it must always mirror Product.price.
-    if (payload.price !== undefined) {
-      try {
-        const existingVariants = await db.orm.public.ProductVariant.where({ productId: id }).all()
-        for (const v of existingVariants) {
-          await db.orm.public.ProductVariant.where({ id: v.id }).update({
-            price: String(payload.price) as any,
-          })
-        }
-      } catch (varErr) {
-        console.warn('[catalog-admin.service] Failed to sync variant prices:', varErr)
-      }
-    }
+  if (Object.keys(updateFields).length > 0) {
+    await db.orm.public.Product.where({ id }).update(updateFields as never)
+  }
 
-    if (payload.imageUrl) {
-      const existingImg = await db.orm.public.ProductImage.where({ productId: id, isPrimary: true }).first()
-      if (existingImg) {
-        await db.orm.public.ProductImage.where({ id: existingImg.id }).update({ url: payload.imageUrl })
-      } else {
-        await db.orm.public.ProductImage.create({
-          id: `img-${id}-${Date.now()}`,
-          productId: id,
-          url: payload.imageUrl,
-          alt: payload.name || existing.name,
-          isPrimary: true,
-          sortOrder: 0,
-          type: 'IMAGE',
-        })
-      }
+  // Variant prices mirror the product price (cart and checkout price variants by it).
+  if (payload.price !== undefined) {
+    await db.runtime().execute(
+      db.raw.sql`UPDATE product_variants SET price = ${Number(payload.price).toFixed(2)}::numeric WHERE product_id = ${id}`.affectedCount().build()
+    )
+  }
+
+  if (collectionIds !== null) {
+    await syncProductCollections(id, collectionIds)
+  }
+
+  if (payload.imageUrl) {
+    const primary = await db.orm.public.ProductImage.where({ productId: id, isPrimary: true }).first()
+    if (primary) {
+      await db.orm.public.ProductImage.where({ id: primary.id }).update({ url: payload.imageUrl })
+    } else {
+      await db.orm.public.ProductImage.create({
+        productId: id,
+        url: payload.imageUrl,
+        alt: payload.name || existing.name,
+        isPrimary: true,
+        sortOrder: 0,
+        type: 'PRODUCT',
+      })
     }
   }
 
+  invalidateCatalog()
   await logAuditEvent({
     action: 'PRODUCT_UPDATED',
     entity: 'Product',
     entityId: id,
-    metadata: { name: payload.name || existing.name, adminEmail },
+    metadata: { name: payload.name || existing.name, fields: Object.keys(payload), adminEmail },
   })
 
-  const updated = await adminGetProductById(id)
-  return updated!
+  return (await adminGetProductById(id))!
 }
 
 /**
- * Duplicates a product with new SKU and unique slug
+ * Duplicates a product as a DRAFT with a new SKU and slug
  */
 export async function adminDuplicateProduct(id: string, adminEmail = 'system') {
   const original = await adminGetProductById(id)
   if (!original) throw new Error('Çoğaltılacak ürün bulunamadı.')
 
-  const rand = Math.floor(100 + Math.random() * 900)
-  const duplicatedPayload: AdminProductPayload = {
-    name: `${original.name} (Kopya)`,
-    slug: `${original.slug}-kopya-${rand}`,
-    sku: `${original.sku}-COPY-${rand}`,
-    description: original.description,
-    shortDescription: original.shortDescription,
-    price: original.price,
-    compareAtPrice: original.oldPrice || null,
-    costPrice: (original as any).costPrice || (original as any).cost || null,
-    stock: original.stock,
-    categoryId: original.categoryId,
-    collectionId: (original as any).collectionId || null,
-    status: 'DRAFT',
-    material: original.material,
-    featured: false,
-    bestSeller: false,
-    imageUrl: (original as any).primaryImage?.url || original.images?.[0]?.url || null,
-  }
-
-  const created = await adminCreateProduct(duplicatedPayload, adminEmail)
+  const created = await adminCreateProduct(
+    {
+      name: `${original.name} (Kopya)`,
+      slug: `${original.slug}-kopya`,
+      sku: `${original.sku}-KOPYA`,
+      description: original.description,
+      shortDescription: original.shortDescription,
+      price: original.price,
+      compareAtPrice: original.oldPrice ?? null,
+      costPrice: original.costPrice,
+      stock: 0,
+      categoryId: original.categoryId,
+      collections: original.collections,
+      status: 'DRAFT',
+      material: original.material || null,
+      featured: false,
+      bestSeller: false,
+      images: original.images.filter((i) => i.url !== '/placeholder.png'),
+    },
+    adminEmail
+  )
 
   await logAuditEvent({
     action: 'PRODUCT_DUPLICATED',
@@ -560,7 +535,7 @@ export async function adminDuplicateProduct(id: string, adminEmail = 'system') {
 }
 
 /**
- * Archives a product safely without breaking historical orders
+ * Archives a product (hidden from the storefront; order history is untouched)
  */
 export async function adminArchiveProduct(id: string, adminEmail = 'system') {
   return adminUpdateProduct(id, { status: 'ARCHIVED' }, adminEmail)
@@ -581,13 +556,16 @@ export async function adminBulkProductActions(
   action: 'activate' | 'archive' | 'set_featured' | 'remove_featured' | 'set_best_seller' | 'remove_best_seller',
   adminEmail = 'system'
 ) {
+  const patch: Partial<AdminProductPayload> =
+    action === 'activate' ? { status: 'ACTIVE' }
+    : action === 'archive' ? { status: 'ARCHIVED' }
+    : action === 'set_featured' ? { featured: true }
+    : action === 'remove_featured' ? { featured: false }
+    : action === 'set_best_seller' ? { bestSeller: true }
+    : { bestSeller: false }
+
   for (const id of ids) {
-    if (action === 'activate') await adminUpdateProduct(id, { status: 'ACTIVE' }, adminEmail)
-    else if (action === 'archive') await adminUpdateProduct(id, { status: 'ARCHIVED' }, adminEmail)
-    else if (action === 'set_featured') await adminUpdateProduct(id, { featured: true }, adminEmail)
-    else if (action === 'remove_featured') await adminUpdateProduct(id, { featured: false }, adminEmail)
-    else if (action === 'set_best_seller') await adminUpdateProduct(id, { bestSeller: true }, adminEmail)
-    else if (action === 'remove_best_seller') await adminUpdateProduct(id, { bestSeller: false }, adminEmail)
+    await adminUpdateProduct(id, patch, adminEmail)
   }
 
   await logAuditEvent({
@@ -599,253 +577,307 @@ export async function adminBulkProductActions(
   return { success: true, count: ids.length }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Categories
+// ─────────────────────────────────────────────────────────────
+
+export interface AdminCategoryPayload {
+  name?: string
+  slug?: string
+  description?: string
+  imageUrl?: string
+  isActive?: boolean
+  sortOrder?: number
+  parentId?: string | null
+  seoTitle?: string
+  seoDescription?: string
+}
+
 /**
- * Retrieves all categories with live calculated product counts from DB
+ * All categories (active and hidden) with product counts
  */
 export async function adminGetCategories() {
-  if (isDatabaseConfigured) {
-    try {
-      const [dbCats, dbProds] = await Promise.all([
-        db.orm.public.Category.all(),
-        db.orm.public.Product.all(),
-      ])
+  const [categories, products] = await Promise.all([
+    db.orm.public.Category.orderBy([(c) => c.sortOrder.asc(), (c) => c.name.asc()]).all(),
+    db.orm.public.Product.select('categoryId', 'isActive').all(),
+  ])
+  return categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    description: c.description || '',
+    imageUrl: c.image || '',
+    isActive: c.isActive,
+    sortOrder: c.sortOrder,
+    parentId: c.parentId ?? null,
+    seoTitle: c.metaTitle || '',
+    seoDescription: c.metaDesc || '',
+    productCount: products.filter((p) => p.categoryId === c.id).length,
+    activeProductCount: products.filter((p) => p.categoryId === c.id && p.isActive).length,
+  }))
+}
 
-      if (dbCats && dbCats.length > 0) {
-        return dbCats.map((cat) => {
-          const count = dbProds.filter((p) => p.categoryId === cat.id).length
-          return {
-            id: cat.id,
-            name: cat.name,
-            slug: cat.slug,
-            description: cat.description || '',
-            imageUrl: cat.image || '',
-            productCount: count,
-          }
-        })
-      }
-    } catch (e) {
-      console.error('[catalog-admin.service] adminGetCategories error:', e)
-    }
+function categoryColumns(payload: AdminCategoryPayload) {
+  const out: Record<string, unknown> = {}
+  if (payload.name !== undefined) {
+    if (!payload.name.trim()) throw new CatalogValidationError('Kategori adı boş olamaz.')
+    out.name = payload.name.trim()
   }
-
-  return [...SEED_CATEGORIES].map((cat) => ({ ...cat, productCount: 0 }))
+  if (payload.description !== undefined) out.description = payload.description.trim() || null
+  if (payload.imageUrl !== undefined) out.image = payload.imageUrl.trim() || null
+  if (payload.isActive !== undefined) out.isActive = Boolean(payload.isActive)
+  if (payload.sortOrder !== undefined) out.sortOrder = Math.floor(Number(payload.sortOrder) || 0)
+  if (payload.parentId !== undefined) out.parentId = payload.parentId || null
+  if (payload.seoTitle !== undefined) out.metaTitle = payload.seoTitle.trim() || null
+  if (payload.seoDescription !== undefined) out.metaDesc = payload.seoDescription.trim() || null
+  return out
 }
 
 /**
- * Retrieves all collections with sort order and live product counts from DB
+ * Creates a new category
  */
-export async function adminGetCollections() {
-  if (isDatabaseConfigured) {
-    try {
-      const [dbColls, dbProds] = await Promise.all([
-        db.orm.public.Collection.all(),
-        db.orm.public.Product.all(),
-      ])
-
-      if (dbColls && dbColls.length > 0) {
-        return dbColls
-          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-          .map((col) => {
-            const count = dbProds.filter(
-              (p) => p.collectionId === col.id || p.collectionId === `col-${col.slug}`
-            ).length
-            return {
-              id: col.id,
-              name: col.name,
-              slug: col.slug,
-              description: col.description || '',
-              shortDescription: col.shortDescription || '',
-              logo: col.logo || undefined,
-              heroImage: col.heroImage || '',
-              accentColor: col.accentColor || '#ffffff',
-              status: col.status || 'ACTIVE',
-              sortOrder: col.sortOrder || 1,
-              productCount: count,
-            }
-          })
-      }
-    } catch (e) {
-      console.error('[catalog-admin.service] adminGetCollections error:', e)
-    }
+export async function adminCreateCategory(payload: AdminCategoryPayload & { name: string }, adminEmail = 'system') {
+  const slug = requireSlug(payload.slug || payload.name, 'Kategori')
+  if (await db.orm.public.Category.where({ slug }).first()) {
+    throw new CatalogValidationError(`'${slug}' kısa adına sahip bir kategori zaten var.`)
   }
+  const last = await db.orm.public.Category.orderBy((c) => c.sortOrder.desc()).first()
 
-  return [...SEED_COLLECTIONS].map((col) => ({ ...col, productCount: 0 }))
-}
-
-/**
- * Updates collection ordering or details
- */
-export async function adminUpdateCollection(
-  id: string,
-  payload: Partial<typeof SEED_COLLECTIONS[0]>,
-  adminEmail = 'system'
-) {
-  if (isDatabaseConfigured) {
-    const updateFields: any = {}
-    if (payload.name) updateFields.name = payload.name
-    if (payload.description) updateFields.description = payload.description
-    if (payload.heroImage) updateFields.heroImage = payload.heroImage
-    if (payload.accentColor) updateFields.accentColor = payload.accentColor
-    if (payload.sortOrder !== undefined) updateFields.sortOrder = payload.sortOrder
-
-    if (Object.keys(updateFields).length > 0) {
-      await db.orm.public.Collection.where({ id }).update(updateFields)
-    }
-  }
-
-  await logAuditEvent({
-    action: 'COLLECTION_UPDATED',
-    entity: 'Collection',
-    entityId: id,
-    metadata: { payload, adminEmail },
-  })
-
-  return { id, ...payload }
-}
-
-/**
- * Creates a new collection in PostgreSQL
- */
-export async function adminCreateCollection(
-  payload: { name: string; slug?: string; description?: string; heroImage?: string; accentColor?: string; sortOrder?: number },
-  adminEmail = 'system'
-) {
-  const slug =
-    payload.slug ||
-    payload.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-
-  const newCol = {
-    id: `col-${slug}`,
-    name: payload.name.toLowerCase(),
+  const created = await db.orm.public.Category.create({
     slug,
-    description: payload.description || '',
-    shortDescription: payload.description || '',
-    heroImage: payload.heroImage || '',
-    accentColor: payload.accentColor || '#ffffff',
-    status: 'ACTIVE',
-    sortOrder: payload.sortOrder || 1,
-  }
+    isActive: true,
+    sortOrder: (last?.sortOrder ?? 0) + 1,
+    ...categoryColumns(payload),
+  } as never)
 
-  if (isDatabaseConfigured) {
-    await db.orm.public.Collection.create({
-      id: newCol.id,
-      name: newCol.name,
-      slug: newCol.slug,
-      description: newCol.description,
-      shortDescription: newCol.shortDescription,
-      heroImage: newCol.heroImage,
-      accentColor: newCol.accentColor,
-      status: 'ACTIVE',
-      sortOrder: newCol.sortOrder,
-    })
-  }
-
-  await logAuditEvent({
-    action: 'COLLECTION_CREATED',
-    entity: 'Collection',
-    entityId: newCol.id,
-    metadata: { name: newCol.name, slug: newCol.slug, adminEmail },
-  })
-
-  return newCol
-}
-
-/**
- * Creates a new category in PostgreSQL
- */
-export async function adminCreateCategory(
-  payload: { name: string; slug?: string; description?: string; imageUrl?: string },
-  adminEmail = 'system'
-) {
-  const slug =
-    payload.slug ||
-    payload.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-
-  const id = `cat-${Date.now()}`
-
-  if (isDatabaseConfigured) {
-    await db.orm.public.Category.create({
-      id,
-      name: payload.name,
-      slug,
-      description: payload.description || '',
-      image: payload.imageUrl || '',
-      isActive: true,
-      sortOrder: 0,
-    })
-  }
-
+  invalidateCatalog()
   await logAuditEvent({
     action: 'CATEGORY_CREATED',
     entity: 'Category',
-    entityId: id,
-    metadata: { name: payload.name, slug, adminEmail },
+    entityId: created.id,
+    metadata: { name: created.name, slug, adminEmail },
   })
 
-  return {
-    id,
-    name: payload.name,
-    slug,
-    description: payload.description || '',
-    imageUrl: payload.imageUrl || '',
-    productCount: 0,
-  }
+  return (await adminGetCategories()).find((c) => c.id === created.id)!
 }
 
 /**
  * Updates an existing category
  */
-export async function adminUpdateCategory(
-  id: string,
-  payload: { name?: string; slug?: string; description?: string; imageUrl?: string },
-  adminEmail = 'system'
-) {
-  if (isDatabaseConfigured) {
-    const updateFields: any = {}
-    if (payload.name) updateFields.name = payload.name
-    if (payload.slug) updateFields.slug = payload.slug
-    if (payload.description !== undefined) updateFields.description = payload.description
-    if (payload.imageUrl !== undefined) updateFields.image = payload.imageUrl
+export async function adminUpdateCategory(id: string, payload: AdminCategoryPayload, adminEmail = 'system') {
+  const existing = await db.orm.public.Category.where({ id }).first()
+  if (!existing) throw new Error('Kategori bulunamadı.')
 
-    if (Object.keys(updateFields).length > 0) {
-      await db.orm.public.Category.where({ id }).update(updateFields)
-    }
+  const columns = categoryColumns(payload)
+  if (payload.slug !== undefined && payload.slug !== existing.slug) {
+    const slug = requireSlug(payload.slug, 'Kategori')
+    const clash = await db.orm.public.Category.where({ slug }).first()
+    if (clash && clash.id !== id) throw new CatalogValidationError(`'${slug}' kısa adı başka bir kategoride kullanılıyor.`)
+    columns.slug = slug
+  }
+  if (columns.parentId === id) throw new CatalogValidationError('Bir kategori kendisinin alt kategorisi olamaz.')
+
+  if (Object.keys(columns).length > 0) {
+    await db.orm.public.Category.where({ id }).update(columns as never)
   }
 
+  invalidateCatalog()
   await logAuditEvent({
     action: 'CATEGORY_UPDATED',
     entity: 'Category',
     entityId: id,
-    metadata: { payload, adminEmail },
+    metadata: { fields: Object.keys(payload), adminEmail },
   })
 
-  return { id, ...payload }
+  return (await adminGetCategories()).find((c) => c.id === id)!
 }
 
 /**
- * Deletes a category safely, ensuring it has no attached products
+ * Deletes a category that has no products and no sub-categories
  */
 export async function adminDeleteCategory(id: string, adminEmail = 'system') {
-  if (isDatabaseConfigured) {
-    const attachedProds = await db.orm.public.Product.where({ categoryId: id }).all()
-    if (attachedProds.length > 0) {
-      throw new Error(
-        `Bu kategoriye bağlı ${attachedProds.length} ürün bulunmaktadır. Kategoriyi silmeden önce ürünleri başka bir kategoriye taşıyınız.`
-      )
-    }
-
-    await db.orm.public.Category.where({ id }).delete()
+  const attached = await db.orm.public.Product.where({ categoryId: id }).aggregate((a) => ({ n: a.count() }))
+  if (attached.n > 0) {
+    throw new CatalogValidationError(
+      `Bu kategoriye bağlı ${attached.n} ürün bulunmaktadır. Kategoriyi silmeden önce ürünleri başka bir kategoriye taşıyın veya kategoriyi pasife alın.`
+    )
+  }
+  const children = await db.orm.public.Category.where({ parentId: id }).aggregate((a) => ({ n: a.count() }))
+  if (children.n > 0) {
+    throw new CatalogValidationError('Bu kategorinin alt kategorileri var. Önce onları taşıyın veya silin.')
   }
 
+  await db.orm.public.Category.where({ id }).delete()
+
+  invalidateCatalog()
   await logAuditEvent({
     action: 'CATEGORY_DELETED',
     entity: 'Category',
+    entityId: id,
+    metadata: { id, adminEmail },
+  })
+
+  return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Collections
+// ─────────────────────────────────────────────────────────────
+
+export interface AdminCollectionPayload {
+  name?: string
+  slug?: string
+  description?: string
+  shortDescription?: string
+  logo?: string
+  heroImage?: string
+  accentColor?: string
+  status?: 'ACTIVE' | 'INACTIVE'
+  sortOrder?: number
+  seoTitle?: string
+  seoDescription?: string
+}
+
+/**
+ * All collections (live and hidden) with product counts
+ */
+export async function adminGetCollections() {
+  const [collections, links] = await Promise.all([
+    db.orm.public.Collection.orderBy([(c) => c.sortOrder.asc(), (c) => c.name.asc()]).all(),
+    db.orm.public.ProductCollection.select('collectionId').all(),
+  ])
+  return collections.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    description: c.description || '',
+    shortDescription: c.shortDescription || '',
+    logo: c.logo || '',
+    heroImage: c.heroImage || '',
+    accentColor: c.accentColor || '',
+    status: c.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE',
+    sortOrder: c.sortOrder,
+    seoTitle: c.seoTitle || '',
+    seoDescription: c.seoDescription || '',
+    productCount: links.filter((l) => l.collectionId === c.id).length,
+  }))
+}
+
+function collectionColumns(payload: AdminCollectionPayload) {
+  const out: Record<string, unknown> = {}
+  const text = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null)
+  if (payload.name !== undefined) {
+    if (!payload.name.trim()) throw new CatalogValidationError('Koleksiyon adı boş olamaz.')
+    out.name = payload.name.trim()
+  }
+  for (const [key, column] of [
+    ['description', 'description'],
+    ['shortDescription', 'shortDescription'],
+    ['logo', 'logo'],
+    ['heroImage', 'heroImage'],
+    ['seoTitle', 'seoTitle'],
+    ['seoDescription', 'seoDescription'],
+  ] as const) {
+    const v = text(payload[key])
+    if (v !== undefined) out[column] = v
+  }
+  if (payload.accentColor !== undefined) {
+    const color = payload.accentColor.trim()
+    if (color && !/^#[0-9a-fA-F]{3,8}$/.test(color)) throw new CatalogValidationError('Vurgu rengi #RRGGBB biçiminde olmalıdır.')
+    out.accentColor = color || null
+  }
+  if (payload.status !== undefined) {
+    if (payload.status !== 'ACTIVE' && payload.status !== 'INACTIVE') throw new CatalogValidationError('Geçersiz koleksiyon durumu.')
+    out.status = payload.status
+  }
+  if (payload.sortOrder !== undefined) out.sortOrder = Math.floor(Number(payload.sortOrder) || 0)
+  return out
+}
+
+/**
+ * Creates a new collection
+ */
+export async function adminCreateCollection(payload: AdminCollectionPayload & { name: string }, adminEmail = 'system') {
+  const slug = requireSlug(payload.slug || payload.name, 'Koleksiyon')
+  if (await db.orm.public.Collection.where({ slug }).first()) {
+    throw new CatalogValidationError(`'${slug}' kısa adına sahip bir koleksiyon zaten var.`)
+  }
+  if (await db.orm.public.Collection.where({ name: payload.name.trim() }).first()) {
+    throw new CatalogValidationError(`'${payload.name.trim()}' adında bir koleksiyon zaten var.`)
+  }
+  const last = await db.orm.public.Collection.orderBy((c) => c.sortOrder.desc()).first()
+
+  const created = await db.orm.public.Collection.create({
+    slug,
+    status: 'ACTIVE',
+    sortOrder: (last?.sortOrder ?? 0) + 1,
+    ...collectionColumns(payload),
+  } as never)
+
+  invalidateCatalog()
+  await logAuditEvent({
+    action: 'COLLECTION_CREATED',
+    entity: 'Collection',
+    entityId: created.id,
+    metadata: { name: created.name, slug, adminEmail },
+  })
+
+  return (await adminGetCollections()).find((c) => c.id === created.id)!
+}
+
+/**
+ * Updates collection details, status or ordering
+ */
+export async function adminUpdateCollection(id: string, payload: AdminCollectionPayload, adminEmail = 'system') {
+  const existing = await db.orm.public.Collection.where({ id }).first()
+  if (!existing) throw new Error('Koleksiyon bulunamadı.')
+
+  const columns = collectionColumns(payload)
+  if (payload.slug !== undefined && payload.slug !== existing.slug) {
+    const slug = requireSlug(payload.slug, 'Koleksiyon')
+    const clash = await db.orm.public.Collection.where({ slug }).first()
+    if (clash && clash.id !== id) throw new CatalogValidationError(`'${slug}' kısa adı başka bir koleksiyonda kullanılıyor.`)
+    columns.slug = slug
+  }
+  if (columns.name && columns.name !== existing.name) {
+    const clash = await db.orm.public.Collection.where({ name: String(columns.name) }).first()
+    if (clash && clash.id !== id) throw new CatalogValidationError(`'${columns.name}' adında bir koleksiyon zaten var.`)
+  }
+
+  if (Object.keys(columns).length > 0) {
+    await db.orm.public.Collection.where({ id }).update(columns as never)
+  }
+
+  invalidateCatalog()
+  await logAuditEvent({
+    action: 'COLLECTION_UPDATED',
+    entity: 'Collection',
+    entityId: id,
+    metadata: { fields: Object.keys(payload), adminEmail },
+  })
+
+  return (await adminGetCollections()).find((c) => c.id === id)!
+}
+
+/**
+ * Deletes a collection that no product belongs to. Collections with products
+ * should be set to INACTIVE instead, which hides them without touching products.
+ */
+export async function adminDeleteCollection(id: string, adminEmail = 'system') {
+  const linked = await db.orm.public.ProductCollection.where({ collectionId: id }).aggregate((a) => ({ n: a.count() }))
+  const direct = await db.orm.public.Product.where({ collectionId: id }).aggregate((a) => ({ n: a.count() }))
+  if (linked.n > 0 || direct.n > 0) {
+    throw new CatalogValidationError(
+      `Bu koleksiyonda ${Math.max(linked.n, direct.n)} ürün var. Silmek yerine pasife alın veya önce ürünleri çıkarın.`
+    )
+  }
+
+  await db.orm.public.Collection.where({ id }).delete()
+
+  invalidateCatalog()
+  await logAuditEvent({
+    action: 'COLLECTION_DELETED',
+    entity: 'Collection',
     entityId: id,
     metadata: { id, adminEmail },
   })

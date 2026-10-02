@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
-import { COLLECTION_CONFIGS } from '@/config/collections'
+import { getCollectionViews } from '@/lib/services/catalog/collection-presentation'
 import styles from './CollectionsDiscovery.module.css'
 
 export const metadata: Metadata = {
@@ -11,12 +11,20 @@ export const metadata: Metadata = {
     'zuulab özel tasarım dünyaları ve tematik seriler. zuukids, zuulife, zuulight, zuutoptan ve deneysel form koleksiyonları.',
 }
 
-export default function CollectionsDiscoveryPage() {
-  const kids = COLLECTION_CONFIGS['zuukids']
-  const life = COLLECTION_CONFIGS['zuulife']
-  const light = COLLECTION_CONFIGS['zuulight']
-  const toptan = COLLECTION_CONFIGS['zuutoptan']
-  const limited = COLLECTION_CONFIGS['koleksiyonlar']
+// The brand worlds with a hand-designed slot on this page.
+const FEATURED_SLUGS = ['zuukids', 'zuulife', 'zuulight', 'zuutoptan', 'koleksiyonlar']
+
+export default async function CollectionsDiscoveryPage() {
+  // Only collections that are live in the admin appear; a deactivated one drops
+  // out of its slot, and collections added later are listed after the features.
+  const views = await getCollectionViews()
+  const bySlug = new Map(views.map((v) => [v.slug, v]))
+  const kids = bySlug.get('zuukids')
+  const life = bySlug.get('zuulife')
+  const light = bySlug.get('zuulight')
+  const toptan = bySlug.get('zuutoptan')
+  const limited = bySlug.get('koleksiyonlar')
+  const others = views.filter((v) => !FEATURED_SLUGS.includes(v.slug))
 
   return (
     <div className={`container ${styles.pageRoot}`}>
@@ -253,6 +261,41 @@ export default function CollectionsDiscoveryPage() {
             </Link>
           )}
         </div>
+
+        {others.length > 0 && (
+          <div className={styles.duoRow}>
+            {others.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/koleksiyon/${c.slug}`}
+                className={styles.card}
+                aria-label={`${c.name} koleksiyonunu keşfet`}
+              >
+                <div className={styles.imgWrap}>
+                  <Image
+                    src={c.heroImage}
+                    alt={c.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className={styles.img}
+                  />
+                  <span className={styles.accentDot} style={{ backgroundColor: c.accentColor }} aria-hidden />
+                </div>
+                <div className={styles.cardBody}>
+                  <div className={styles.cardTitleRow}>
+                    <h2 className={styles.cardName}>{c.name}</h2>
+                  </div>
+                  {c.tagline && <p className={styles.cardTagline}>{c.tagline}</p>}
+                  {c.editorialStatement && <p className={styles.cardExcerpt}>{c.editorialStatement}</p>}
+                  <div className={styles.cardCta}>
+                    <span>koleksiyonu keşfet</span>
+                    <span className={styles.cardArrow} aria-hidden>→</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Bottom Atölye Strip ── */}

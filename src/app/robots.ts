@@ -1,7 +1,8 @@
+import { SITE_URL } from '@/lib/config/urls'
 import type { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://zuulab.com'
+  const baseUrl = SITE_URL
 
   return {
     rules: [

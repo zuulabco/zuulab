@@ -1,14 +1,21 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { COLLECTION_CONFIGS } from '@/config/collections'
+import { getCollectionViews } from '@/lib/services/catalog/collection-presentation'
 import styles from './EditorialCollectionGrid.module.css'
 
-export default function EditorialCollectionGrid() {
-  const kids = COLLECTION_CONFIGS['zuukids']
-  const life = COLLECTION_CONFIGS['zuulife']
-  const light = COLLECTION_CONFIGS['zuulight']
-  const toptan = COLLECTION_CONFIGS['zuutoptan']
+/**
+ * Home page showcase of the brand collections (distinct from categories). Each
+ * slot shows its collection only while it is live in the admin; names, images and
+ * colours come from the database, the editorial copy from src/config/collections.
+ */
+export default async function EditorialCollectionGrid() {
+  const views = await getCollectionViews()
+  const bySlug = new Map(views.map((v) => [v.slug, v]))
+  const kids = bySlug.get('zuukids')
+  const life = bySlug.get('zuulife')
+  const light = bySlug.get('zuulight')
+  const toptan = bySlug.get('zuutoptan')
 
   return (
     <section className={styles.section} aria-label="zuulab koleksiyonları">
@@ -21,7 +28,7 @@ export default function EditorialCollectionGrid() {
           </div>
 
           <Link href="/koleksiyonlar" className={styles.viewAllLink}>
-            <span>tüm koleksiyonlar (4)</span>
+            <span>tüm koleksiyonlar ({views.length})</span>
             <span aria-hidden>→</span>
           </Link>
         </header>

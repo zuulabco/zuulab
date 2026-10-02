@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getCollectionConfig } from '@/config/collections'
+import { getCollectionView } from '@/lib/services/catalog/collection-presentation'
 import { getProductsByCollection } from '@/lib/services/products.service'
 
 interface Context {
@@ -9,7 +9,8 @@ interface Context {
 export async function GET(request: Request, { params }: Context) {
   try {
     const { slug } = await params
-    const config = getCollectionConfig(slug)
+    // Only collections that are live in the admin; storefront catalog data only.
+    const config = await getCollectionView(slug)
 
     if (!config) {
       return NextResponse.json(
@@ -18,11 +19,8 @@ export async function GET(request: Request, { params }: Context) {
       )
     }
 
-    const collectionProducts = await getProductsByCollection(config.slug)
-    const products = collectionProducts.map((p) => {
-      const { cost, costPrice, ...safe } = p as any
-      return safe
-    })
+    // Catalog products carry no cost fields, so they are safe to return as-is.
+    const products = await getProductsByCollection(config.slug)
 
     return NextResponse.json({
       success: true,
@@ -30,7 +28,7 @@ export async function GET(request: Request, { params }: Context) {
       productCount: products.length,
       products,
     })
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Koleksiyon verileri alınırken bir hata oluştu.' },
       { status: 500 }

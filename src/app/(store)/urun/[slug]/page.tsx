@@ -10,7 +10,7 @@ import {
   getProductBySlug,
   getProducts,
 } from '@/lib/services/products.service'
-import { formatMockProductToListItem } from '@/lib/mock-data'
+import { toProductListItem } from '@/types/catalog'
 import type { ProductListItem } from '@/types/product'
 import styles from './ProductPage.module.css'
 
@@ -56,7 +56,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const relatedProducts: ProductListItem[] = allCandidates
     .filter((p) => p.id !== product.id)
     .slice(0, 4)
-    .map(formatMockProductToListItem)
+    .map(toProductListItem)
 
   // Product structured data JSON-LD
   const productJsonLd = {

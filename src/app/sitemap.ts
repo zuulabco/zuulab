@@ -1,11 +1,16 @@
 import type { MetadataRoute } from 'next'
-import { getProducts } from '@/lib/services/products.service'
-import { ALL_CATEGORY_SLUGS } from '@/config/categories'
-import { ALL_COLLECTION_SLUGS } from '@/config/collections'
+import { getProducts, getCategories, getCollections } from '@/lib/services/products.service'
+import { SITE_URL } from '@/lib/config/urls'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://zuulab.com'
+  const baseUrl = SITE_URL
   const now = new Date()
+  // Live catalog only: active categories, collections and products from the database.
+  const [categories, collections, { items: products }] = await Promise.all([
+    getCategories(),
+    getCollections(),
+    getProducts({ limit: 50000 }),
+  ])
 
   // Static public storefront routes
   const routes: MetadataRoute.Sitemap = [
@@ -21,13 +26,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.9,
     },
-    ...ALL_CATEGORY_SLUGS.map((slug) => ({
+    ...categories.filter((c) => c.productCount > 0).map(({ slug }) => ({
       url: `${baseUrl}/kategori/${slug}`,
       lastModified: now,
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
-    ...ALL_COLLECTION_SLUGS.map((slug) => ({
+    ...collections.map(({ slug }) => ({
       url: `${baseUrl}/koleksiyon/${slug}`,
       lastModified: now,
       changeFrequency: 'weekly' as const,
@@ -77,21 +82,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  try {
-    const res = await getProducts({ limit: 20 })
-    const items = Array.isArray(res) ? res : (res as any).items || []
-    for (const p of items) {
-      if (p.slug) {
-        routes.push({
-          url: `${baseUrl}/urun/${p.slug}`,
-          lastModified: new Date(p.updatedAt || now),
-          changeFrequency: 'weekly',
-          priority: 0.8,
-        })
-      }
-    }
-  } catch {
-    // Graceful fallback to static routes
+  for (const p of products) {
+    routes.push({
+      url: `${baseUrl}/urun/${p.slug}`,
+      lastModified: p.createdAt ? new Date(p.createdAt) : now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    })
   }
 
   return routes

@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/services/permissions.service'
-import { adminGetCollections, adminUpdateCollection } from '@/lib/services/catalog-admin.service'
+import {
+  adminGetCollections,
+  adminUpdateCollection,
+  adminCreateCollection,
+  adminDeleteCollection,
+} from '@/lib/services/catalog-admin.service'
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +20,7 @@ export async function GET(request: Request) {
     const isForbidden = error.message?.includes('FORBIDDEN')
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : error.isValidation ? 400 : 500 }
     )
   }
 }
@@ -41,7 +46,7 @@ export async function PUT(request: Request) {
     const isForbidden = error.message?.includes('FORBIDDEN')
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : error.isValidation ? 400 : 500 }
     )
   }
 }
@@ -55,7 +60,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Koleksiyon adı belirtilmelidir.' }, { status: 400 })
     }
 
-    const { adminCreateCollection } = await import('@/lib/services/catalog-admin.service')
     const created = await adminCreateCollection(body, user.email)
 
     return NextResponse.json({
@@ -67,8 +71,27 @@ export async function POST(request: Request) {
     const isForbidden = error.message?.includes('FORBIDDEN')
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : error.isValidation ? 400 : 500 }
     )
   }
 }
 
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await requirePermission(request, 'PRODUCT_DELETE')
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Koleksiyon ID belirtilmelidir.' }, { status: 400 })
+    }
+
+    await adminDeleteCollection(id, user.email)
+    return NextResponse.json({ success: true, message: 'Koleksiyon silindi.' })
+  } catch (error: any) {
+    const isForbidden = error.message?.includes('FORBIDDEN')
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: isForbidden ? 403 : error.isValidation ? 400 : 500 }
+    )
+  }
+}

@@ -7,8 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
-import { ALL_CATEGORIES } from '@/config/categories'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import styles from '../admin.module.css'
 
 interface ProductItem {
@@ -37,6 +36,7 @@ interface ProductItem {
 }
 
 export default function AdminProductsPage() {
+  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS } = useAdminCatalogOptions()
   const { token, canFetch } = useAuthStore()
   const [products, setProducts] = useState<ProductItem[]>([])
   const [total, setTotal] = useState(0)

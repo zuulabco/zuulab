@@ -1,6 +1,6 @@
 import 'server-only'
 import type { StoredOrder } from './orders.service'
-import type { Product } from '@/lib/mock-data'
+import type { AdminProduct as Product } from './catalog-admin.service'
 import type { AdminCustomerSummary } from './customers-admin.service'
 
 /**

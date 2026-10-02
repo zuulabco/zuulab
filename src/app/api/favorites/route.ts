@@ -2,20 +2,17 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/services/auth.service'
 import {
   getUserFavoriteProductIds,
+  getUserFavoriteProducts,
   addFavorite,
 } from '@/lib/services/favorites.service'
-import { MOCK_PRODUCTS } from '@/lib/mock-data'
 
 export async function GET(request: Request) {
   try {
     const user = await requireAuth(request)
-    const productIds = await getUserFavoriteProductIds(user.id)
-    const favoriteProducts = MOCK_PRODUCTS.filter((p) =>
-      productIds.includes(p.id)
-    ).map((p) => {
-      const { cost, ...safe } = p as any
-      return safe
-    })
+    const [productIds, favoriteProducts] = await Promise.all([
+      getUserFavoriteProductIds(user.id),
+      getUserFavoriteProducts(user.id),
+    ])
 
     return NextResponse.json({
       success: true,

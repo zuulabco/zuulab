@@ -9,70 +9,55 @@ import ProductCatalogClient, {
 import {
   getProductsByCategory,
   getCategories,
+  getCategoryBySlug,
+  getCollectionBySlug,
+  getCollections,
 } from '@/lib/services/products.service'
-import {
-  getCategoryConfig,
-  ALL_CATEGORY_SLUGS,
-} from '@/config/categories'
-import {
-  ALL_COLLECTION_SLUGS,
-} from '@/config/collections'
 
 interface PageProps {
   params: Promise<{ slug: string }>
 }
 
+// Categories created in admin after the build render on first visit.
+export const dynamicParams = true
+
 export async function generateStaticParams() {
-  const categoryParams = ALL_CATEGORY_SLUGS.map((slug) => ({ slug }))
-  const collectionParams = ALL_COLLECTION_SLUGS.map((slug) => ({ slug }))
-  return [...categoryParams, ...collectionParams, { slug: 'aydinlatma-lamba' }]
+  const categories = await getCategories()
+  return categories.map((c) => ({ slug: c.slug }))
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  if (slug === 'aydinlatma-lamba' || ALL_COLLECTION_SLUGS.includes(slug)) {
-    return {
-      title: 'Yönlendiriliyor... — zuulab',
-    }
-  }
-
-  const category = getCategoryConfig(slug)
+  const category = await getCategoryBySlug(slug)
   if (!category) {
-    return {
-      title: 'kategori bulunamadı — zuulab',
-    }
+    return { title: 'kategori bulunamadı — zuulab' }
   }
 
+  const title = category.seoTitle || `${category.name} — zuulab`
+  const description = category.seoDescription || category.description
   return {
-    title: `${category.name} — zuulab`,
-    description: category.seo.description,
-    openGraph: {
-      title: category.seo.title,
-      description: category.seo.description,
-    },
+    title,
+    description,
+    openGraph: { title, description },
   }
 }
 
 export default async function CategoryPage({ params }: PageProps) {
   const { slug } = await params
 
-  // Backward compatibility: 301-style redirect collection slugs to /koleksiyon/[slug]
-  if (slug === 'aydinlatma-lamba') {
-    redirect('/koleksiyon/zuulight')
-  }
-  if (ALL_COLLECTION_SLUGS.includes(slug)) {
-    redirect(`/koleksiyon/${slug}`)
-  }
-
-  const category = getCategoryConfig(slug)
+  const category = await getCategoryBySlug(slug)
   if (!category) {
+    // Old links used /kategori/<collection>; send them to the collection page.
+    if (slug === 'aydinlatma-lamba') redirect('/koleksiyon/zuulight')
+    if (await getCollectionBySlug(slug)) redirect(`/koleksiyon/${slug}`)
     notFound()
   }
 
   // Real category products from DB
-  const [products, categories] = await Promise.all([
+  const [products, categories, collections] = await Promise.all([
     getProductsByCategory(category.slug),
     getCategories(),
+    getCollections(),
   ])
 
   // JSON-LD structured data for category page
@@ -131,6 +116,7 @@ export default async function CategoryPage({ params }: PageProps) {
           <ProductCatalogClient
             products={products}
             categories={categories}
+            collections={collections}
             initialCategory={category.slug}
             hideHeroIntro={true}
             catalogTitle={category.name.toLowerCase()}

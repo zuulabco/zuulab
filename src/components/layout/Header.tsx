@@ -11,8 +11,7 @@ import AuthModal from '@/components/auth/AuthModal'
 import CartDrawer from '@/components/cart/CartDrawer'
 import CollectionMicroMotion from './CollectionMicroMotion'
 import { useAuthStore } from '@/store/authStore'
-import { ALL_CATEGORIES } from '@/config/categories'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import type { StoreNavigation } from '@/types/navigation'
 import styles from './Header.module.css'
 
 const DIRECT_COLLECTIONS = [
@@ -22,7 +21,9 @@ const DIRECT_COLLECTIONS = [
   { label: 'zuutoptan', href: '/koleksiyon/zuutoptan', slug: 'zuutoptan' },
 ]
 
-export default function Header() {
+export default function Header({ navigation }: { navigation: StoreNavigation }) {
+  const ALL_CATEGORIES = navigation.categories
+  const ALL_COLLECTIONS = navigation.collections
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState<'urunler' | null>(null)
@@ -295,7 +296,7 @@ export default function Header() {
 
           {/* Actions */}
           <div className={styles.actions}>
-            <SearchBar />
+            <SearchBar navigation={navigation} />
 
             <Link
               href="/hesap/favoriler"

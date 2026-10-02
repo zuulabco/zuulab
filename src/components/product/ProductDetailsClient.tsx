@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import type { MockProduct } from '@/lib/mock-data'
+import type { CatalogProduct } from '@/types/catalog'
 import { formatPrice, calcDiscountPercent } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from '@/store/toastStore'
@@ -12,7 +12,7 @@ import FavoriteButton from './FavoriteButton'
 import styles from './ProductDetails.module.css'
 
 interface Props {
-  product: MockProduct
+  product: CatalogProduct
 }
 
 type AccordionKey = 'about' | 'material' | 'specs' | 'shipping'
@@ -103,14 +103,23 @@ export default function ProductDetailsClient({ product }: Props) {
 
       {/* ── 4. Rating & SKU Row ──────────────────────────── */}
       <div className={styles.ratingRow}>
-        <div className={styles.stars} aria-label={`Puan: ${product.rating.toFixed(1)} / 5`}>
-          <StarIcon />
-          <span className={styles.ratingScore}>{product.rating.toFixed(1)}</span>
-        </div>
-        <span className={styles.dot} aria-hidden="true">•</span>
-        <a href="#reviews" className={styles.reviewCount}>
-          {product.reviewCount} değerlendirme
-        </a>
+        {/* Rating comes from approved reviews only; none yet means no score. */}
+        {product.reviewCount > 0 ? (
+          <>
+            <div className={styles.stars} aria-label={`Puan: ${product.rating.toFixed(1)} / 5`}>
+              <StarIcon />
+              <span className={styles.ratingScore}>{product.rating.toFixed(1)}</span>
+            </div>
+            <span className={styles.dot} aria-hidden="true">•</span>
+            <a href="#reviews" className={styles.reviewCount}>
+              {product.reviewCount} değerlendirme
+            </a>
+          </>
+        ) : (
+          <a href="#reviews" className={styles.reviewCount}>
+            henüz değerlendirme yok
+          </a>
+        )}
         <span className={styles.dot} aria-hidden="true">•</span>
         <span className={styles.skuText}>sku: {currentSku}</span>
       </div>

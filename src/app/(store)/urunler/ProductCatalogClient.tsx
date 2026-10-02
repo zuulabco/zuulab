@@ -2,16 +2,16 @@
 
 import { useState, useMemo, useEffect, useCallback, useTransition, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import type { MockProduct, MockCategory } from '@/lib/mock-data'
-import { formatMockProductToListItem } from '@/lib/mock-data'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import { toProductListItem, type CatalogProduct, type CatalogCategory } from '@/types/catalog'
 import { CATALOG_COLORS, CATALOG_MATERIALS, getColorDef, extractMaterialSlug } from '@/config/catalog-filters'
 import ProductCard from '@/components/home/ProductCard'
 import styles from './ProductCatalog.module.css'
 
 interface Props {
-  products: MockProduct[]
-  categories: MockCategory[]
+  products: CatalogProduct[]
+  categories: CatalogCategory[]
+  /** Live collections (database), for the collection filter. */
+  collections: Array<{ slug: string; name: string }>
   initialCategory?: string
   initialCollection?: string
   /** When true, hides the /urunler editorial intro; category or collection pages pass true */
@@ -42,6 +42,7 @@ export default function ProductCatalogClient({
   hideHeroIntro = false,
   catalogTitle,
   catalogDescription,
+  collections,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -363,7 +364,7 @@ export default function ProductCatalogClient({
     }
 
     if (!isCollectionPage && selectedCollection !== 'all') {
-      const col = ALL_COLLECTIONS.find((c) => c.slug === selectedCollection)
+      const col = collections.find((c) => c.slug === selectedCollection)
       pills.push({
         label: col ? col.name.toLowerCase() : selectedCollection,
         onRemove: () => updateUrl({ collection: 'all' }),
@@ -535,7 +536,7 @@ export default function ProductCatalogClient({
                 </label>
 
                 {/* Individual distinct collections */}
-                {ALL_COLLECTIONS.map((c) => {
+                {collections.map((c) => {
                   const count = products.filter((p) => {
                     const colls = p.collections || (p.collectionWorld && p.collectionWorld !== 'general' ? [p.collectionWorld] : [])
                     return colls.includes(c.slug)
@@ -902,7 +903,7 @@ export default function ProductCatalogClient({
               {filteredProducts.map((p, index) => (
                 <ProductCard
                   key={p.id}
-                  product={formatMockProductToListItem(p)}
+                  product={toProductListItem(p)}
                   priority={index < 4}
                 />
               ))}

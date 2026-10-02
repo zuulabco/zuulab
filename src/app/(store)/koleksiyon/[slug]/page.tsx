@@ -9,23 +9,25 @@ import ProductCatalogClient, {
 import {
   getProductsByCollection,
   getCategories,
+  getCollections,
 } from '@/lib/services/products.service'
-import {
-  getCollectionConfig,
-  ALL_COLLECTION_SLUGS,
-} from '@/config/collections'
+import { getCollectionView } from '@/lib/services/catalog/collection-presentation'
 
 interface PageProps {
   params: Promise<{ slug: string }>
 }
 
+// Collections created in admin after the build render on first visit.
+export const dynamicParams = true
+
 export async function generateStaticParams() {
-  return ALL_COLLECTION_SLUGS.map((slug) => ({ slug }))
+  const collections = await getCollections()
+  return collections.map((c) => ({ slug: c.slug }))
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
-  const config = getCollectionConfig(slug)
+  const config = await getCollectionView(slug)
 
   if (!config) {
     return {
@@ -34,10 +36,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${config.name} — zuulab`,
+    title: config.seo.title,
     description: config.seo.description,
     openGraph: {
-      title: `${config.name} — zuulab`,
+      title: config.seo.title,
       description: config.seo.description,
       images: [{ url: config.heroImage, alt: `${config.name} koleksiyonu` }],
     },
@@ -46,16 +48,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CollectionPage({ params }: PageProps) {
   const { slug } = await params
-  const config = getCollectionConfig(slug)
+  const config = await getCollectionView(slug)
 
   if (!config) {
     notFound()
   }
 
   // Products belonging to this collection from DB
-  const [products, categories] = await Promise.all([
+  const [products, categories, collections] = await Promise.all([
     getProductsByCollection(config.slug),
     getCategories(),
+    getCollections(),
   ])
 
   // JSON-LD structured data for collection page
@@ -114,6 +117,7 @@ export default async function CollectionPage({ params }: PageProps) {
           <ProductCatalogClient
             products={products}
             categories={categories}
+            collections={collections}
             initialCollection={config.slug}
             hideHeroIntro={true}
             catalogTitle={config.name}

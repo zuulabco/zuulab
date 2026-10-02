@@ -8,11 +8,11 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
-import { ALL_CATEGORIES } from '@/config/categories'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import styles from '../../admin.module.css'
 
 export default function AdminEditProductPage() {
+  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS } = useAdminCatalogOptions()
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
@@ -43,8 +43,8 @@ export default function AdminEditProductPage() {
 
   // Classification
   const [collectionId, setCollectionId] = useState('')
-  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar')
-  const [selectedCollections, setSelectedCollections] = useState<string[]>(['zuukids'])
+  const [categoryId, setCategoryId] = useState('')
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const [material, setMaterial] = useState('')
   const [status, setStatus] = useState<'ACTIVE' | 'DRAFT' | 'ARCHIVED'>('ACTIVE')
   const [isFeatured, setIsFeatured] = useState(false)
@@ -143,18 +143,10 @@ export default function AdminEditProductPage() {
           setPrice(p.price ?? '')
           setCompareAtPrice(p.oldPrice ?? '')
           setCostPrice(p.costPrice ?? p.cost ?? '')
-          setCollectionId(p.collectionId || p.category || 'zuukids')
-          const resolvedCatId = p.categoryId
-            ? (ALL_CATEGORIES.find((c) => c.id === p.categoryId || c.slug === p.categoryId)?.id || p.categoryId)
-            : (p.categorySlug
-                ? (ALL_CATEGORIES.find((c) => c.id === p.categorySlug || c.slug === p.categorySlug)?.id || p.categorySlug)
-                : (ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar'))
-          setCategoryId(resolvedCatId)
-          const colls =
-            Array.isArray(p.collections) && p.collections.length > 0
-              ? p.collections
-              : [p.collectionId || p.category || 'zuukids']
-          setSelectedCollections(colls)
+          setCollectionId(p.collectionId || '')
+          // The API returns the product's real category id and collection slugs.
+          setCategoryId(p.categoryId || '')
+          setSelectedCollections(Array.isArray(p.collections) ? p.collections : [])
           setMaterial(p.material || '')
           setStatus(p.status || (p.isActive ? 'ACTIVE' : 'ARCHIVED'))
           setIsFeatured(!!p.isFeatured)
@@ -261,7 +253,7 @@ export default function AdminEditProductPage() {
           price: Number(price),
           compareAtPrice: compareAtPrice !== '' ? Number(compareAtPrice) : null,
           costPrice: costPrice !== '' ? Number(costPrice) : null,
-          collectionId: selectedCollections[0] || 'koleksiyonlar',
+          collectionId: selectedCollections[0] || null,
           collections: selectedCollections,
           categoryId,
           material,

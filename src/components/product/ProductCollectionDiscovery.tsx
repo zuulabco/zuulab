@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { COLLECTION_CONFIGS } from '@/config/collections'
+import { getCollectionView } from '@/lib/services/catalog/collection-presentation'
 import styles from './ProductCollectionDiscovery.module.css'
 
 interface Props {
@@ -9,12 +9,13 @@ interface Props {
   productName: string
 }
 
-export default function ProductCollectionDiscovery({
+export default async function ProductCollectionDiscovery({
   collectionSlug,
   collectionName,
   productName,
 }: Props) {
-  const config = collectionSlug ? COLLECTION_CONFIGS[collectionSlug] : null
+  // The product's brand collection, only while that collection is live.
+  const config = collectionSlug ? await getCollectionView(collectionSlug) : null
 
   if (config) {
     const imageUrl = config.secondaryImage || config.heroImage

@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import type { MockProduct } from '@/lib/mock-data'
+import type { CatalogProduct } from '@/types/catalog'
 import { formatPrice } from '@/lib/utils'
 import styles from './NewArrivalsSection.module.css'
 
 interface Props {
-  products: MockProduct[]
+  products: CatalogProduct[]
 }
 
 export default function NewArrivalsSection({ products }: Props) {

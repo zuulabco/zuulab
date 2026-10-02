@@ -1,16 +1,16 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
-import { ALL_CATEGORIES } from '@/config/categories'
-import { ALL_COLLECTIONS } from '@/config/collections'
+import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import styles from '../../admin.module.css'
 
 export default function AdminNewProductPage() {
+  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS } = useAdminCatalogOptions()
   const router = useRouter()
   const { token, canFetch } = useAuthStore()
 
@@ -31,8 +31,12 @@ export default function AdminNewProductPage() {
   const [costPrice, setCostPrice] = useState<number | ''>('')
 
   // Classification (Category & Collections)
-  const [categoryId, setCategoryId] = useState(ALL_CATEGORIES[0]?.id || 'cat-aydinlatmalar')
-  const [selectedCollections, setSelectedCollections] = useState<string[]>(['zuukids'])
+  const [categoryId, setCategoryId] = useState('')
+  // Default to the first category once the live list has loaded.
+  useEffect(() => {
+    if (!categoryId && ALL_CATEGORIES.length > 0) setCategoryId(ALL_CATEGORIES[0].id)
+  }, [categoryId, ALL_CATEGORIES])
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const [material, setMaterial] = useState('PLA Premium (Biyouyumlu Organik Filament)')
   const [status, setStatus] = useState<'ACTIVE' | 'DRAFT' | 'ARCHIVED'>('ACTIVE')
   const [isFeatured, setIsFeatured] = useState(false)
