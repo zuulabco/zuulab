@@ -306,7 +306,7 @@
   justify-content: center;
   height: 36px;
   padding: 0 var(--sp-4);
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
   border-radius: var(--radius-xs);
   font-family: var(--font-sans);
@@ -318,7 +318,7 @@
 }
 
 .primaryCtaBtn:hover {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 /* ── Empty & Logged Out State ────────────────────────────── */

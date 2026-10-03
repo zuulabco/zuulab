@@ -9,6 +9,7 @@ import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 const PAGE_SIZE = 50
 
@@ -479,11 +480,7 @@ export default function AdminProductsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={10} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Ürünler yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={10} />
               ) : products.length === 0 ? (
                 <tr>
                   <td colSpan={10} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>

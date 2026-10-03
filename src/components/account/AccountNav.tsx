@@ -87,14 +87,14 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
           <div className={styles.modalActions}>
             <button
               type="button"
-              className={styles.modalCancelBtn}
+              className="btn btn-secondary btn-lg"
               onClick={() => setLogoutModalOpen(false)}
             >
               vazgeç
             </button>
             <button
               type="button"
-              className={styles.modalConfirmBtn}
+              className="btn btn-primary btn-lg"
               onClick={confirmLogout}
             >
               çıkış yap

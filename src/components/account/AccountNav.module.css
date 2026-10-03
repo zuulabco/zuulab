@@ -120,3 +120,19 @@
     white-space: nowrap;
   }
 }
+
+/* Logout confirmation */
+.modalBody {
+  padding: var(--sp-2) var(--sp-1);
+}
+
+.modalText {
+  font-size: var(--text-base);
+  margin-bottom: var(--sp-6);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+}

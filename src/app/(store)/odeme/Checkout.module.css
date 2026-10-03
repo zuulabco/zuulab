@@ -857,9 +857,9 @@
 .submitBtn {
   width: 100%;
   height: 48px;
-  background: var(--surface-inv);
+  background: var(--zuu-blue);
   color: var(--text-inv);
-  border: 1px solid var(--surface-inv);
+  border: 1px solid var(--zuu-blue);
   border-radius: var(--radius-xs);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
@@ -874,7 +874,8 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-  opacity: 0.92;
+  background: var(--zuu-blue-dark);
+  border-color: var(--zuu-blue-dark);
 }
 
 .submitBtn:active:not(:disabled) {

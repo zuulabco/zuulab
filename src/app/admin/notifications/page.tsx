@@ -7,6 +7,7 @@ import { toast } from '@/store/toastStore'
 import { getNotificationStatusConfig } from '@/lib/constants/admin-status'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface NotificationItem {
   id: string
@@ -242,11 +243,7 @@ export default function AdminNotificationsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Bildirim kayıtları yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={8} />
               ) : notifications.length === 0 ? (
                 <tr>
                   <td colSpan={8}>

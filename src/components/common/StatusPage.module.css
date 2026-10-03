@@ -1,0 +1,89 @@
+/* Shared layout for 404 / error / maintenance-style status pages. */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-0);
+}
+
+.inline {
+  min-height: 60vh;
+}
+
+.top {
+  padding: var(--sp-6) var(--sp-6) 0;
+}
+
+.logo {
+  font-size: 19px;
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.logoDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--zuu-blue);
+  display: inline-block;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-12) var(--sp-6);
+}
+
+.content {
+  max-width: 520px;
+}
+
+.code {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(5rem, 14vw, 9rem);
+  line-height: 0.9;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.layer {
+  /* 3D-print layer lines under the number: the one visual gesture of the page */
+  display: block;
+  height: 18px;
+  margin: var(--sp-3) 0 var(--sp-8);
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--border-strong) 0 1px,
+    transparent 1px 4px
+  );
+  max-width: 260px;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  margin-bottom: var(--sp-3);
+}
+
+.text {
+  font-size: var(--text-md);
+  margin-bottom: var(--sp-8);
+  max-width: 46ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.reference {
+  margin-top: var(--sp-6);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}

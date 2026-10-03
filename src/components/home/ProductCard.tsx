@@ -8,6 +8,7 @@ import type { ProductListItem } from '@/types/product'
 import { useCartStore } from '@/store/cartStore'
 import FavoriteButton from '../product/FavoriteButton'
 import styles from './ProductCard.module.css'
+import { cloudinaryCardLoader, isCloudinaryUrl } from '@/lib/images/cloudinary-loader'
 
 interface Props {
   product: ProductListItem
@@ -62,6 +63,7 @@ export default function ProductCard({ product, priority = false }: Props) {
                 src={product.primaryImage}
                 alt={product.name}
                 fill
+                loader={isCloudinaryUrl(product.primaryImage) ? cloudinaryCardLoader : undefined}
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className={`${styles.image} ${hasSecondaryImage ? styles.primaryWithHover : ''}`}
                 priority={priority}
@@ -71,6 +73,7 @@ export default function ProductCard({ product, priority = false }: Props) {
                   src={product.secondaryImage}
                   alt={`${product.name} detay görünümü`}
                   fill
+                  loader={isCloudinaryUrl(product.secondaryImage) ? cloudinaryCardLoader : undefined}
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   className={styles.secondaryImage}
                   loading="lazy"

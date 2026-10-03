@@ -7,6 +7,7 @@ import { useToastStore } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import { getReturnStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface ReturnItem {
   id: string
@@ -267,11 +268,7 @@ export default function AdminReturnsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  İade ve değişim talepleri taranıyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={8} />
             ) : returns.length === 0 ? (
               <tr>
                 <td colSpan={8}>

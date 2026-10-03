@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/utils'
 import { getInvoiceStatusConfig } from '@/lib/constants/admin-status'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface InvoiceItem {
   id: string
@@ -192,11 +193,7 @@ export default function AdminInvoicesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Faturalar yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={9} />
               ) : invoices.length === 0 ? (
                 <tr>
                   <td colSpan={9}>

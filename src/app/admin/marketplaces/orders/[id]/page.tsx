@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import styles from '../../../admin.module.css'
+import { SkeletonPage } from '@/components/common/Skeleton'
 
 interface OrderLine {
   lineId: string
@@ -96,7 +97,12 @@ export default function MarketplaceOrderDetailPage() {
     }
   }
 
-  if (loading) return <div className={styles.adminPage}>Yükleniyor…</div>
+  if (loading)
+    return (
+      <div className={styles.adminPage}>
+        <SkeletonPage />
+      </div>
+    )
   if (!order) return <div className={styles.adminPage}>Sipariş bulunamadı.</div>
 
   return (

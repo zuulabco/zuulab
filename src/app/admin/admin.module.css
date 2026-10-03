@@ -10,7 +10,7 @@
 
 /* ── Sidebar ──────────────────────── */
 .sidebar {
-  width: 232px;
+  width: 248px;
   background-color: var(--surface-0);
   border-right: 1px solid var(--border);
   display: flex;
@@ -74,26 +74,65 @@
   flex: 1;
 }
 
-/* Section title — plain, no ALL-CAPS tracked-out styling */
+/* Groups: a quiet title that opens/closes its items. */
+.navSection + .navSection {
+  margin-top: 6px;
+}
+
 .navSectionTitle {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  color: var(--text-disabled);
-  padding: 14px 8px 4px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* First section title has less top padding */
-.navSectionTitle:first-child {
-  padding-top: 8px;
-}
-
-.navItem {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 8px;
+  padding: 8px 10px 4px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.navSectionTitle:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+/* The group of the current page stays open */
+.navSectionTitle:disabled {
+  cursor: default;
+}
+
+.navSectionTitle:disabled .navChevron {
+  visibility: hidden;
+}
+
+.navChevron {
+  display: inline-flex;
+  transform: rotate(-90deg);
+  transition: transform var(--dur-fast) var(--ease-default);
+}
+
+.navChevronOpen {
+  transform: rotate(0deg);
+}
+
+.navItems {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -102,24 +141,60 @@
   transition: background-color var(--dur-fast), color var(--dur-fast);
 }
 
-.navItem:hover {
-  color: var(--text-primary);
-  background-color: var(--surface-2);
+.navItem svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: color var(--dur-fast);
 }
 
-.navItemActive {
+.navItem:hover {
+  color: var(--text-primary);
+  background-color: var(--surface-1);
+}
+
+.navItem:hover svg {
+  color: var(--text-primary);
+}
+
+/* Current page: tinted row and a short brand-blue marker on the left edge */
+.navItemActive,
+.navItemActive:hover {
   color: var(--text-primary);
   background-color: var(--surface-2);
   font-weight: var(--weight-semibold);
 }
 
-.navItemTag {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  padding: 1px 5px;
-  border-radius: var(--radius-xs);
-  background: var(--zuu-yellow-light);
-  color: var(--zuu-yellow-dark);
+.navItemActive svg {
+  color: var(--text-primary);
+}
+
+.navItemActive::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--zuu-blue);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
 }
 
 /* ── Sidebar footer ───────────────── */
@@ -860,8 +935,16 @@
   flex-shrink: 0;
 }
 
-/* ── Action Buttons ────────────────── */
+/* ── Buttons ─────────────────────────
+   One system for the whole admin, matching the storefront: ink is the primary
+   action (there is no buying here, so no blue fills). Every name the pages use
+   maps to the same four looks. */
 .btn,
+.btnPrimary,
+.btnSecondary,
+.btnDanger,
+.btnGhost,
+.btnWarning,
 .primaryButton,
 .primaryBtn,
 .secondaryButton,
@@ -872,52 +955,112 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
+  min-height: var(--control-h-sm);
+  padding: 0 14px;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   font-family: inherit;
+  line-height: 1.2;
   text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all var(--dur-fast);
   border: 1px solid transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-default),
+    border-color var(--dur-fast) var(--ease-default),
+    color var(--dur-fast) var(--ease-default);
+}
+
+.btn:disabled,
+.btnPrimary:disabled,
+.btnSecondary:disabled,
+.btnDanger:disabled,
+.btnGhost:disabled,
+.btnWarning:disabled,
+.primaryButton:disabled,
+.primaryBtn:disabled,
+.secondaryButton:disabled,
+.secondaryBtn:disabled,
+.dangerButton:disabled,
+.ghostBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .btnSm {
-  padding: 4px 8px;
+  min-height: 28px;
+  padding: 0 10px;
   font-size: var(--text-xs);
 }
 
+/* Primary — ink */
 .btnPrimary,
 .primaryButton,
 .primaryBtn {
-  background: var(--zuu-blue);
-  color: #ffffff !important;
-  border-color: var(--zuu-blue);
+  background: var(--text-primary);
+  color: var(--text-inv);
+  border-color: var(--text-primary);
 }
 
-.btnPrimary:hover,
-.primaryButton:hover,
-.primaryBtn:hover {
-  background: #0070ad;
-  border-color: #0070ad;
-  color: #ffffff !important;
+.btnPrimary:hover:not(:disabled),
+.primaryButton:hover:not(:disabled),
+.primaryBtn:hover:not(:disabled) {
+  background: var(--ink-hover);
+  border-color: var(--ink-hover);
+  color: var(--text-inv);
 }
 
+/* Secondary — outlined; ghost is the same, quieter text */
 .btnSecondary,
 .secondaryButton,
-.secondaryBtn {
+.secondaryBtn,
+.btnGhost,
+.ghostBtn {
   background: var(--surface-0);
   color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.btnGhost,
+.ghostBtn {
+  color: var(--text-secondary);
   border-color: var(--border);
 }
 
-.btnSecondary:hover,
-.secondaryButton:hover,
-.secondaryBtn:hover {
-  background: var(--surface-2);
-  border-color: var(--border-strong);
+.btnSecondary:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled),
+.secondaryBtn:hover:not(:disabled),
+.btnGhost:hover:not(:disabled),
+.ghostBtn:hover:not(:disabled) {
+  background: var(--surface-1);
+  border-color: var(--text-muted);
   color: var(--text-primary);
+}
+
+/* Danger — destructive actions, soft until hovered */
+.btnDanger,
+.dangerButton {
+  background: var(--error-bg);
+  color: var(--error);
+  border-color: #fecaca;
+}
+
+.btnDanger:hover:not(:disabled),
+.dangerButton:hover:not(:disabled) {
+  background: var(--error);
+  border-color: var(--error);
+  color: #ffffff;
+}
+
+.btnWarning {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: #fde68a;
+}
+
+.btnWarning:hover:not(:disabled) {
+  background: #fde68a;
 }
 
 .tabDot {
@@ -926,45 +1069,6 @@
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
-}
-
-.btnDanger,
-.dangerButton {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.btnDanger:hover,
-.dangerButton:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #b91c1c;
-}
-
-.btnGhost,
-.ghostBtn {
-  background: var(--surface-0);
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-
-.btnGhost:hover,
-.ghostBtn:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-}
-
-.btnWarning {
-  background: #fffbeb;
-  color: #b45309;
-  border-color: #fde68a;
-}
-
-.btnWarning:hover {
-  background: #fef3c7;
-  border-color: #fcd34d;
 }
 
 /* ── Pagination ────────────────────── */
@@ -988,6 +1092,7 @@
 }
 
 .pageNavBtn {
+  min-height: 28px;
   padding: 4px 10px;
   background: var(--surface-0);
   border: 1px solid var(--border);
@@ -1452,60 +1557,3 @@
   border-color: var(--zuu-blue) !important;
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2), 0 4px 12px -2px rgba(2, 132, 199, 0.1) !important;
 }
-
-/* ── Standard Admin Buttons ────────────────────── */
-.primaryButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background-color: var(--text-primary);
-  color: #ffffff;
-  border: 1px solid var(--text-primary);
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-
-.primaryButton:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.primaryButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.secondaryButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background-color: var(--surface-0);
-  color: var(--text-primary);
-  border: 1px solid var(--border-strong);
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--dur-fast);
-}
-
-.secondaryButton:hover:not(:disabled) {
-  background-color: var(--surface-1);
-  border-color: var(--border-focus);
-}
-
-.secondaryButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
-

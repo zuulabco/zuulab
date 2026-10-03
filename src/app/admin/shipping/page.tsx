@@ -8,6 +8,7 @@ import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { SHIPMENT_STATUS_MAP } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface StoredShipmentItem {
   id: string
@@ -788,11 +789,7 @@ export default function AdminShippingPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Kargo ve sevkiyat kayıtları yükleniyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={10} />
             ) : shipments.length === 0 ? (
               <tr>
                 <td colSpan={10} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>

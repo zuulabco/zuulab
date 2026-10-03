@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface Filament {
   id: string
@@ -228,7 +229,7 @@ export default function MaterialsPage() {
 
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+          <SkeletonList rows={5} />
         ) : visible.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
             Henüz filament yok. &quot;+ Filament ekle&quot; ile elinizdeki makaraları girin.

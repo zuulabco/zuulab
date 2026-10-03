@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface Collection {
   id: string
@@ -353,9 +354,7 @@ export default function AdminCollectionsPage() {
 
       {/* ── COLLECTIONS EDITORIAL CARDS ─────────────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Koleksiyon dünyaları yükleniyor...
-        </div>
+        <SkeletonList rows={5} />
       ) : filtered.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyStateTitle}>Koleksiyon Bulunamadı</div>

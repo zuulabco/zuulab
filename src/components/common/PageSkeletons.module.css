@@ -1,0 +1,55 @@
+/* Route-level loading screens: same container and grid as the real pages. */
+.page {
+  padding-block: var(--sp-8) var(--sp-20);
+}
+
+.header {
+  margin-bottom: var(--sp-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.listing {
+  display: grid;
+  grid-template-columns: minmax(220px, 240px) 1fr;
+  gap: var(--sp-10);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-8) var(--sp-5);
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: var(--sp-12);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+@media (max-width: 1024px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .listing { grid-template-columns: 1fr; }
+  .filters { display: none; }
+  .detail { grid-template-columns: 1fr; gap: var(--sp-8); }
+}
+
+@media (max-width: 640px) {
+  .grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-6) var(--sp-3); }
+}

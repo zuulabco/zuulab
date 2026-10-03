@@ -6,6 +6,7 @@ import { useToastStore } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface CouponItem {
   id: string
@@ -398,11 +399,7 @@ export default function AdminCouponsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Promosyon ve kupon verileri taranıyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={8} />
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={8}>

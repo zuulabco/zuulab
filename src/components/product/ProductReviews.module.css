@@ -383,9 +383,9 @@
 
 .submitBtn {
   padding: 8px 20px;
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
-  border: 1px solid var(--zuu-blue);
+  border: 1px solid var(--text-primary);
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
@@ -396,7 +396,7 @@
 }
 
 .submitBtn:hover:not(:disabled) {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 .successState {
@@ -453,4 +453,10 @@
   .modalContent {
     animation: none;
   }
+}
+
+.modalTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--sp-4);
 }

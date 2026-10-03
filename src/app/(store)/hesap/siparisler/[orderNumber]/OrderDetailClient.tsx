@@ -9,6 +9,7 @@ import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import Modal from '@/components/common/Modal'
 import styles from './OrderDetail.module.css'
+import { SkeletonLines, SkeletonList } from '@/components/common/Skeleton'
 
 interface OrderDetail {
   orderNumber: string
@@ -166,7 +167,12 @@ export default function OrderDetailClient() {
   }
 
   if (loading) {
-    return <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>sipariş detayları yükleniyor...</div>
+    return (
+      <div aria-busy="true" aria-label="Sipariş yükleniyor" style={{ padding: 'var(--sp-6) 0' }}>
+        <SkeletonLines lines={2} lastWidth="30%" />
+        <SkeletonList rows={3} />
+      </div>
+    )
   }
 
   if (error || !order) {

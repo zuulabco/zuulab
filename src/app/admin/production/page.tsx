@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 type Status = 'PLANNED' | 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED' | 'STOCKED' | 'FAILED' | 'CANCELLED'
 type Filter = 'OPEN' | 'COMPLETED' | 'DONE' | 'ALL'
@@ -210,7 +211,7 @@ export default function ProductionPage() {
 
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+          <SkeletonList rows={5} />
         ) : visible.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
             Bu listede iş yok. &quot;+ Yeni baskı işi&quot; ile başlayın.

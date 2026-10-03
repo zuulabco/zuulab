@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface Channel {
   storeName: string
@@ -272,7 +273,7 @@ export default function InventoryPage() {
 
           <div className={styles.tableCard}>
             {loading ? (
-              <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+              <SkeletonList rows={5} />
             ) : filtered.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Ürün yok.</div>
             ) : (

@@ -268,7 +268,7 @@ export default function ProductDetailsClient({ product }: Props) {
           <div className={styles.summaryText}>
             <span className={styles.summaryTitle}>3d hassas üretim</span>
             <span className={styles.summaryDesc}>
-              0.12mm katman hassasiyeti · ZUULAB atölyesinde üretim ({product.productionTime})
+              0.12mm katman hassasiyeti · ZUULAB atölyesinde üretim{product.productionTime ? ` (${product.productionTime})` : ''}
             </span>
           </div>
         </div>
@@ -342,7 +342,7 @@ export default function ProductDetailsClient({ product }: Props) {
               </p>
               <ul className={styles.featureList}>
                 <li><strong>malzeme:</strong> {product.material} (biyo-bozunur çevre dostu PLA / PETG filament)</li>
-                <li><strong>üretim süresi:</strong> {product.productionTime}</li>
+                {product.productionTime && <li><strong>üretim süresi:</strong> {product.productionTime}</li>}
                 <li><strong>ısı dayanımı:</strong> Maksimum 55°C. Direkt güneş ışığı veya yüksek ısı kaynaklarından korunmalıdır.</li>
               </ul>
             </div>

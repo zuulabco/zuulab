@@ -7,6 +7,7 @@ import { toast } from '@/store/toastStore'
 import AccountNav from '@/components/account/AccountNav'
 import styles from '../Destek.module.css'
 import hesapStyles from '../../Hesap.module.css'
+import { SkeletonLines } from '@/components/common/Skeleton'
 
 interface MessageItem {
   id: string
@@ -175,7 +176,9 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
           )}
 
           {loading ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>Yükleniyor...</p>
+            <div aria-busy="true" aria-label="Talep yükleniyor">
+              <SkeletonLines lines={4} />
+            </div>
           ) : ticket ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
               {/* Messages */}

@@ -6,6 +6,7 @@ import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { getUserRoleConfig, USER_ROLE_MAP } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface AdminUser {
   id: string
@@ -279,11 +280,7 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    Kullanıcılar yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={7} />
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>

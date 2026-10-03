@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/utils'
 import Modal from '@/components/common/Modal'
 import { getCustomerStatusConfig, getOrderStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../../admin.module.css'
+import { SkeletonPage } from '@/components/common/Skeleton'
 
 export default function AdminCustomerDetailPage({
   params,
@@ -93,9 +94,7 @@ export default function AdminCustomerDetailPage({
   if (loading) {
     return (
       <div className={styles.container}>
-        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Müşteri 360° profili yükleniyor...
-        </div>
+        <SkeletonPage />
       </div>
     )
   }

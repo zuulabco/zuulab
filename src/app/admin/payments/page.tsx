@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/utils'
 import Modal from '@/components/common/Modal'
 import { getPaymentStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface PaymentItem {
   id: string
@@ -303,11 +304,7 @@ export default function AdminPaymentsPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Ödeme kayıtları yükleniyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={8} />
             ) : payments.length === 0 ? (
               <tr>
                 <td colSpan={8}>

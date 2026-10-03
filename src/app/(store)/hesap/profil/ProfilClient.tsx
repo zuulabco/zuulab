@@ -6,6 +6,7 @@ import { toast } from '@/store/toastStore'
 import AccountNav from '@/components/account/AccountNav'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Profil.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface UserProfile {
   id: string
@@ -126,9 +127,7 @@ export default function ProfilClient() {
 
         <main className={styles.mainContent}>
           {loading ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '32px 0', textAlign: 'center' }}>
-              profil bilgileri yükleniyor...
-            </div>
+            <SkeletonList rows={5} />
           ) : (
             <div className={styles.profileSection}>
               <div className={styles.sectionHeader}>

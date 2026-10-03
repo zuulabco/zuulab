@@ -15,6 +15,7 @@ import {
   getInvoiceStatusConfig,
 } from '@/lib/constants/admin-status'
 import styles from '../../admin.module.css'
+import { SkeletonPage } from '@/components/common/Skeleton'
 
 export default function AdminOrderDetailPage() {
   const params = useParams()
@@ -382,9 +383,7 @@ export default function AdminOrderDetailPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
-        Sipariş detayları yükleniyor...
-      </div>
+      <SkeletonPage />
     )
   }
 

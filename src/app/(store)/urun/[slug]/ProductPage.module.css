@@ -16,6 +16,15 @@
   margin-top: var(--sp-16);
 }
 
+/* FeaturedProducts brings its own container; the page already has one. */
+.relatedWrap :global(.container) {
+  padding-inline: 0;
+}
+
+.relatedWrap :global(.section) {
+  padding-top: 0;
+}
+
 @media (max-width: 960px) {
   .mainGrid {
     grid-template-columns: 1fr;

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface AnnouncementItem {
   id: string
@@ -199,11 +200,7 @@ export default function AdminAnnouncementPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    Duyurular yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={5} />
               ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>

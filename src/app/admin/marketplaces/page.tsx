@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 type Provider = 'HEPSIBURADA' | 'TRENDYOL'
 type Environment = 'STAGE' | 'PRODUCTION'
@@ -384,7 +385,7 @@ export default function AdminMarketplacesPage() {
 
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+          <SkeletonList rows={5} />
         ) : filtered.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
             Henüz mağaza yok. &quot;+ Mağaza Ekle&quot; ile API bilgilerinizi girin.

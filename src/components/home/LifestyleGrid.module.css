@@ -133,3 +133,12 @@
     padding: var(--sp-6) var(--sp-4);
   }
 }
+
+.arrow {
+  display: inline-block;
+  transition: transform var(--dur-fast) var(--ease-default);
+}
+
+.instaLink:hover .arrow {
+  transform: translateX(3px);
+}

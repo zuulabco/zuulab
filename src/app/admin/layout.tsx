@@ -6,69 +6,125 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import AuthModal from '@/components/auth/AuthModal'
 import styles from './admin.module.css'
+import AdminIcon from './AdminIcon'
+import { Skeleton, SkeletonPage } from '@/components/common/Skeleton'
 
-interface NavSection {
-  title: string
-  items: {
-    label: string
-    href: string
-    tag?: string
-  }[]
+interface NavItem {
+  label: string
+  href: string
+  icon: string
 }
 
+interface NavSection {
+  id: string
+  /** No title: always shown, not collapsible */
+  title?: string
+  /** Collapsed until opened (rarely used groups) */
+  collapsedByDefault?: boolean
+  items: NavItem[]
+}
+
+/**
+ * Admin navigation, grouped by the job being done. Labels say what the page is,
+ * in sentence case; no decorative tags.
+ */
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'Operasyon',
+    id: 'general',
     items: [
-      { label: 'Kontrol Paneli', href: '/' },
-      { label: 'Bugünün Özeti', href: '/today', tag: 'Öncelik' },
-      { label: 'Siparişler', href: '/orders', tag: 'Aksiyon' },
-      { label: 'Üretim (3D Baskı)', href: '/production', tag: 'Stok yenileme' },
-      { label: 'Kargo & Sevk', href: '/shipping' },
-      { label: 'Envanter', href: '/inventory' },
-      { label: 'Filament & Malzeme', href: '/materials' },
+      { label: 'Kontrol paneli', href: '/', icon: 'home' },
+      { label: 'Bugün', href: '/today', icon: 'today' },
     ],
   },
   {
-    title: 'Katalog & Ürün',
+    id: 'sales',
+    title: 'Satış',
     items: [
-      { label: 'Ürün Listesi', href: '/products' },
-      { label: 'Kategoriler', href: '/categories' },
-      { label: 'Koleksiyonlar', href: '/collections' },
+      { label: 'Siparişler', href: '/orders', icon: 'orders' },
+      { label: 'İadeler', href: '/returns', icon: 'returns' },
+      { label: 'Ödemeler', href: '/payments', icon: 'payments' },
+      { label: 'Kuponlar', href: '/coupons', icon: 'coupons' },
     ],
   },
   {
-    title: 'Müşteri & Satış',
+    id: 'catalog',
+    title: 'Katalog',
     items: [
-      { label: 'Müşteriler', href: '/customers' },
-      { label: 'Kuponlar & İndirim', href: '/coupons' },
-      { label: 'Ödemeler & İşlemler', href: '/payments' },
-      { label: 'İadeler & Talepler', href: '/returns' },
-      { label: 'Müşteri Yorumları', href: '/reviews' },
-      { label: 'Destek Biletleri', href: '/support' },
+      { label: 'Ürünler', href: '/products', icon: 'products' },
+      { label: 'Kategoriler', href: '/categories', icon: 'categories' },
+      { label: 'Koleksiyonlar', href: '/collections', icon: 'collections' },
+      { label: 'Yorumlar', href: '/reviews', icon: 'reviews' },
     ],
   },
   {
-    title: 'Vitrin & İçerik',
+    id: 'stock',
+    title: 'Stok ve üretim',
     items: [
-      { label: 'Ana Sayfa Vitrini', href: '/content/homepage' },
-      { label: 'Duyuru Bandı', href: '/content/announcement' },
-      { label: 'Medya Kütüphanesi', href: '/content/media' },
+      { label: 'Envanter', href: '/inventory', icon: 'inventory' },
+      { label: 'Üretim', href: '/production', icon: 'production' },
+      { label: 'Filament', href: '/materials', icon: 'filament' },
     ],
   },
   {
-    title: 'Pazaryeri & Sistem',
+    id: 'marketplaces',
+    title: 'Pazaryerleri',
     items: [
-      { label: 'Pazaryeri Siparişleri', href: '/marketplaces/orders', tag: 'Havuz' },
-      { label: 'Ürün Eşleştirme & Aktarım', href: '/marketplaces/mappings' },
-      { label: 'Pazaryeri Mağazaları', href: '/marketplaces' },
-      { label: 'e-Faturalar', href: '/invoices' },
-      { label: 'Kullanıcılar & Roller', href: '/users', tag: 'RBAC' },
-      { label: 'Bildirimler', href: '/notifications' },
-      { label: 'Mağaza Ayarları', href: '/settings' },
+      { label: 'Pazaryeri siparişleri', href: '/marketplaces/orders', icon: 'inbox' },
+      { label: 'Ürün eşleştirme', href: '/marketplaces/mappings', icon: 'link' },
+      { label: 'Mağazalar', href: '/marketplaces', icon: 'store' },
+    ],
+  },
+  {
+    id: 'customers',
+    title: 'Müşteriler',
+    items: [
+      { label: 'Müşteriler', href: '/customers', icon: 'customers' },
+      { label: 'Destek talepleri', href: '/support', icon: 'support' },
+    ],
+  },
+  {
+    id: 'fulfilment',
+    title: 'Kargo ve fatura',
+    items: [
+      { label: 'Kargo', href: '/shipping', icon: 'shipping' },
+      { label: 'e-Faturalar', href: '/invoices', icon: 'invoices' },
+    ],
+  },
+  {
+    id: 'content',
+    title: 'Vitrin',
+    collapsedByDefault: true,
+    items: [
+      { label: 'Ana sayfa', href: '/content/homepage', icon: 'layout' },
+      { label: 'Duyuru bandı', href: '/content/announcement', icon: 'announcement' },
+      { label: 'Medya', href: '/content/media', icon: 'media' },
+    ],
+  },
+  {
+    id: 'system',
+    title: 'Sistem',
+    collapsedByDefault: true,
+    items: [
+      { label: 'Kullanıcılar ve roller', href: '/users', icon: 'users' },
+      { label: 'Bildirimler', href: '/notifications', icon: 'notifications' },
+      { label: 'Ayarlar', href: '/settings', icon: 'settings' },
     ],
   },
 ]
+
+/** The nav item a path belongs to: the longest matching href wins (/marketplaces/orders over /marketplaces). */
+function activeItemFor(path: string): { section: NavSection; item: NavItem } | null {
+  let best: { section: NavSection; item: NavItem } | null = null
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      const matches = item.href === '/' ? path === '/' : path === item.href || path.startsWith(`${item.href}/`)
+      if (matches && (!best || item.href.length > best.item.href.length)) best = { section, item }
+    }
+  }
+  return best
+}
+
+const NAV_STATE_KEY = 'zuulab-admin-nav'
 
 /**
  * Modules switched off for this business (sells from stock, small catalog): their
@@ -106,6 +162,15 @@ export default function AdminLayout({
   // True only after the server confirmed the current user (role from the database).
   const [serverVerified, setServerVerified] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // Which nav groups the admin opened or closed (remembered in this browser).
+  const [navState, setNavState] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      return JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}') as Record<string, boolean>
+    } catch {
+      return {}
+    }
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any>(null)
   const [isSearching, setIsSearching] = useState(false)
@@ -186,8 +251,24 @@ export default function AdminLayout({
 
   if (!mounted || isCheckingSession) {
     return (
-      <div className={styles.gateContainer}>
-        <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Yetkilendirme kontrol ediliyor...</div>
+      // The admin shell's shape while the session is checked, so the page doesn't jump.
+      <div className={styles.adminContainer} aria-busy="true" aria-label="Oturum kontrol ediliyor">
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarHeader}>
+            <span className={styles.brandLogo}>zuulab</span>
+          </div>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {Array.from({ length: 10 }, (_, i) => (
+              <Skeleton key={i} height={12} width={`${55 + (i % 4) * 10}%`} />
+            ))}
+          </div>
+        </aside>
+        <div className={styles.mainWrapper}>
+          <div className={styles.topbar} />
+          <main className={styles.contentArea}>
+            <SkeletonPage />
+          </main>
+        </div>
       </div>
     )
   }
@@ -249,6 +330,20 @@ export default function AdminLayout({
   }
 
   const normalizedCurrentPath = pathname.replace(/^\/admin/, '') || '/'
+  const active = activeItemFor(normalizedCurrentPath)
+  const isSectionOpen = (section: NavSection) =>
+    !section.title || section.id === active?.section.id || (navState[section.id] ?? !section.collapsedByDefault)
+  const toggleSection = (id: string, open: boolean) => {
+    setNavState((prev) => {
+      const next = { ...prev, [id]: !open }
+      try {
+        localStorage.setItem(NAV_STATE_KEY, JSON.stringify(next))
+      } catch {
+        // storage unavailable: the choice just isn't remembered
+      }
+      return next
+    })
+  }
 
   return (
     <div className={styles.adminContainer}>
@@ -271,53 +366,64 @@ export default function AdminLayout({
           </Link>
           {mobileMenuOpen && (
             <button
+              type="button"
+              className={styles.iconButton}
               onClick={() => setMobileMenuOpen(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: 18,
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                padding: 4,
-              }}
-              aria-label="Menüyü Kapat"
+              aria-label="Menüyü kapat"
             >
-              ✕
+              <AdminIcon name="close" />
             </button>
           )}
         </div>
 
-        <nav className={styles.sidebarNav}>
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.title}>
-              <div className={styles.navSectionTitle}>{section.title}</div>
-              {section.items.map((item) => {
-                const itemCleanHref = item.href.replace(/^\/admin/, '') || '/'
-                const isActive =
-                  itemCleanHref === '/'
-                    ? normalizedCurrentPath === '/'
-                    : normalizedCurrentPath === itemCleanHref || normalizedCurrentPath.startsWith(`${itemCleanHref}/`)
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+        <nav className={styles.sidebarNav} aria-label="Yönetim menüsü">
+          {NAV_SECTIONS.map((section) => {
+            const open = isSectionOpen(section)
+            return (
+              <div key={section.id} className={styles.navSection}>
+                {section.title && (
+                  <button
+                    type="button"
+                    className={styles.navSectionTitle}
+                    aria-expanded={open}
+                    aria-controls={`nav-${section.id}`}
+                    onClick={() => toggleSection(section.id, open)}
+                    disabled={section.id === active?.section.id}
                   >
-                    <span>{item.label}</span>
-                    {item.tag && <span className={styles.navItemTag}>{item.tag}</span>}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
+                    <span>{section.title}</span>
+                    <span className={`${styles.navChevron} ${open ? styles.navChevronOpen : ''}`}>
+                      <AdminIcon name="chevron" size={14} />
+                    </span>
+                  </button>
+                )}
+                {open && (
+                  <div id={`nav-${section.id}`} className={styles.navItems}>
+                    {section.items.map((item) => {
+                      const isActive = active?.item.href === item.href
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+                          aria-current={isActive ? 'page' : undefined}
+                        >
+                          <AdminIcon name={item.icon} />
+                          <span>{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <a href="https://zuulab.com" className={styles.storeBackLink} target="_blank" rel="noopener noreferrer">
-            <span>↗</span>
-            <span>Mağazaya Dön</span>
+          <a href="https://www.zuulab.com" className={styles.storeBackLink} target="_blank" rel="noopener noreferrer">
+            <AdminIcon name="external" size={16} />
+            <span>Mağazayı aç</span>
           </a>
         </div>
       </aside>
@@ -329,17 +435,16 @@ export default function AdminLayout({
             <button
               className={styles.mobileMenuToggle}
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label="Menüyü Aç/Kapat"
+              aria-label="Menüyü aç"
+              aria-expanded={mobileMenuOpen}
             >
-              ☰
+              <AdminIcon name="menu" size={20} />
             </button>
 
             <div className={styles.breadcrumb}>
-              <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>zuulab</Link>
-              <span>/</span>
-              <span className={styles.breadcrumbActive}>
-                {normalizedCurrentPath.replace(/^\//, '') || 'özet'}
-              </span>
+              {active?.section.title && <span>{active.section.title}</span>}
+              {active?.section.title && <span aria-hidden="true">/</span>}
+              <span className={styles.breadcrumbActive}>{active?.item.label ?? 'Yönetim'}</span>
             </div>
           </div>
 

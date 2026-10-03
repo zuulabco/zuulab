@@ -171,3 +171,16 @@
     gap: var(--sp-3);
   }
 }
+
+/* First item of the row carries a little more weight on wide screens */
+@media (min-width: 1024px) {
+  .leadItem .name {
+    font-size: var(--text-md);
+  }
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  background: var(--skeleton);
+}

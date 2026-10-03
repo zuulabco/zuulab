@@ -7,6 +7,7 @@ import AccountNav from '@/components/account/AccountNav'
 import Modal from '@/components/common/Modal'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Adresler.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface AddressItem {
   id: string
@@ -269,9 +270,7 @@ export default function AdreslerClient() {
 
         <main className={styles.mainContent}>
           {loading ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>
-              adresler yükleniyor...
-            </div>
+            <SkeletonList rows={5} />
           ) : addresses.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyMascotWrap}>

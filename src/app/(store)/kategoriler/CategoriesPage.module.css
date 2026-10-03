@@ -124,3 +124,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Classes used by the page that had no rule */
+.eyebrow {
+  display: block;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(17, 17, 16, 0.28), transparent 55%);
+  pointer-events: none;
+}

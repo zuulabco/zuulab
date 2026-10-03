@@ -9,6 +9,7 @@ import AccountNav from '@/components/account/AccountNav'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Destek.module.css'
 import hesapStyles from '../Hesap.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface TicketItem {
   id: string
@@ -203,7 +204,9 @@ export default function DestekClient() {
           )}
 
           {loading ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>Yükleniyor...</p>
+            <div aria-busy="true" aria-label="Talepler yükleniyor">
+              <SkeletonList rows={3} />
+            </div>
           ) : tickets.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyMascotWrap}>

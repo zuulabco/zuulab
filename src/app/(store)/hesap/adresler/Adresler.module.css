@@ -45,7 +45,7 @@
   gap: var(--sp-2);
   height: 38px;
   padding: 0 var(--sp-4);
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-xs);
@@ -58,7 +58,7 @@
 }
 
 .addBtn:hover {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 .accountGrid {
@@ -333,7 +333,7 @@
 .saveModalBtn {
   height: 36px;
   padding: 0 var(--sp-4);
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-xs);
@@ -346,7 +346,7 @@
 }
 
 .saveModalBtn:hover:not(:disabled) {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 .saveModalBtn:disabled {

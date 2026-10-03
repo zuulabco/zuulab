@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../../admin.module.css'
+import { SkeletonPage } from '@/components/common/Skeleton'
 
 interface HeroContent {
   brandWorld: string
@@ -190,9 +191,7 @@ export default function AdminHomepageCmsPage() {
   if (loading) {
     return (
       <div className={styles.container}>
-        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          İçerik yönetim sistemi yükleniyor...
-        </div>
+        <SkeletonPage />
       </div>
     )
   }

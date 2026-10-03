@@ -132,7 +132,7 @@
   justify-content: center;
   height: 42px;
   padding: 0 var(--sp-6);
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
   border-radius: var(--radius-xs);
   text-decoration: none;
@@ -144,7 +144,7 @@
 }
 
 .primaryBtn:hover {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 .secondaryBtn {

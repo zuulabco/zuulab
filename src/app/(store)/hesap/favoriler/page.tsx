@@ -9,6 +9,7 @@ import ProductCard from '@/components/home/ProductCard'
 import AccountNav from '@/components/account/AccountNav'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Favoriler.module.css'
+import { ProductCardSkeleton } from '@/components/common/Skeleton'
 
 export default function FavorilerPage() {
   const { user, token, openAuthModal } = useAuthStore()
@@ -83,7 +84,11 @@ export default function FavorilerPage() {
 
         <main className={styles.mainContent}>
           {loading ? (
-            <div className={styles.loadingText}>favoriler yükleniyor...</div>
+            <div aria-busy="true" aria-label="Favoriler yükleniyor" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--sp-5)' }}>
+              {Array.from({ length: 4 }, (_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
           ) : products.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyMascotWrap}>

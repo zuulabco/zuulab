@@ -195,3 +195,7 @@
     padding-inline: var(--sp-4);
   }
 }
+
+.label {
+  white-space: nowrap;
+}

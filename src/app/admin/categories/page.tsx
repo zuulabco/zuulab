@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface Category {
   id: string
@@ -363,11 +364,7 @@ export default function AdminCategoriesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Katalog kategorileri yükleniyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={6} />
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6}>

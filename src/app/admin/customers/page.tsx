@@ -7,6 +7,7 @@ import { useToastStore } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import { getCustomerStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface Customer {
   id: string
@@ -210,11 +211,7 @@ export default function AdminCustomersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Müşteri verileri taranıyor...
-                </td>
-              </tr>
+              <SkeletonRows rows={6} cols={7} />
             ) : customers.length === 0 ? (
               <tr>
                 <td colSpan={7}>

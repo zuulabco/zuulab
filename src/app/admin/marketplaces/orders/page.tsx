@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import styles from '../../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 type State = 'ALL' | 'PENDING' | 'IMPORTED'
 
@@ -228,7 +229,7 @@ export default function MarketplaceOrdersPage() {
 
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor…</div>
+          <SkeletonList rows={5} />
         ) : orders.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
             Sipariş yok. &quot;Siparişleri şimdi al&quot; ile son iki haftanın siparişlerini çekebilirsiniz.

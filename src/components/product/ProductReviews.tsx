@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import Modal from '@/components/common/Modal'
 import { toast } from '@/store/toastStore'
 import styles from './ProductReviews.module.css'
+import { SkeletonLines } from '@/components/common/Skeleton'
 
 interface Props {
   productId: string
@@ -170,44 +171,46 @@ export default function ProductReviews({
         </button>
       </div>
 
-      {/* ── Rating Breakdown Card ──────────────────────── */}
-      <div className={styles.ratingCard}>
-        <div className={styles.scoreCol}>
-          <div className={styles.bigScore}>{currentAvg.toFixed(1)}</div>
-          <div className={styles.stars} aria-label={`Ortalama puan: ${currentAvg.toFixed(1)} / 5`}>
-            {'★'.repeat(Math.round(currentAvg))}
-            {'☆'.repeat(5 - Math.round(currentAvg))}
+      {/* ── Rating Breakdown Card (only once there is something to break down) ── */}
+      {currentCount > 0 && (
+        <div className={styles.ratingCard}>
+          <div className={styles.scoreCol}>
+            <div className={styles.bigScore}>{currentAvg.toFixed(1)}</div>
+            <div className={styles.stars} aria-label={`Ortalama puan: ${currentAvg.toFixed(1)} / 5`}>
+              {'★'.repeat(Math.round(currentAvg))}
+              {'☆'.repeat(5 - Math.round(currentAvg))}
+            </div>
+            <p className={styles.totalReviewsCount}>
+              {currentCount} değerlendirme üzerinden
+            </p>
           </div>
-          <p className={styles.totalReviewsCount}>
-            {currentCount} değerlendirme üzerinden
-          </p>
-        </div>
-
-        <div className={styles.barsCol}>
-          {[5, 4, 3, 2, 1].map((star) => {
-            const count = stats.breakdown[star] || 0
-            const percent = currentCount > 0 ? Math.round((count / currentCount) * 100) : 0
-            return (
-              <div key={star} className={styles.barRow}>
-                <span className={styles.starLabel}>{star} yıldız</span>
-                <div className={styles.barTrack}>
-                  <div
-                    className={styles.barFill}
-                    style={{ width: `${percent}%` }}
-                  />
+  
+          <div className={styles.barsCol}>
+            {[5, 4, 3, 2, 1].map((star) => {
+              const count = stats.breakdown[star] || 0
+              const percent = currentCount > 0 ? Math.round((count / currentCount) * 100) : 0
+              return (
+                <div key={star} className={styles.barRow}>
+                  <span className={styles.starLabel}>{star} yıldız</span>
+                  <div className={styles.barTrack}>
+                    <div
+                      className={styles.barFill}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <span className={styles.barPercent}>%{percent}</span>
                 </div>
-                <span className={styles.barPercent}>%{percent}</span>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Reviews List ───────────────────────────────── */}
       <div className={styles.reviewsList}>
         {loading ? (
-          <div className={styles.loadingState}>
-            <span>değerlendirmeler yükleniyor…</span>
+          <div aria-busy="true" aria-label="Değerlendirmeler yükleniyor">
+            <SkeletonLines lines={3} />
           </div>
         ) : reviews.length > 0 ? (
           reviews.map((rev) => (

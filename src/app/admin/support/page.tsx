@@ -7,6 +7,7 @@ import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { getSupportStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface MessageItem {
   id: string
@@ -302,9 +303,7 @@ export default function AdminSupportPage() {
           </div>
 
           {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-              Talepler yükleniyor...
-            </div>
+            <SkeletonList rows={5} />
           ) : filteredTickets.length === 0 ? (
             <div className={styles.emptyState}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>

@@ -3,6 +3,7 @@ import { SITE_URL } from '@/lib/config/urls'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import React from 'react'
 import ToastContainer from '@/components/common/ToastContainer'
+import ImageFadeScript from '@/components/common/ImageFadeScript'
 import './globals.css'
 
 const dmSans = DM_Sans({
@@ -66,7 +67,12 @@ export default function RootLayout({
     <html
       lang="tr"
       className={`${dmSans.variable} ${dmSerif.variable}`}
+      // ImageFadeScript adds .img-fade before hydration.
+      suppressHydrationWarning
     >
+      <head>
+        <ImageFadeScript />
+      </head>
       <body>
         {children}
         <ToastContainer />

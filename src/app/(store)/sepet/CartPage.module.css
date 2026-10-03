@@ -971,3 +971,11 @@
     transform: none !important;
   }
 }
+
+.itemTotalPrice {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

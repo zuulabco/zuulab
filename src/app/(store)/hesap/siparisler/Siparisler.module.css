@@ -237,7 +237,7 @@
   justify-content: center;
   height: 38px;
   padding: 0 var(--sp-5);
-  background: var(--zuu-blue);
+  background: var(--text-primary);
   color: #ffffff;
   border-radius: var(--radius-xs);
   text-decoration: none;
@@ -249,7 +249,7 @@
 }
 
 .discoverBtn:hover {
-  background: var(--zuu-blue-dark);
+  background: var(--ink-hover);
 }
 
 .loadingText {

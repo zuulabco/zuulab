@@ -517,6 +517,7 @@
 
 .descParagraph {
   margin-bottom: var(--sp-3);
+  white-space: pre-line;
 }
 
 .subHeading {

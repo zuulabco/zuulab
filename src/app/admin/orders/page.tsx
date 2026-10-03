@@ -11,6 +11,7 @@ import {
   getPaymentStatusConfig,
 } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonRows } from '@/components/common/Skeleton'
 
 interface OrderItem {
   productId: string
@@ -446,11 +447,7 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={9} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Siparişler yükleniyor...
-                  </td>
-                </tr>
+                <SkeletonRows rows={6} cols={9} />
               ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={9} style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>

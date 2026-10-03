@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/utils'
 import AccountNav from '@/components/account/AccountNav'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Siparisler.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 // Shape of StoredOrder returned by /api/orders (src/lib/services/orders.service.ts).
 interface OrderItem {
@@ -138,7 +139,9 @@ export default function SiparislerPage() {
 
         <main className={styles.mainContent}>
           {loading ? (
-            <div className={styles.loadingText}>siparişler yükleniyor...</div>
+            <div aria-busy="true" aria-label="Siparişler yükleniyor">
+              <SkeletonList rows={3} />
+            </div>
           ) : orders.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyMascotWrap}>

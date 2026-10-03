@@ -7,6 +7,7 @@ import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { getReviewStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface ReviewItem {
   id: string
@@ -227,9 +228,7 @@ export default function AdminReviewsPage() {
       {/* Reviews Table */}
       <div className={styles.tableCard}>
         {loading ? (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            Değerlendirmeler yükleniyor...
-          </div>
+          <SkeletonList rows={5} />
         ) : filteredReviews.length === 0 ? (
           <div className={styles.emptyState}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>

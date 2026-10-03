@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from '../../admin.module.css'
+import { SkeletonList } from '@/components/common/Skeleton'
 
 interface MediaAsset {
   id: string
@@ -220,9 +221,7 @@ export default function AdminMediaPage() {
 
       {/* ── MEDIA GRID ──────────────────────────────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Medya dosyaları taranıyor...
-        </div>
+        <SkeletonList rows={5} />
       ) : filteredMedia.length === 0 ? (
         <div className={styles.card} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
           Kütüphanede arama kriterlerine uygun medya dosyası bulunamadı.
