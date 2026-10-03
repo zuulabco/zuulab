@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import UnsubscribeClient from './UnsubscribeClient'
 
 export const metadata: Metadata = {
-  title: 'Bültenden ayrıl — Zuulab',
+  title: 'Bültenden ayrıl',
   robots: { index: false, follow: false },
 }
 

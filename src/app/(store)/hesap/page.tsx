@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import HesapClient from './HesapClient'
 
 export const metadata: Metadata = {
-  title: 'Hesabım — Zuulab',
+  title: 'Hesabım',
   description: 'Zuulab müşteri hesabı, sipariş geçmişi ve profil yönetimi.',
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { pageTitle, socialTitle } from '@/lib/seo/title'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductGallery from '@/components/product/ProductGallery'
 import ProductDetailsClient from '@/components/product/ProductDetailsClient'
@@ -21,13 +22,13 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const product = await getProductBySlug(slug)
-  if (!product) return { title: 'ürün bulunamadı — zuulab' }
+  if (!product) return { title: 'Ürün bulunamadı' }
 
   return {
-    title: `${product.name.toLowerCase()} — zuulab`,
+    title: pageTitle(product.name),
     description: product.shortDescription,
     openGraph: {
-      title: `${product.name.toLowerCase()} — zuulab`,
+      title: socialTitle(product.name),
       description: product.shortDescription,
       images: product.images[0] ? [product.images[0].url] : [],
     },

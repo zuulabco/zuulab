@@ -5,7 +5,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'Hakkımızda — Zuulab',
+  title: 'Hakkımızda',
   description:
     'Zuulab, İstanbul merkezli tasarım odaklı katmanlı üretim stüdyosudur. 3D printing ile günlük yaşam nesnelerini yeniden tasarlıyoruz.',
 }

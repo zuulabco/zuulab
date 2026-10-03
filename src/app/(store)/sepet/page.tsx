@@ -6,7 +6,7 @@ import { toProductListItem } from '@/types/catalog'
 import CartPageClient from './CartPageClient'
 
 export const metadata: Metadata = {
-  title: 'sepetim — zuulab',
+  title: 'Sepetim',
   description: 'zuulab alışveriş sepetinizdeki 3d tasarım ürünlerini inceleyin, kupon uygulayın ve güvenle sipariş verin.',
 }
 

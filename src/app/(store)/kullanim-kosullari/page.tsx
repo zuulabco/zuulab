@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'Kullanım Koşulları — Zuulab',
+  title: 'Kullanım Koşulları',
   description: 'Zuulab web sitesi kullanım şartları, fikri mülkiyet ve sipariş koşulları.',
 }
 

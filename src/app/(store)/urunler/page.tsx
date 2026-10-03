@@ -5,7 +5,7 @@ import ProductCatalogClient, { ProductCatalogSkeleton } from './ProductCatalogCl
 import { getProducts, getCategories, getCollections } from '@/lib/services/products.service'
 
 export const metadata: Metadata = {
-  title: 'ürünler — zuulab',
+  title: 'Ürünler',
   description:
     'zuulab tasarım evreni: zuukids, zuulife, zuulight ve zuutoptan 3d baskı koleksiyonları. biyo-bozunur pla ve endüstriyel hassas üretim modelleri.',
 }

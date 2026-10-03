@@ -42,7 +42,7 @@ export function toCollectionView(c: CatalogCollection): CollectionView {
     featuredProductSlug: editorial?.featuredProductSlug,
     b2b: editorial?.b2b,
     seo: {
-      title: c.seoTitle || editorial?.seo.title || `${c.name} — zuulab`,
+      title: c.seoTitle || editorial?.seo.title || c.name,
       description: c.seoDescription || editorial?.seo.description || description,
     },
   }

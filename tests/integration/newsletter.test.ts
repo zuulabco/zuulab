@@ -9,7 +9,18 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/services/admin.service', () => ({
   logAuditEvent: vi.fn().mockResolvedValue(undefined),
 }))
-process.env.EMAIL_PROVIDER = 'MOCK'
+// Mail provider under test control: succeed, fail, or throw like a misconfigured provider
+const mail = { mode: 'ok' as 'ok' | 'fail' | 'throw', sent: [] as string[] }
+vi.mock('@/lib/services/notification/email-provider.factory', () => ({
+  getEmailProvider: () => ({
+    sendEmail: async (o: { to: string; subject: string }) => {
+      if (mail.mode === 'throw') throw new Error('RESEND_CONFIGURATION_ERROR')
+      if (mail.mode === 'fail') return { success: false, error: 'rejected' }
+      mail.sent.push(`${o.to}|${o.subject}`)
+      return { success: true }
+    },
+  }),
+}))
 
 const { db } = await import('@/prisma/db')
 const nl = await import('@/lib/services/newsletter.service')
@@ -89,10 +100,34 @@ describe('newsletter', () => {
 
     expect(await nl.subscribeToNewsletter({ email: email(1), consent: true })).toBe('confirmation_sent')
     const back = (await row(email(1)))!
-    expect(back.token).not.toBe(sub.token)
+    // same token: "bültenden ayrıl" links in their earlier mails keep working
+    expect(back.token).toBe(sub.token)
+    expect(back.status).toBe('PENDING')
+    expect(back.unsubscribedAt).toBeNull()
     const res = await nl.confirmNewsletter(back.token)
     expect(res.ok && res.code).toBeTruthy()
     expect(await db.orm.public.Coupon.where({ assignedEmail: email(1) }).all()).toHaveLength(1)
+  })
+
+  it('says so when the confirmation mail does not go out, and allows an immediate retry', async () => {
+    for (const mode of ['fail', 'throw'] as const) {
+      mail.mode = mode
+      const addr = email(mode === 'fail' ? 2 : 3)
+      await expect(nl.subscribeToNewsletter({ email: addr, consent: true })).rejects.toThrow(/gönderilemedi/)
+      expect((await row(addr))?.confirmEmailAt).toBeNull()
+      mail.mode = 'ok'
+      expect(await nl.subscribeToNewsletter({ email: addr, consent: true })).toBe('confirmation_sent')
+      expect(mail.sent.some((m) => m.startsWith(addr))).toBe(true)
+    }
+  })
+
+  it('CSV export neutralises spreadsheet formulas', () => {
+    const csv = nl.subscribersToCsv([
+      { id: 'a', email: '=HYPERLINK("x")@evil.test', status: 'ACTIVE', source: 'homepage', createdAt: null, confirmedAt: null, unsubscribedAt: null, couponCode: null, couponUsed: false },
+      { id: 'b', email: 'ok@example.test', status: 'PENDING', source: 'homepage', createdAt: null, confirmedAt: null, unsubscribedAt: null, couponCode: null, couponUsed: false },
+    ])
+    expect(csv).toContain(`"'=HYPERLINK(""x"")@evil.test"`)
+    expect(csv).not.toContain('ok@example.test') // only active subscribers
   })
 
   it('rejects unknown tokens', async () => {

@@ -17,7 +17,8 @@ import { getPublishedHomepageContent } from '@/lib/services/cms.service'
 import type { HeroSlide, HomeSection, ProductRailSettings } from '@/lib/cms/homepage'
 
 export const metadata: Metadata = {
-  title: 'zuulab — tasarlanmış 3d baskı dünyaları',
+  // Brand first, then what people search for. Absolute: the layout template would add the brand again.
+  title: { absolute: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar' },
   description:
     'zuukids çocuk koleksiyonu, zuulife yaşam alanı objeleri, zuulight aydınlatma ve butik işletmelere özel zuutoptan çözümleriyle zuulab tasarım evrenini keşfedin.',
 }

@@ -6,7 +6,7 @@ import { getCollectionViews } from '@/lib/services/catalog/collection-presentati
 import styles from './CollectionsDiscovery.module.css'
 
 export const metadata: Metadata = {
-  title: 'koleksiyonlar — zuulab',
+  title: 'Koleksiyonlar',
   description:
     'zuulab özel tasarım dünyaları ve tematik seriler. zuukids, zuulife, zuulight, zuutoptan ve deneysel form koleksiyonları.',
 }

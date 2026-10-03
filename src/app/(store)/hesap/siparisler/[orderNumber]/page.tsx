@@ -9,7 +9,7 @@ interface Context {
 export async function generateMetadata({ params }: Context): Promise<Metadata> {
   const { orderNumber } = await params
   return {
-    title: `Sipariş #${orderNumber} — Zuulab`,
+    title: `Sipariş #${orderNumber}`,
     description: `Zuulab sipariş detayı ve kargo takip bilgileri.`,
   }
 }

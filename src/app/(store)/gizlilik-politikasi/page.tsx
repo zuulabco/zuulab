@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'Gizlilik ve Güvenlik Politikası — Zuulab',
+  title: 'Gizlilik ve Güvenlik Politikası',
   description: 'Zuulab kişisel verilerin korunması, çerez politikası ve gizlilik ilkeleri.',
 }
 

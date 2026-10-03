@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import DestekClient from './DestekClient'
 
 export const metadata: Metadata = {
-  title: 'Destek Taleplerim — Zuulab',
+  title: 'Destek Taleplerim',
   description: 'Siparişleriniz, kargo ve ürün sorularınız için müşteri destek taleplerinizi yönetin.',
   robots: {
     index: false,

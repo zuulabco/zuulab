@@ -65,8 +65,9 @@ const footer = (token: string) => `
   <div>Bu e-postayı zuulab bültenine kayıt olduğunuz için aldınız.</div>
   <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token)}">Bültenden ayrıl</a></div>`
 
-async function sendNewsletterMail(params: { to: string; subject: string; contentHtml: string; token: string; key: string }) {
+async function sendNewsletterMail(params: { to: string; subject: string; contentHtml: string; token: string; key: string }): Promise<boolean> {
   const { html } = renderEmailBase({ title: params.subject, contentHtml: params.contentHtml, footerHtml: footer(params.token) })
+  // The provider throws when misconfigured (e.g. missing API key in production)
   const result = await getEmailProvider().sendEmail({
     to: params.to,
     subject: params.subject,
@@ -78,9 +79,21 @@ async function sendNewsletterMail(params: { to: string; subject: string; content
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
     idempotencyKey: params.key,
-  })
+  }).catch((err: unknown) => ({ success: false, error: (err as Error)?.message ?? String(err) }))
   if (!result.success) console.error('[newsletter] send failed:', params.subject, result.error)
   return result.success
+}
+
+/**
+ * Sends the confirmation mail; if it does not go out, clears the "sent at" mark
+ * (so an immediate retry is allowed) and tells the visitor instead of claiming success.
+ */
+async function sendConfirmationOrFail(subscriberId: string, email: string, token: string): Promise<void> {
+  if (await sendConfirmation(email, token)) return
+  await db.runtime().execute(
+    db.raw.sql`UPDATE newsletter_subscribers SET confirm_email_at = NULL, updated_at = now() WHERE id = ${subscriberId}`.affectedCount().build()
+  )
+  throw new NewsletterError('Onay e-postası şu an gönderilemedi. Birkaç dakika sonra tekrar dene.')
 }
 
 async function sendConfirmation(email: string, token: string) {
@@ -91,7 +104,7 @@ async function sendConfirmation(email: string, token: string) {
     subject: 'zuulab bülteni: e-postanı onayla',
     contentHtml: `
       <p>Merhaba,</p>
-      <p>zuulab bültenine kaydolmak için aşağıdaki butona tıklaman yeterli. Onayladığında ilk siparişinde kullanabileceğin <strong>%${WELCOME_DISCOUNT_PERCENT} indirim kodun</strong> hemen gelecek.</p>
+      <p>zuulab bültenine kaydolmak için aşağıdaki butona tıklaman yeterli. Onayladığında sana özel <strong>%${WELCOME_DISCOUNT_PERCENT} indirim kodun</strong> hemen gelecek.</p>
       <p><a class="btn" href="${confirmUrl(token)}">aboneliğimi onayla</a></p>
       <p style="font-size: 12px; color: #9ca3af;">Bu isteği sen yapmadıysan e-postayı yok sayabilirsin; onaylamadığın sürece listeye eklenmezsin.</p>`,
   })
@@ -164,40 +177,42 @@ export async function subscribeToNewsletter(input: {
     const last = fromDbTimestamp(existing.confirmEmailAt)
     if (last && Date.now() - last.getTime() < RESEND_CONFIRM_AFTER_MS) return 'confirmation_recently_sent'
     await db.orm.public.NewsletterSubscriber.where({ id: existing.id }).update({ ...consent, confirmEmailAt: toDbTimestamp() } as never)
-    await sendConfirmation(email, existing.token)
+    await sendConfirmationOrFail(existing.id, email, existing.token)
     return 'confirmation_sent'
   }
 
   if (existing) {
-    // Came back after unsubscribing: fresh consent, same row. Their earlier code (if any) stays theirs.
-    const token = newToken()
-    await db.orm.public.NewsletterSubscriber.where({ id: existing.id }).update({
-      ...consent,
-      status: 'PENDING',
-      token,
-      unsubscribedAt: null,
-      confirmEmailAt: toDbTimestamp(),
-    } as never)
-    await sendConfirmation(email, token)
+    // Came back after unsubscribing: fresh consent, same row and same token (so the
+    // "bültenden ayrıl" links in their earlier mails keep working). An earlier welcome
+    // code stays theirs; confirming again never mints a second one.
+    await db.runtime().execute(
+      db.raw.sql`UPDATE newsletter_subscribers
+                 SET status = 'PENDING', unsubscribed_at = NULL, confirmed_at = NULL, confirm_email_at = now(),
+                     consent_text = ${consent.consentText}, consent_ip = NULLIF(${consent.consentIp ?? ''}, ''),
+                     consent_agent = NULLIF(${consent.consentAgent ?? ''}, ''), source = ${consent.source}, updated_at = now()
+                 WHERE id = ${existing.id}`.affectedCount().build()
+    )
+    await sendConfirmationOrFail(existing.id, email, existing.token)
     return 'confirmation_sent'
   }
 
   const token = newToken()
+  let createdId: string
   try {
-    await db.orm.public.NewsletterSubscriber.create({
+    createdId = (await db.orm.public.NewsletterSubscriber.create({
       ...consent,
       email,
       token,
       status: 'PENDING',
       confirmEmailAt: toDbTimestamp(),
-    } as never)
+    } as never)).id
   } catch (err) {
     // Double submit raced us; the first request already sent the mail.
     const text = String((err as { message?: string })?.message ?? err) + JSON.stringify(err ?? {})
     if (/unique|duplicate key|23505/i.test(text)) return 'confirmation_recently_sent'
     throw err
   }
-  await sendConfirmation(email, token)
+  await sendConfirmationOrFail(createdId, email, token)
   return 'confirmation_sent'
 }
 
@@ -267,12 +282,6 @@ export async function unsubscribeNewsletter(token: string): Promise<{ ok: boolea
   return { ok: true, email: sub.email }
 }
 
-/** Masks an address for pages anyone with the link can open: "ay***@gmail.com". */
-export function maskEmail(email: string): string {
-  const [user, domain] = email.split('@')
-  return `${user.slice(0, 2)}${'*'.repeat(Math.max(1, Math.min(5, user.length - 2)))}@${domain}`
-}
-
 // ── Admin ────────────────────────────────────────────────────
 
 export interface AdminSubscriber {
@@ -314,7 +323,12 @@ export async function adminListSubscribers(): Promise<{ subscribers: AdminSubscr
 
 /** CSV of active subscribers for a mailing tool; consent date included as proof. */
 export function subscribersToCsv(list: AdminSubscriber[]): string {
-  const esc = (v: string | null) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  // Quote every field; a value starting with = + - @ would run as a formula in Excel
+  const esc = (v: string | null) => {
+    const text = String(v ?? '')
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
+    return `"${safe.replace(/"/g, '""')}"`
+  }
   const lines = ['email,onay_tarihi,kayit_tarihi,kaynak']
   for (const s of list.filter((x) => x.status === 'ACTIVE')) {
     lines.push([esc(s.email), esc(s.confirmedAt), esc(s.createdAt), esc(s.source)].join(','))

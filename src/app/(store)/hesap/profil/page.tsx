@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProfilClient from './ProfilClient'
 
 export const metadata: Metadata = {
-  title: 'Profilim — Zuulab',
+  title: 'Profilim',
   description: 'Zuulab hesap profilinizi ve iletişim bilgilerinizi yönetin.',
   robots: {
     index: false,

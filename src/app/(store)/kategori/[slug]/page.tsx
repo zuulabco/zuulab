@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import { pageTitle, socialTitle } from '@/lib/seo/title'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
@@ -30,15 +31,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params
   const category = await getCategoryBySlug(slug)
   if (!category) {
-    return { title: 'kategori bulunamadı — zuulab' }
+    return { title: 'Kategori bulunamadı' }
   }
 
-  const title = category.seoTitle || `${category.name} — zuulab`
+  const title = category.seoTitle || category.name
   const description = category.seoDescription || category.description
   return {
-    title,
+    title: pageTitle(title),
     description,
-    openGraph: { title, description },
+    openGraph: { title: socialTitle(title), description },
   }
 }
 

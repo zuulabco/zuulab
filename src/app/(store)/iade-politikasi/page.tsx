@@ -4,7 +4,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'İade ve Değişim Politikası — Zuulab',
+  title: 'İade ve Değişim Politikası',
   description: '14 gün yasal cayma hakkı, online iade (RMA) adımları ve iade kargo süreci.',
 }
 

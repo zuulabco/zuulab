@@ -5,7 +5,7 @@ import CopyCode from '../CopyCode'
 import styles from '../Bulten.module.css'
 
 export const metadata: Metadata = {
-  title: 'Bülten aboneliği — Zuulab',
+  title: 'Bülten aboneliği',
   robots: { index: false, follow: false },
 }
 
@@ -42,11 +42,14 @@ export default async function NewsletterConfirmPage({ searchParams }: { searchPa
           ) : (
             <>
               <p className={styles.text}>
-                İlk siparişinde kullanabileceğin, sana özel <strong>tek kullanımlık %{WELCOME_DISCOUNT_PERCENT} indirim kodun</strong>.
-                Aynı kodu e-postana da gönderdik.
+                Bültenimize özel, <strong>tek kullanımlık %{WELCOME_DISCOUNT_PERCENT} indirim kodun</strong>. Aynı kodu
+                e-postana da gönderdik.
               </p>
               <CopyCode code={result.code} />
-              <p className={styles.hint}>Ödeme sayfasındaki &quot;kupon kodu&quot; alanına yazman yeterli.</p>
+              <p className={styles.hint}>
+                Ödeme sayfasındaki &quot;kupon kodu&quot; alanına yazman yeterli. Üyeysen ilk siparişindeki üye indirimiyle
+                birlikte de kullanabilirsin.
+              </p>
             </>
           )
         ) : (

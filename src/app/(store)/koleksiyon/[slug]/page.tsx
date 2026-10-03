@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import { pageTitle, socialTitle } from '@/lib/seo/title'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
@@ -31,15 +32,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!config) {
     return {
-      title: 'koleksiyon bulunamadı — zuulab',
+      title: 'Koleksiyon bulunamadı',
     }
   }
 
   return {
-    title: config.seo.title,
+    title: pageTitle(config.seo.title),
     description: config.seo.description,
     openGraph: {
-      title: config.seo.title,
+      title: socialTitle(config.seo.title),
       description: config.seo.description,
       images: [{ url: config.heroImage, alt: `${config.name} koleksiyonu` }],
     },

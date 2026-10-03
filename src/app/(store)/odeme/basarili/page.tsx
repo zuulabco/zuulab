@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import BasariliClient from './BasariliClient'
 
 export const metadata: Metadata = {
-  title: 'Siparişiniz Alındı — Zuulab',
+  title: 'Siparişiniz Alındı',
   description: 'Zuulab siparişiniz başarıyla alındı ve üretim sırasına eklendi.',
   robots: {
     index: false,

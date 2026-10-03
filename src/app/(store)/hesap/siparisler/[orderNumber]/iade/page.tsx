@@ -9,7 +9,7 @@ interface Context {
 export async function generateMetadata({ params }: Context): Promise<Metadata> {
   const { orderNumber } = await params
   return {
-    title: `İade & Değişim Talebi #${orderNumber} — Zuulab`,
+    title: `İade ve Değişim Talebi #${orderNumber}`,
     description: `Zuulab siparişi için iade ve ürün değişim talebi oluşturma.`,
   }
 }

@@ -3,7 +3,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import AdreslerClient from './AdreslerClient'
 
 export const metadata: Metadata = {
-  title: 'Adreslerim — Zuulab',
+  title: 'Adreslerim',
   description: 'Zuulab kayıtlı teslimat ve fatura adreslerinizi yönetin.',
   robots: {
     index: false,

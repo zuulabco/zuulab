@@ -53,7 +53,7 @@ export default function HomeNewsletter() {
             ve sınırlı seri tasarımlar. spam yok.
           </p>
           <div className={styles.perks}>
-            <span className={styles.perk}>ilk siparişe özel %10 indirim</span>
+            <span className={styles.perk}>abone olana %10 indirim kodu</span>
             <span className={styles.perk}>sınırlı serilere öncelikli erişim</span>
             <span className={styles.perk}>tek tıkla kolay iptal</span>
           </div>

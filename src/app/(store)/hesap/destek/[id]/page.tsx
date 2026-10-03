@@ -7,7 +7,7 @@ interface PageProps {
 }
 
 export const metadata: Metadata = {
-  title: 'Destek Talebi Detayı — Zuulab',
+  title: 'Destek Talebi',
   description: 'Destek talebiniz ve mesajlaşma geçmişi.',
   robots: {
     index: false,

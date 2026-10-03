@@ -4,7 +4,7 @@ import IletisimClient from './IletisimClient'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'İletişim — Zuulab',
+  title: 'İletişim',
   description:
     'Zuulab ile iletişim kurun. E-posta, telefon, atölye adresi ve destek kanalları.',
 }

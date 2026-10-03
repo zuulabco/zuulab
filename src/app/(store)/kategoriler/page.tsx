@@ -6,7 +6,7 @@ import { getCategories, getProducts } from '@/lib/services/products.service'
 import styles from './CategoriesPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'kategoriler — zuulab',
+  title: 'Kategoriler',
   description:
     'zuulab tasarım kategorilerini inceleyin: aydınlatmalar, figürler, masaüstü düzenleyiciler, dekorasyon ve daha fazlası.',
 }

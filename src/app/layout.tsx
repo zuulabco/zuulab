@@ -32,8 +32,9 @@ export const metadata: Metadata = {
     SITE_URL
   ),
   title: {
-    default: 'zuulab — 3d baskı ürünleri',
-    template: '%s | zuulab',
+    default: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar',
+    // Every page gives only its own name: "Ürünler · zuulab"
+    template: '%s · zuulab',
   },
   description:
     'zuulab, yüksek kaliteli 3D baskı ürünleri sunan premium bir Türk markasıdır. Benzersiz tasarımlar, dayanıklı malzemeler ve hızlı üretim.',
@@ -42,13 +43,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'tr_TR',
     siteName: 'zuulab',
-    title: 'zuulab — 3d baskı ürünleri',
+    title: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar',
     description:
       'Yüksek kaliteli 3D baskı ürünleri. Premium malzemeler, özel tasarımlar.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'zuulab — 3d baskı ürünleri',
+    title: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar',
     description: 'Yüksek kaliteli 3D baskı ürünleri.',
   },
   robots: {

@@ -4,7 +4,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import PayTRClient from './PayTRClient'
 
 export const metadata: Metadata = {
-  title: 'PayTR Güvenli Ödeme — Zuulab',
+  title: 'PayTR ile Ödeme',
   description: 'Zuulab PayTR 3D Secure 256-bit SSL korumalı ödeme ekranı.',
   robots: {
     index: false,

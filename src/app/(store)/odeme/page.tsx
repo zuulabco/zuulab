@@ -4,7 +4,7 @@ import { getFreeShippingThreshold } from '@/lib/services/settings/store-settings
 import CheckoutClient from './CheckoutClient'
 
 export const metadata: Metadata = {
-  title: 'Güvenli Ödeme — Zuulab',
+  title: 'Güvenli Ödeme',
   description: 'Zuulab 3D baskı siparişinizi tamamlayın. Hızlı kargo, 256-bit SSL güvenli ödeme.',
   robots: {
     index: false,

@@ -4,7 +4,7 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = {
-  title: 'Üretim Süreci — Zuulab',
+  title: 'Üretim Süreci',
   description:
     'Dijital tasarımdan kalite kontrolüne kadar Zuulab\'ın 5 aşamalı üretim süreci. Kendi atölyemizde, talep üzerine üretim.',
 }

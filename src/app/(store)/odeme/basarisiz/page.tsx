@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import BasarisizClient from './BasarisizClient'
 
 export const metadata: Metadata = {
-  title: 'Ödeme Başarısız — Zuulab',
+  title: 'Ödeme Başarısız',
   description: 'Ödeme işlemi tamamlanamadı. Lütfen bilgilerinizi kontrol ederek tekrar deneyiniz.',
   robots: {
     index: false,
