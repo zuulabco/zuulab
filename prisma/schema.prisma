@@ -636,6 +636,8 @@ model Order {
 
   // Coupon
   couponId       String?              @map("coupon_id")
+  campaignId     String?              @map("campaign_id")
+  campaignDiscount Decimal            @default(0) @db.Decimal(10, 2) @map("campaign_discount")
   couponCode     String?              @map("coupon_code")
 
   // Notes
@@ -661,6 +663,7 @@ model Order {
   user           User                 @relation(fields:[userId], references:[id])
   address        Address?             @relation(fields:[addressId], references:[id])
   coupon         Coupon?              @relation(fields:[couponId], references:[id])
+  campaign       Campaign?            @relation(fields:[campaignId], references:[id], onDelete: SetNull)
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
   payments       Payment[]
@@ -994,11 +997,27 @@ model Campaign {
   startsAt      DateTime?          @map("starts_at")
   endsAt        DateTime?          @map("ends_at")
   bannerImage   String?            @map("banner_image")
+  // DISCOUNT: lowers the cart automatically · ANNOUNCEMENT: only shown on the site
+  kind          String             @default("DISCOUNT")
+  // ALL: every cart · FIRST_ORDER: signed-in customers with no paid order yet
+  audience      String             @default("ALL")
+  minSubtotal   Decimal?           @db.Decimal(10, 2) @map("min_subtotal")
+  maxDiscount   Decimal?           @db.Decimal(10, 2) @map("max_discount")
+  // A coupon code to show in the announcement (announcement campaigns)
+  couponCode    String?            @map("coupon_code")
+  // Where the site announces it: NONE · MODAL (pop-up once per visitor) · RIBBON (bar)
+  display       String             @default("NONE")
+  headline      String?
+  message       String?
+  ctaLabel      String?            @map("cta_label")
+  ctaHref       String?            @map("cta_href")
+  priority      Int                @default(0)
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
 
   products      CampaignProduct[]
   categories    CampaignCategory[]
+  orders        Order[]
 
   @@map("campaigns")
 }
@@ -2550,4 +2569,15 @@ model StockAlert {
 
   @@index([productId])
   @@map("stock_alerts")
+}
+
+// Product materials offered in the product form (PLA, PETG…). Products keep the name.
+model ProductMaterial {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("product_materials")
 }

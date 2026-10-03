@@ -346,7 +346,7 @@ export default function ShippingDetailPage({
             <div className={styles.summaryTitle}>Sipariş ve Alıcı Bilgileri</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', fontSize: '13px' }}>
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Sipariş</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '4px' }}>Sipariş</div>
                 {shipment?.orderNumber ? (
                   <Link href={`/admin/orders/${shipment.orderNumber}`} style={{ color: 'var(--brand-blue, #0080c4)', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                     #{shipment.orderNumber} ↗
@@ -354,16 +354,16 @@ export default function ShippingDetailPage({
                 ) : (
                   <span style={{ fontFamily: 'var(--font-mono)' }}>{shipment?.marketplaceOrderNumber || '-'}</span>
                 )}
-                <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Kanal & Paket</div>
+                <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>Kanal & Paket</div>
                 <div>{shipment?.channel === 'MARKETPLACE' ? 'Pazaryeri Siparişi' : 'ZUULAB Doğrudan Satış'}</div>
                 <div style={{ color: 'var(--text-secondary)' }}>{shipment?.packageCount || 1} Koli {shipment?.totalWeightKg ? `· ${shipment.totalWeightKg} kg` : ''}</div>
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Alıcı Müşteri</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '4px' }}>Alıcı Müşteri</div>
                 <div style={{ fontWeight: 600 }}>{shipment?.recipientName}</div>
                 <div style={{ color: 'var(--text-secondary)' }}>{shipment?.recipientPhone || '-'}</div>
-                <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>Teslimat Adresi</div>
+                <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>Teslimat Adresi</div>
                 <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   {shipment?.shippingAddress?.addressLine}<br />
                   {shipment?.shippingAddress?.district} / {shipment?.shippingAddress?.city} {shipment?.shippingAddress?.postalCode || ''}

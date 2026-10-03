@@ -5,6 +5,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { toProductListItem, type CatalogProduct, type CatalogCategory } from '@/types/catalog'
 import { CATALOG_COLORS, CATALOG_MATERIALS, getColorDef, extractMaterialSlug } from '@/config/catalog-filters'
 import ProductCard from '@/components/home/ProductCard'
+import Dropdown from '@/components/common/Dropdown'
 import styles from './ProductCatalog.module.css'
 
 interface Props {
@@ -31,6 +32,8 @@ export const SORT_LABELS: Record<SortOption, string> = {
   'price-asc': 'fiyat: düşükten yükseğe',
   'price-desc': 'fiyat: yüksekten düşüğe',
 }
+
+const SORT_OPTIONS = (Object.keys(SORT_LABELS) as SortOption[]).map((value) => ({ value, label: SORT_LABELS[value] }))
 
 export const MIN_PRICE = 0
 /** Highest value the price inputs accept. No bound is applied until the shopper types one. */
@@ -833,17 +836,14 @@ export default function ProductCatalogClient({
 
             {/* Desktop Sort Dropdown */}
             <div className={styles.sortWrap}>
-              <label htmlFor="catalog-sort" className={styles.sortLabel}>sırala:</label>
-              <select
-                id="catalog-sort"
-                className={styles.sortSelect}
+              <Dropdown
+                label="Sırala"
+                prefix="sırala"
+                align="end"
                 value={sortBy}
-                onChange={(e) => updateUrl({ sort: e.target.value as SortOption })}
-              >
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
-                  <option key={opt} value={opt}>{SORT_LABELS[opt]}</option>
-                ))}
-              </select>
+                options={SORT_OPTIONS}
+                onChange={(sort) => updateUrl({ sort })}
+              />
             </div>
           </div>
         </div>
@@ -886,17 +886,14 @@ export default function ProductCatalogClient({
             )}
           </button>
           <div className={styles.mobileSortWrap}>
-            <label htmlFor="mobile-sort" className={styles.visuallyHidden}>Sırala</label>
-            <select
-              id="mobile-sort"
-              className={styles.mobileSortSelect}
+            <Dropdown
+              label="Sırala"
+              align="end"
+              fullWidth
               value={sortBy}
-              onChange={(e) => updateUrl({ sort: e.target.value as SortOption })}
-            >
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
-                <option key={opt} value={opt}>{SORT_LABELS[opt]}</option>
-              ))}
-            </select>
+              options={SORT_OPTIONS}
+              onChange={(sort) => updateUrl({ sort })}
+            />
           </div>
         </div>
       </div>

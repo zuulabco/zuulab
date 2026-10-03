@@ -453,6 +453,8 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
           shipToPostal: shippingAddress.postalCode,
           shipToCountry: shippingAddress.country || 'TR',
           couponId: quote.coupon?.id ?? null,
+          campaignId: quote.campaign?.id ?? null,
+          campaignDiscount: dbNumeric(quote.campaignDiscount),
           couponCode: quote.coupon?.code ?? null,
           customerNote: customerNote || null,
           email,

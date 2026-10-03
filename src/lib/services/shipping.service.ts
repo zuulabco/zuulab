@@ -1,5 +1,12 @@
+/**
+ * Shipping fee rules, shared by the browser (cart, checkout) and the server (pricing).
+ *
+ * There is one delivery method. Its carrier, wording, delivery estimate and fee are set
+ * in the admin panel (Ayarlar → Kargo) and stored with the store settings; the values
+ * below are only the fallback before anything is saved.
+ */
 export interface ShippingMethod {
-  id: 'STANDARD' | 'EXPRESS'
+  id: 'STANDARD'
   name: string
   carrier: string
   description: string
@@ -10,26 +17,39 @@ export interface ShippingMethod {
 
 export const FREE_SHIPPING_THRESHOLD = 750
 
-export const DEFAULT_SHIPPING_METHODS: ShippingMethod[] = [
-  {
-    id: 'STANDARD',
-    name: 'Standart Teslimat',
-    carrier: 'Yurtiçi Kargo / MNG',
-    description: 'Kapıya teslim güvenli gönderi',
-    price: 49.9,
-    estimatedDelivery: '2-3 iş günü',
-    active: true,
-  },
-  {
-    id: 'EXPRESS',
-    name: 'Hızlı Kargo (Öncelikli Üretim)',
-    carrier: 'Yurtiçi Kargo Express',
-    description: 'Aynı gün öncelikli atölye hazırlığı',
-    price: 89.9,
-    estimatedDelivery: '1-2 iş günü',
-    active: true,
-  },
-]
+export const DEFAULT_SHIPPING_METHOD: ShippingMethod = {
+  id: 'STANDARD',
+  name: 'Standart Teslimat',
+  carrier: 'Sürat Kargo',
+  description: 'Kapıya teslim',
+  price: 110,
+  estimatedDelivery: '2-3 iş günü',
+  active: true,
+}
+
+/** Kept for older imports; there is a single method now. */
+export const DEFAULT_SHIPPING_METHODS: ShippingMethod[] = [DEFAULT_SHIPPING_METHOD]
+
+/** What the store settings hold about delivery */
+export interface ShippingSettings {
+  carrier: string
+  name: string
+  description: string
+  estimatedDelivery: string
+  fee: number
+}
+
+export function shippingMethodFromSettings(s: Partial<ShippingSettings> | null | undefined): ShippingMethod {
+  const fee = Number(s?.fee)
+  return {
+    ...DEFAULT_SHIPPING_METHOD,
+    carrier: s?.carrier?.trim() || DEFAULT_SHIPPING_METHOD.carrier,
+    name: s?.name?.trim() || DEFAULT_SHIPPING_METHOD.name,
+    description: s?.description?.trim() || DEFAULT_SHIPPING_METHOD.description,
+    estimatedDelivery: s?.estimatedDelivery?.trim() || DEFAULT_SHIPPING_METHOD.estimatedDelivery,
+    price: Number.isFinite(fee) && fee >= 0 ? Math.round(fee * 100) / 100 : DEFAULT_SHIPPING_METHOD.price,
+  }
+}
 
 export interface ShippingCalculation {
   selectedMethod: ShippingMethod
@@ -41,46 +61,25 @@ export interface ShippingCalculation {
 }
 
 /**
- * Calculates shipping rates dynamically based on subtotal and coupon
+ * The delivery fee for a cart: free with a free-shipping coupon or once the subtotal
+ * reaches the threshold, otherwise the configured fee.
  */
 export function calculateShipping(
   subtotal: number,
-  methodId: 'STANDARD' | 'EXPRESS' = 'STANDARD',
   isFreeShippingCoupon = false,
-  freeShippingThreshold: number = FREE_SHIPPING_THRESHOLD
+  freeShippingThreshold: number = FREE_SHIPPING_THRESHOLD,
+  method: ShippingMethod = DEFAULT_SHIPPING_METHOD
 ): ShippingCalculation {
   const isFreeThresholdMet = subtotal >= freeShippingThreshold
   const remaining = Math.max(0, Math.round((freeShippingThreshold - subtotal) * 100) / 100)
-
-  const selected =
-    DEFAULT_SHIPPING_METHODS.find((m) => m.id === methodId) ||
-    DEFAULT_SHIPPING_METHODS[0]
-
-  const availableMethods = DEFAULT_SHIPPING_METHODS.map((method) => {
-    let effectivePrice = method.price
-    if (isFreeShippingCoupon) {
-      effectivePrice = 0
-    } else if (isFreeThresholdMet && method.id === 'STANDARD') {
-      effectivePrice = 0
-    } else if (isFreeThresholdMet && method.id === 'EXPRESS') {
-      // Discounted express if threshold met
-      effectivePrice = Math.max(0, Math.round((method.price - 49.9) * 100) / 100)
-    }
-    return {
-      ...method,
-      effectivePrice,
-    }
-  })
-
-  const selectedWithEffective =
-    availableMethods.find((m) => m.id === selected.id) || availableMethods[0]
+  const effectivePrice = isFreeShippingCoupon || isFreeThresholdMet ? 0 : method.price
 
   return {
-    selectedMethod: selected,
-    shippingFee: selectedWithEffective.effectivePrice,
-    isFreeShipping: selectedWithEffective.effectivePrice === 0,
+    selectedMethod: method,
+    shippingFee: effectivePrice,
+    isFreeShipping: effectivePrice === 0,
     freeShippingThreshold,
     remainingForFreeShipping: isFreeShippingCoupon ? 0 : remaining,
-    availableMethods,
+    availableMethods: [{ ...method, effectivePrice }],
   }
 }

@@ -182,7 +182,7 @@ export default function AdminUsersPage() {
         }}
       >
         <div className={styles.card} style={{ padding: '1rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Toplam Hesap
           </span>
           <div style={{ fontSize: '1.75rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '0.25rem' }}>
@@ -191,7 +191,7 @@ export default function AdminUsersPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '1rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Yönetim & Personel
           </span>
           <div style={{ fontSize: '1.75rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '0.25rem', color: 'var(--brand-blue, #2563eb)' }}>
@@ -200,7 +200,7 @@ export default function AdminUsersPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '1rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Müşteri Hesapları
           </span>
           <div style={{ fontSize: '1.75rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '0.25rem' }}>
@@ -209,7 +209,7 @@ export default function AdminUsersPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '1rem' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Aktif Hesaplar
           </span>
           <div style={{ fontSize: '1.75rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '0.25rem', color: '#10b981' }}>

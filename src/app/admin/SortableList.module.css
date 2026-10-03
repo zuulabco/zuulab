@@ -1,0 +1,99 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition:
+    border-color var(--dur-base) var(--ease-default),
+    box-shadow var(--dur-base) var(--ease-default),
+    opacity var(--dur-base) var(--ease-default),
+    transform var(--dur-base) var(--ease-default);
+}
+
+.row:hover {
+  border-color: var(--border-strong);
+}
+
+.dragging {
+  opacity: 0.45;
+}
+
+.lifted {
+  border-color: var(--text-primary);
+  box-shadow: 0 10px 24px -12px rgba(17, 17, 16, 0.35);
+  transform: scale(1.01);
+}
+
+/* Drop marker: a line where the row will land */
+.dropBefore::before,
+.dropAfter::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--zuu-blue);
+}
+
+.dropBefore::before {
+  top: -6px;
+}
+
+.dropAfter::after {
+  bottom: -6px;
+}
+
+.handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border-subtle);
+  border-radius: 10px 0 0 10px;
+  color: var(--text-muted);
+  cursor: grab;
+}
+
+.handle:hover {
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.handle:active {
+  cursor: grabbing;
+}
+
+.handle:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: -2px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    transition: none;
+  }
+  .lifted {
+    transform: none;
+  }
+}

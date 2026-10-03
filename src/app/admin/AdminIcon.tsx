@@ -2,6 +2,18 @@ import React from 'react'
 
 /** Line icons for the admin navigation (24px grid, stroke follows text colour). */
 const PATHS: Record<string, React.ReactNode> = {
+  swatch: (
+    <>
+      <path d="M12 3 3 7.5l9 4.5 9-4.5z" />
+      <path d="m3 12 9 4.5 9-4.5M3 16.5 12 21l9-4.5" />
+    </>
+  ),
+  megaphone: (
+    <>
+      <path d="M3 10v4a1 1 0 0 0 1 1h3l6 4V5L7 9H4a1 1 0 0 0-1 1z" />
+      <path d="M17 9a4 4 0 0 1 0 6M7.5 15l1 5" />
+    </>
+  ),
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />,
   today: (
     <>

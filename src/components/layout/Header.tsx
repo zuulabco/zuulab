@@ -374,9 +374,20 @@ export default function Header({ navigation }: { navigation: StoreNavigation }) 
         aria-hidden={!mobileOpen}
       >
         <div className={styles.mobileInner}>
-          <div className={styles.mobileLogoRow}>
-            <span className={styles.mobileLogoText}>zuulab</span>
-            <span className={styles.logoDot} aria-hidden />
+          <div className={styles.mobileTopRow}>
+            <div className={styles.mobileLogoRow}>
+              <span className={styles.mobileLogoText}>zuulab</span>
+              <span className={styles.logoDot} aria-hidden />
+            </div>
+            <button
+              type="button"
+              className={styles.mobileClose}
+              onClick={() => setMobileOpen(false)}
+              aria-label="Menüyü kapat"
+              tabIndex={mobileOpen ? 0 : -1}
+            >
+              <XIcon />
+            </button>
           </div>
 
           <div className={styles.mobileDivider} />

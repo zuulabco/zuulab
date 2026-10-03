@@ -44,6 +44,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'İadeler', href: '/returns', icon: 'returns' },
       { label: 'Ödemeler', href: '/payments', icon: 'payments' },
       { label: 'Kuponlar', href: '/coupons', icon: 'coupons' },
+      { label: 'Kampanyalar', href: '/campaigns', icon: 'megaphone' },
     ],
   },
   {
@@ -61,6 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Stok ve üretim',
     items: [
       { label: 'Envanter', href: '/inventory', icon: 'inventory' },
+      { label: 'Malzemeler', href: '/inventory/materials', icon: 'swatch' },
       { label: 'Üretim', href: '/production', icon: 'production' },
       { label: 'Filament', href: '/materials', icon: 'filament' },
     ],
@@ -479,7 +481,7 @@ export default function AdminLayout({
                 </div>
                 {searchResults.orders?.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Siparişler</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Siparişler</div>
                     {searchResults.orders.map((o: any) => (
                       <Link
                         key={o.orderNumber}
@@ -494,7 +496,7 @@ export default function AdminLayout({
                 )}
                 {searchResults.products?.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Ürünler</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Ürünler</div>
                     {searchResults.products.map((p: any) => (
                       <Link
                         key={p.id}

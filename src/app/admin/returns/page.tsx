@@ -117,7 +117,7 @@ export default function AdminReturnsPage() {
           onClick={() => setStatusFilter('ALL')}
           className={`${styles.selectableCard} ${statusFilter === 'ALL' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Talep
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -132,7 +132,7 @@ export default function AdminReturnsPage() {
           onClick={() => setStatusFilter('REQUESTED')}
           className={`${styles.selectableCard} ${statusFilter === 'REQUESTED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             İnceleme Bekleyen
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#d97706', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -147,7 +147,7 @@ export default function AdminReturnsPage() {
           onClick={() => setStatusFilter('IN_TRANSIT')}
           className={`${styles.selectableCard} ${statusFilter === 'IN_TRANSIT' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Kargodaki İadeler
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--brand-blue, #0080c4)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -162,7 +162,7 @@ export default function AdminReturnsPage() {
           onClick={() => setStatusFilter('RECEIVED')}
           className={`${styles.selectableCard} ${statusFilter === 'RECEIVED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Depoda Ekspertiz
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#7c3aed', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -177,7 +177,7 @@ export default function AdminReturnsPage() {
           onClick={() => setStatusFilter('COMPLETED')}
           className={`${styles.selectableCard} ${statusFilter === 'COMPLETED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Tamamlanan
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
-import { useToastStore } from '@/store/toastStore'
+import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
-import styles from '../../admin.module.css'
 import { SkeletonRows } from '@/components/common/Skeleton'
+import SortableList from '../../SortableList'
+import styles from '../../admin.module.css'
+import a from './Announcement.module.css'
 
 interface AnnouncementItem {
   id: string
@@ -16,405 +18,225 @@ interface AnnouncementItem {
   sortOrder: number
 }
 
+interface Draft {
+  id?: string
+  text: string
+  ctaLabel: string
+  ctaHref: string
+  active: boolean
+}
+
 export default function AdminAnnouncementPage() {
   const { token, canFetch } = useAuthStore()
-  const { addToast } = useToastStore()
-
   const [items, setItems] = useState<AnnouncementItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<AnnouncementItem | null>(null)
 
-  // Edit / Create Modal
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<AnnouncementItem | null>(null)
-  const [text, setText] = useState('')
-  const [ctaLabel, setCtaLabel] = useState('')
-  const [ctaHref, setCtaHref] = useState('')
-  const [active, setActive] = useState(true)
-  const [sortOrder, setSortOrder] = useState<number>(1)
-  const [submitting, setSubmitting] = useState(false)
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
 
-  // Delete Confirmation Modal
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const loadAnnouncements = () => {
+  const load = useCallback(() => {
     if (!canFetch) return
-    setLoading(true)
-
-    fetch('/api/admin/cms/announcements', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.announcements)) {
-          setItems(data.announcements)
-        }
+    fetch('/api/admin/cms/announcements', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setItems(d.announcements)
       })
-      .catch(() => addToast('Duyuru verileri yüklenemedi.', 'error'))
+      .catch(() => toast.error('Duyurular yüklenemedi.'))
       .finally(() => setLoading(false))
-  }
+  }, [canFetch, token])
 
   useEffect(() => {
-    loadAnnouncements()
-  }, [token, canFetch, canFetch])
+    load()
+  }, [load])
 
-  const openCreate = () => {
-    setEditingItem(null)
-    setText('')
-    setCtaLabel('')
-    setCtaHref('')
-    setActive(true)
-    setSortOrder(items.length + 1)
-    setIsModalOpen(true)
+  const call = async (method: string, body?: unknown, query = '') => {
+    const res = await fetch(`/api/admin/cms/announcements${query}`, { method, headers, body: body ? JSON.stringify(body) : undefined })
+    const d = await res.json().catch(() => ({}))
+    if (!d.success) throw new Error(d.error || 'İşlem başarısız.')
+    if (Array.isArray(d.announcements)) setItems(d.announcements)
+    return d
   }
 
-  const openEdit = (item: AnnouncementItem) => {
-    setEditingItem(item)
-    setText(item.text)
-    setCtaLabel(item.ctaLabel || '')
-    setCtaHref(item.ctaHref || '')
-    setActive(item.active)
-    setSortOrder(item.sortOrder)
-    setIsModalOpen(true)
-  }
-
-  const handleToggle = async (item: AnnouncementItem) => {
-    if (!canFetch) return
+  const reorder = async (next: AnnouncementItem[]) => {
+    const previous = items
+    setItems(next)
     try {
-      const res = await fetch('/api/admin/cms/announcements', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id: item.id, active: !item.active }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        addToast(`Duyuru ${!item.active ? 'yayına alındı' : 'arşive çekildi'}.`, 'success')
-        loadAnnouncements()
-      } else {
-        addToast(data.error || 'İşlem başarısız oldu.', 'error')
-      }
-    } catch {
-      addToast('Sunucu bağlantısı sağlanamadı.', 'error')
+      await call('PATCH', { order: next.map((i) => i.id) })
+      toast.success('Sıralama kaydedildi.')
+    } catch (e) {
+      setItems(previous)
+      toast.error((e as Error).message)
     }
   }
 
-  const handleDeleteConfirm = async () => {
-    if (!deleteTargetId || !canFetch) return
-    setIsDeleting(true)
-
+  const toggle = async (item: AnnouncementItem) => {
+    setItems((list) => list.map((i) => (i.id === item.id ? { ...i, active: !i.active } : i)))
     try {
-      const res = await fetch(`/api/admin/cms/announcements?id=${deleteTargetId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await res.json()
-      if (data.success) {
-        addToast('Duyuru başarıyla silindi.', 'success')
-        setDeleteTargetId(null)
-        loadAnnouncements()
-      } else {
-        addToast(data.error || 'Silme işlemi başarısız.', 'error')
-      }
-    } catch {
-      addToast('Sunucu bağlantı hatası oluştu.', 'error')
+      await call('PUT', { id: item.id, active: !item.active })
+    } catch (e) {
+      toast.error((e as Error).message)
+      load()
+    }
+  }
+
+  const save = async () => {
+    if (!draft) return
+    setSaving(true)
+    try {
+      await call(draft.id ? 'PUT' : 'POST', draft)
+      toast.success(draft.id ? 'Duyuru güncellendi.' : 'Duyuru eklendi.')
+      setDraft(null)
+    } catch (e) {
+      toast.error((e as Error).message)
     } finally {
-      setIsDeleting(false)
+      setSaving(false)
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!canFetch || !text.trim()) return
-
-    setSubmitting(true)
+  const remove = async () => {
+    if (!deleting) return
     try {
-      const method = editingItem ? 'PUT' : 'POST'
-      const body: any = {
-        text: text.trim().toLowerCase(),
-        ctaLabel: ctaLabel.trim().toLowerCase() || undefined,
-        ctaHref: ctaHref.trim() || undefined,
-        active,
-        sortOrder: Number(sortOrder),
-      }
-      if (editingItem) body.id = editingItem.id
-
-      const res = await fetch('/api/admin/cms/announcements', {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      })
-
-      const data = await res.json()
-      if (data.success) {
-        addToast(editingItem ? 'Duyuru bandı güncellendi.' : 'Yeni duyuru bandı oluşturuldu.', 'success')
-        setIsModalOpen(false)
-        loadAnnouncements()
-      } else {
-        addToast(data.error || 'Kaydetme işlemi başarısız.', 'error')
-      }
-    } catch {
-      addToast('Sunucu bağlantı hatası oluştu.', 'error')
-    } finally {
-      setSubmitting(false)
+      await call('DELETE', undefined, `?id=${encodeURIComponent(deleting.id)}`)
+      toast.success('Duyuru silindi.')
+      setDeleting(null)
+    } catch (e) {
+      toast.error((e as Error).message)
     }
   }
+
+  const live = items.filter((i) => i.active)
 
   return (
-    <div className={styles.container}>
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <div className={styles.header}>
+    <div className={styles.pageContainer} style={{ maxWidth: 960 }}>
+      <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.title}>Duyuru Bandı Yönetimi (Ticker Bar)</h1>
-          <p className={styles.subtitle}>
-            Mağaza vitrininin en üstünde dönen kampanya, ücretsiz kargo fırsatları ve marka duyurularını yönetin.
+          <h1 className={styles.pageTitle}>Duyuru bandı</h1>
+          <p className={styles.pageSubtitle}>
+            Sitenin en üstünde kayan kısa mesajlar. Değişiklikler hemen yayına girer; sırayı satırları sürükleyerek değiştirin.
           </p>
         </div>
-
         <button
           type="button"
-          onClick={openCreate}
-          className={styles.primaryButton}
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={() => setDraft({ text: '', ctaLabel: '', ctaHref: '', active: true })}
         >
-          + Yeni Duyuru Ekle
+          Duyuru ekle
         </button>
       </div>
 
-      {/* ── TABLE CARD ──────────────────────────────────────────────────────── */}
-      <div className={styles.card} style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th style={{ width: 60 }}>Sıra</th>
-                <th>Duyuru Metni</th>
-                <th>Aksiyon / Yönlendirme</th>
-                <th>Durum</th>
-                <th style={{ textAlign: 'right' }}>İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <SkeletonRows rows={6} cols={5} />
-              ) : items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                    Henüz eklenmiş bir duyuru bandı içeriği bulunmuyor.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      #{item.sortOrder}
-                    </td>
-                    <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-                      {item.text}
-                    </td>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      {item.ctaLabel ? (
-                        <span>
-                          <strong>{item.ctaLabel}</strong> &rarr; <span style={{ fontFamily: 'var(--font-mono)' }}>{item.ctaHref || '—'}</span>
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`${styles.badge} ${
-                          item.active ? styles.badgeSuccess : styles.badgeNeutral
-                        }`}
-                      >
-                        {item.active ? 'YAYINDA' : 'PASİF'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleToggle(item)}
-                          className={styles.secondaryButton}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        >
-                          {item.active ? 'Gizle' : 'Göster'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          className={styles.secondaryButton}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        >
-                          Düzenle
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTargetId(item.id)}
-                          className={styles.secondaryButton}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#ef4444' }}
-                        >
-                          Sil
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* What the bar looks like right now */}
+      <div className={a.preview} aria-label="Önizleme">
+        <span className={a.previewLabel}>Sitede görünüm</span>
+        <div className={a.bar}>
+          {live.length === 0 ? (
+            <span className={a.barEmpty}>Açık duyuru yok; bant varsayılan mesajları gösterir.</span>
+          ) : (
+            live.map((i) => (
+              <span key={i.id} className={a.barItem}>
+                {i.text}
+                {i.ctaLabel && <b>{i.ctaLabel} →</b>}
+              </span>
+            ))
+          )}
         </div>
       </div>
 
-      {/* ── CREATE / EDIT MODAL (UI-16 GLOBAL MODAL) ────────────────────────── */}
-      {isModalOpen && (
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => !submitting && setIsModalOpen(false)}
-          ariaLabel="Duyuru Bandı Düzenleme Modalı"
-          maxWidth={480}
-        >
-          <div style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-              {editingItem ? 'Duyuru Bandını Düzenle' : 'Yeni Duyuru Bandı Ekle'}
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-              Storefront üst bandında döngüsel olarak gösterilen metin ve bağlantı ayarları.
-            </p>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label className={styles.label}>
-                  Duyuru Metni *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Örn: 750 ₺ ve üzeri tüm siparişlerde ücretsiz kargo"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className={styles.input}
-                />
+      {loading ? (
+        <SkeletonRows rows={4} />
+      ) : items.length === 0 ? (
+        <div className={styles.emptyState}>Henüz duyuru yok.</div>
+      ) : (
+        <SortableList
+          items={items}
+          getId={(i) => i.id}
+          getLabel={(i) => i.text}
+          onReorder={reorder}
+          renderItem={(item, index) => (
+            <div className={`${a.row} ${item.active ? '' : a.rowOff}`}>
+              <span className={a.index}>{index + 1}</span>
+              <div className={a.rowText}>
+                <span className={a.text}>{item.text}</span>
+                {item.ctaLabel && (
+                  <span className={a.cta}>
+                    {item.ctaLabel} → {item.ctaHref}
+                  </span>
+                )}
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label className={styles.label}>
-                    Buton Metni (İsteğe Bağlı)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Örn: İncele"
-                    value={ctaLabel}
-                    onChange={(e) => setCtaLabel(e.target.value)}
-                    className={styles.input}
-                  />
-                </div>
-
-                <div>
-                  <label className={styles.label}>
-                    Hedef URL / Link
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="/koleksiyon/zuukids"
-                    value={ctaHref}
-                    onChange={(e) => setCtaHref(e.target.value)}
-                    className={styles.input}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'center' }}>
-                <div>
-                  <label className={styles.label}>
-                    Sıra Numarası
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(Number(e.target.value))}
-                    className={styles.input}
-                  />
-                </div>
-
-                <div style={{ paddingTop: '1.25rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={(e) => setActive(e.target.checked)}
-                    />
-                    <span>Hemen Yayına Al</span>
-                  </label>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={submitting}
-                  className={styles.secondaryButton}
-                >
-                  Vazgeç
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={styles.primaryButton}
-                >
-                  {submitting ? 'Kaydediliyor...' : editingItem ? 'Güncelle' : 'Kaydet'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </Modal>
+              <label className={a.switch} title={item.active ? 'Gizle' : 'Göster'}>
+                <input type="checkbox" checked={item.active} onChange={() => toggle(item)} aria-label={`${item.text} görünsün`} />
+                <span />
+              </label>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`}
+                onClick={() =>
+                  setDraft({ id: item.id, text: item.text, ctaLabel: item.ctaLabel ?? '', ctaHref: item.ctaHref ?? '', active: item.active })
+                }
+              >
+                Düzenle
+              </button>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => setDeleting(item)}>
+                Sil
+              </button>
+            </div>
+          )}
+        />
       )}
 
-      {/* ── DELETE CONFIRMATION MODAL (UI-16 GLOBAL MODAL) ──────────────────── */}
-      {deleteTargetId && (
-        <Modal
-          isOpen={Boolean(deleteTargetId)}
-          onClose={() => !isDeleting && setDeleteTargetId(null)}
-          ariaLabel="Duyuru Silme Onayı"
-          maxWidth={420}
-        >
-          <div style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Duyuruyu Sil
-            </h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-              Bu duyuru bandı mesajını kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
-            </p>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => setDeleteTargetId(null)}
-                disabled={isDeleting}
-                className={styles.secondaryButton}
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                className={styles.dangerButton}
-                style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                {isDeleting ? 'Siliniyor...' : 'Evet, Sil'}
+      <Modal isOpen={Boolean(draft)} onClose={() => setDraft(null)} maxWidth="520px" ariaLabel="Duyuru">
+        {draft && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{draft.id ? 'Duyuruyu düzenle' : 'Yeni duyuru'}</h3>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="ann-text">Mesaj</label>
+              <input
+                id="ann-text"
+                className={styles.formInput}
+                maxLength={160}
+                value={draft.text}
+                onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+                placeholder="Örn: 750 ₺ ve üzeri siparişlerde kargo ücretsiz"
+              />
+              <span className={styles.formHelp}>{draft.text.length}/160</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="ann-cta">Bağlantı yazısı (isteğe bağlı)</label>
+                <input id="ann-cta" className={styles.formInput} value={draft.ctaLabel} onChange={(e) => setDraft({ ...draft, ctaLabel: e.target.value })} placeholder="incele" />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="ann-href">Bağlantı</label>
+                <input id="ann-href" className={styles.formInput} value={draft.ctaHref} onChange={(e) => setDraft({ ...draft, ctaHref: e.target.value })} placeholder="/koleksiyon/zuukids" />
+              </div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
+              Sitede göster
+            </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDraft(null)}>Vazgeç</button>
+              <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={save} disabled={saving || draft.text.trim().length < 3}>
+                {saving ? 'Kaydediliyor…' : 'Kaydet'}
               </button>
             </div>
           </div>
-        </Modal>
-      )}
+        )}
+      </Modal>
+
+      <Modal isOpen={Boolean(deleting)} onClose={() => setDeleting(null)} ariaLabel="Duyuruyu sil">
+        {deleting && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Duyuru silinsin mi?</h3>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>&ldquo;{deleting.text}&rdquo; banttan kaldırılacak.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setDeleting(null)}>Vazgeç</button>
+              <button type="button" className={`${styles.btn} ${styles.btnDanger}`} onClick={remove}>Sil</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

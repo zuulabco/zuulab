@@ -272,6 +272,24 @@ async function syncProductCollections(productId: string, collectionIds: string[]
 }
 
 /** Returns `base`, or `base-2`, `base-3`… if taken by another row. */
+/**
+ * The next automatic SKU: ZL followed by a 4-digit running number (ZL0001, ZL0002…),
+ * one above the highest ZL number in use. Used when the SKU field is left empty.
+ */
+export async function nextProductSku(): Promise<string> {
+  const [row] = (await db.runtime().query(
+    db.raw.sql`SELECT COALESCE(MAX(substring(sku from '^ZL([0-9]+)$')::int), 0) AS n FROM products`
+      .returnsRow({ n: 'pg/int4@1' } as never)
+      .build()
+  )) as unknown as Array<{ n: number }>
+  let n = Number(row?.n ?? 0) + 1
+  for (;;) {
+    const candidate = `ZL${String(n).padStart(4, '0')}`
+    if (!(await db.orm.public.Product.where({ sku: candidate }).first())) return candidate
+    n++
+  }
+}
+
 async function uniqueValue(base: string, taken: (value: string) => Promise<boolean>): Promise<string> {
   let candidate = base
   for (let n = 2; await taken(candidate); n++) candidate = `${base}-${n}`
@@ -312,10 +330,11 @@ export async function adminCreateProduct(payload: AdminProductPayload, adminEmai
   const slug = await uniqueValue(requireSlug(payload.slug || payload.name, 'Ürün'), async (s) =>
     Boolean(await db.orm.public.Product.where({ slug: s }).first())
   )
-  const sku = await uniqueValue(
-    (payload.sku?.trim() || `ZUU-${slug.toUpperCase().slice(0, 12)}`).toUpperCase(),
-    async (s) => Boolean(await db.orm.public.Product.where({ sku: s }).first())
-  )
+  const sku = payload.sku?.trim()
+    ? await uniqueValue(payload.sku.trim().toUpperCase(), async (s) =>
+        Boolean(await db.orm.public.Product.where({ sku: s }).first())
+      )
+    : await nextProductSku()
   const id = `prod-${Date.now()}`
   const cost = payload.costPrice !== undefined && payload.costPrice !== null ? requirePrice(payload.costPrice, 'Maliyet') : null
 

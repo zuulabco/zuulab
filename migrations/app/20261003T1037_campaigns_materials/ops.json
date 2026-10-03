@@ -1,0 +1,668 @@
+[
+  {
+    "id": "table.product_materials",
+    "label": "Create table \"product_materials\"",
+    "summary": "Creates table \"product_materials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "product_materials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"product_materials\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_materials\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"product_materials\"",
+        "sql": "CREATE TABLE \"public\".\"product_materials\" (\n  \"created_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"id\" text NOT NULL,\n  \"name\" text NOT NULL,\n  \"sort_order\" int4 DEFAULT 0 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"product_materials\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_materials\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.audience",
+    "label": "Add column \"audience\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "audience",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"audience\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "audience"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"audience\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"audience\" text DEFAULT 'ALL' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"audience\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "audience"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.coupon_code",
+    "label": "Add column \"coupon_code\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "coupon_code",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"coupon_code\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "coupon_code"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"coupon_code\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"coupon_code\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"coupon_code\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "coupon_code"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.cta_href",
+    "label": "Add column \"cta_href\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "cta_href",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"cta_href\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "cta_href"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"cta_href\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"cta_href\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"cta_href\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "cta_href"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.cta_label",
+    "label": "Add column \"cta_label\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "cta_label",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"cta_label\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "cta_label"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"cta_label\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"cta_label\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"cta_label\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "cta_label"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.display",
+    "label": "Add column \"display\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "display",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"display\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "display"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"display\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"display\" text DEFAULT 'NONE' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"display\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "display"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.headline",
+    "label": "Add column \"headline\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "headline",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"headline\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "headline"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"headline\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"headline\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"headline\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "headline"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.kind",
+    "label": "Add column \"kind\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "kind",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"kind\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "kind"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"kind\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"kind\" text DEFAULT 'DISCOUNT' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"kind\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "kind"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.max_discount",
+    "label": "Add column \"max_discount\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "max_discount",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"max_discount\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "max_discount"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"max_discount\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"max_discount\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"max_discount\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "max_discount"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.message",
+    "label": "Add column \"message\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "message",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"message\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "message"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"message\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"message\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"message\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "message"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.min_subtotal",
+    "label": "Add column \"min_subtotal\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "min_subtotal",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"min_subtotal\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "min_subtotal"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"min_subtotal\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"min_subtotal\" numeric(10,2)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"min_subtotal\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "min_subtotal"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.campaigns.priority",
+    "label": "Add column \"priority\" to \"campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "priority",
+        "table": "campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"priority\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "priority"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"priority\"",
+        "sql": "ALTER TABLE \"public\".\"campaigns\" ADD COLUMN \"priority\" int4 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"priority\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "campaigns",
+          "priority"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.campaign_discount",
+    "label": "Add column \"campaign_discount\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "campaign_discount",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"campaign_discount\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "campaign_discount"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"campaign_discount\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"campaign_discount\" numeric(10,2) DEFAULT '0'::numeric(10,2) NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"campaign_discount\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "campaign_discount"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.campaign_id",
+    "label": "Add column \"campaign_id\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "campaign_id",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"campaign_id\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "campaign_id"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"campaign_id\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"campaign_id\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"campaign_id\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "campaign_id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.product_materials.product_materials_name_key",
+    "label": "Create index \"product_materials_name_key\" on \"product_materials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "product_materials_name_key",
+        "table": "product_materials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"product_materials_name_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_materials_name_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"product_materials_name_key\"",
+        "sql": "CREATE UNIQUE INDEX \"product_materials_name_key\" ON \"public\".\"product_materials\" (\"name\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"product_materials_name_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"product_materials_name_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.orders.orders_campaign_id_fkey",
+    "label": "Add foreign key \"orders_campaign_id_fkey\" on \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "orders_campaign_id_fkey",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"orders_campaign_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "orders_campaign_id_fkey",
+          "public",
+          "\"public\".\"orders\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"orders_campaign_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"orders\"\nADD CONSTRAINT \"orders_campaign_id_fkey\"\nFOREIGN KEY (\"campaign_id\")\nREFERENCES \"public\".\"campaigns\" (\"id\")\nON DELETE SET NULL\nON UPDATE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"orders_campaign_id_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "orders_campaign_id_fkey",
+          "public",
+          "\"public\".\"orders\""
+        ]
+      }
+    ]
+  }
+]

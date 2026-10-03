@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
-import { getFreeShippingThreshold } from '@/lib/services/settings/store-settings.service'
+import { getStoreSettings } from '@/lib/services/settings/store-settings.service'
+import { shippingMethodFromSettings } from '@/lib/services/shipping.service'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
   try {
-    const threshold = await getFreeShippingThreshold()
+    const settings = await getStoreSettings()
     return NextResponse.json(
       {
         success: true,
-        freeShippingThreshold: threshold,
+        freeShippingThreshold: settings.freeShippingThreshold,
+        method: shippingMethodFromSettings(settings.shipping),
       },
       {
         headers: {

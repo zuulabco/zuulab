@@ -24,6 +24,9 @@ export interface CartQuoteView {
   issues: CartQuoteIssue[]
   subtotal: number
   discountAmount: number
+  campaignDiscount?: number
+  couponDiscount?: number
+  campaign?: { id: string; name: string; type: 'PERCENTAGE' | 'FIXED' | 'FREE_SHIPPING'; label: string } | null
   shippingMethod: 'STANDARD' | 'EXPRESS'
   shippingAmount: number
   taxAmount: number

@@ -9,10 +9,11 @@ import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
+import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
 import styles from '../../admin.module.css'
 
 export default function AdminEditProductPage() {
-  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS } = useAdminCatalogOptions()
+  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS, addCategory, addCollection } = useAdminCatalogOptions()
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
@@ -742,41 +743,9 @@ export default function AdminEditProductPage() {
             <h2 className={styles.formCardTitle}>Sınıflandırma & Koleksiyonlar</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="prod-cat">
-                  Kategori
-                </label>
-                <select
-                  id="prod-cat"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className={styles.formSelect}
-                >
-                  {ALL_CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                  Koleksiyonlar (Çoklu Seçim)
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, background: 'var(--surface-1)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                  {ALL_COLLECTIONS.map((col) => (
-                    <label key={col.slug} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedCollections.includes(col.slug)}
-                        onChange={() => toggleCollection(col.slug)}
-                      />
-                      <span>{col.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              <CategoryPicker id="prod-cat" value={categoryId} onChange={setCategoryId} categories={ALL_CATEGORIES} onCreated={addCategory} />
+              <CollectionsPicker selected={selectedCollections} onToggle={toggleCollection} collections={ALL_COLLECTIONS} onCreated={addCollection} />
+              <MaterialPicker id="prod-material" value={material} onChange={setMaterial} />
 
               <div style={{ display: 'flex', gap: 24, paddingTop: 6 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>

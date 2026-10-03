@@ -909,17 +909,50 @@
   overflow-y: auto;
 }
 
+/* Phones and tablets: the summary sits right under the summary bar at the top of the
+   page (not after the whole form) and slides open from it. */
 @media (max-width: 1023px) {
   .summarySidebar {
-    display: none;
+    order: -1;
     position: static;
-    max-height: none;
-    margin-bottom: var(--sp-4);
+    max-height: 0;
+    overflow: hidden;
+    padding-block: 0;
+    border-width: 0;
+    opacity: 0;
+    transition:
+      max-height var(--dur-slower) var(--ease-default),
+      opacity var(--dur-slow) var(--ease-default),
+      padding var(--dur-slower) var(--ease-default);
   }
 
   .summarySidebarMobileOpen {
-    display: block;
+    max-height: 2400px;
+    padding-block: var(--sp-5);
+    border-width: 1px;
+    opacity: 1;
   }
+}
+
+.mobileSummaryCaret {
+  transition: transform var(--dur-slow) var(--ease-default);
+}
+
+.mobileSummaryCaretOpen {
+  transform: rotate(180deg);
+}
+
+.lockIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
 }
 
 .summaryHeader {

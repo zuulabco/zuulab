@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import type { ProductListItem } from '@/types/catalog'
+import { SECTION_TEMPLATES, type SpotlightSettings } from '@/lib/cms/homepage'
 import styles from './ZuuKidsSpotlight.module.css'
 
 interface Props {
@@ -13,9 +14,12 @@ interface Props {
   product: ProductListItem | null
   /** Products with variants are chosen on their own page, not added from here. */
   hasVariants?: boolean
+  /** Texts from the homepage editor; zuukids defaults when missing */
+  settings?: SpotlightSettings
 }
 
-export default function ZuuKidsSpotlight({ product, hasVariants = false }: Props) {
+export default function ZuuKidsSpotlight({ product, hasVariants = false, settings }: Props) {
+  const t = settings ?? SECTION_TEMPLATES.product_spotlight.defaults()
   const addItem = useCartStore((s) => s.addItem)
   const [added, setAdded] = useState(false)
 
@@ -42,17 +46,22 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false }: Props
   }
 
   return (
-    <section className={styles.section} aria-label="zuukids öne çıkan ürün">
+    <section className={styles.section} aria-label={`${t.eyebrow} öne çıkan ürün`}>
       <div className={styles.container}>
         <div className={styles.eyebrowLine}>
-          <span className={styles.eyebrow}>zuukids</span>
-          <span className={styles.specRef}>çocuk koleksiyonu</span>
+          <span className={styles.eyebrow}>{t.eyebrow}</span>
+          {t.eyebrowNote && <span className={styles.specRef}>{t.eyebrowNote}</span>}
         </div>
 
         <div className={styles.titleWrap}>
           <h2 className={styles.headline}>
-            oyun ve keşif dolu<br />
-            <span className={styles.headlineItalic}>üç boyutlu formlar.</span>
+            {t.headline}
+            {t.headlineAccent && (
+              <>
+                <br />
+                <span className={styles.headlineItalic}>{t.headlineAccent}</span>
+              </>
+            )}
           </h2>
         </div>
 
@@ -72,35 +81,24 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false }: Props
               </Link>
             </div>
             <div className={styles.imageCaption}>
-              <span className={styles.captionTag}>zuukids / en çok tercih edilen</span>
+              <span className={styles.captionTag}>{t.eyebrow} / öne çıkan</span>
               <span className={styles.captionDesc}>{product.categoryName.toLowerCase()}</span>
             </div>
           </div>
 
           <div className={styles.narrativeCol}>
-            <p className={styles.leadPara}>
-              şekil eşleştirme, sıralama ve kesir oyunlarıyla el-göz koordinasyonunu ve problem
-              çözmeyi destekleyen setler; her parça pürüzsüz yüzey ve yuvarlatılmış kenarlarla basılır.
-            </p>
+            {t.lead && <p className={styles.leadPara}>{t.lead}</p>}
 
-            <div className={styles.pillarsList}>
-              <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>pla hammadde</h4>
-                <p className={styles.pillarDesc}>bitki kaynaklı, kokusuz biyopolimer</p>
+            {t.pillars.length > 0 && (
+              <div className={styles.pillarsList}>
+                {t.pillars.map((p, i) => (
+                  <div key={i} className={styles.pillarItem}>
+                    <h4 className={styles.pillarTitle}>{p.title}</h4>
+                    <p className={styles.pillarDesc}>{p.desc}</p>
+                  </div>
+                ))}
               </div>
-              <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>öğreterek oyun</h4>
-                <p className={styles.pillarDesc}>renk, şekil ve sayı kavramları</p>
-              </div>
-              <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>yuvarlatılmış kenarlar</h4>
-                <p className={styles.pillarDesc}>çapaksız, elde rahat formlar</p>
-              </div>
-              <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>atölyeden kapınıza</h4>
-                <p className={styles.pillarDesc}>özenli paketleme ile gönderim</p>
-              </div>
-            </div>
+            )}
 
             <div className={styles.productSnippet}>
               <div className={styles.snippetTop}>
@@ -132,9 +130,11 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false }: Props
                     {product.inStock ? 'seçenekleri gör' : 'ürünü incele'}
                   </Link>
                 )}
-                <Link href="/koleksiyon/zuukids" className={styles.exploreLink}>
-                  tüm zuukids koleksiyonu
-                </Link>
+                {t.linkLabel && t.linkHref && (
+                  <Link href={t.linkHref} className={styles.exploreLink}>
+                    {t.linkLabel}
+                  </Link>
+                )}
               </div>
             </div>
           </div>

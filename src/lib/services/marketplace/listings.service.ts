@@ -1,4 +1,5 @@
 import 'server-only'
+import { clipAtWord } from '@/lib/utils'
 import { db } from '@/prisma/db'
 import { dbNumeric } from '@/lib/db/numeric'
 import { dbTimestampToIso, toDbTimestamp } from '@/lib/db/time'
@@ -535,7 +536,7 @@ export async function importListingsAsProducts(listingIds: string[], adminUserId
           name: representative.title,
           sku: representative.productMainId ?? representative.stockCode ?? representative.barcode,
           description,
-          shortDescription: description.split('\n')[0]?.slice(0, 200) ?? '',
+          shortDescription: clipAtWord(description.split('\n')[0] ?? '', 200),
           price: prices.length ? Math.min(...prices) : 0,
           stock: 0,
           categoryId: category.id,

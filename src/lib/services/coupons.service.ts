@@ -140,7 +140,7 @@ export async function validateCoupon(params: {
     valid: true,
     code: quote.coupon.code,
     type: quote.coupon.type,
-    discountAmount: quote.discountAmount,
+    discountAmount: quote.couponDiscount,
     message: `${quote.coupon.code} kuponu başarıyla uygulandı.`,
   }
 }

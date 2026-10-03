@@ -11,7 +11,11 @@ export default function AdminSettingsPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'COMMERCE' | 'ORDERS' | 'INTEGRATIONS' | 'MAINTENANCE'>('GENERAL')
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'COMMERCE' | 'SHIPPING' | 'ORDERS' | 'INTEGRATIONS' | 'MAINTENANCE'>(() => {
+    // ?tab=SHIPPING opens a tab directly (linked from the shipping page)
+    const tab = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null
+    return tab === 'SHIPPING' || tab === 'COMMERCE' || tab === 'ORDERS' || tab === 'MAINTENANCE' || tab === 'INTEGRATIONS' ? tab : 'GENERAL'
+  })
 
   // Maintenance mode state
   const [maintenanceLoading, setMaintenanceLoading] = useState(false)
@@ -37,6 +41,13 @@ export default function AdminSettingsPage() {
   const [currency, setCurrency] = useState('TRY')
   const [taxRate, setTaxRate] = useState<number | ''>(20)
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | ''>(750)
+
+  // Delivery (single method shown at checkout)
+  const [shipCarrier, setShipCarrier] = useState('Sürat Kargo')
+  const [shipName, setShipName] = useState('Standart Teslimat')
+  const [shipDescription, setShipDescription] = useState('Kapıya teslim')
+  const [shipEstimate, setShipEstimate] = useState('2-3 iş günü')
+  const [shipFee, setShipFee] = useState<number | ''>(110)
 
   // Orders
   const [orderPrefix, setOrderPrefix] = useState('ZUU-2026')
@@ -113,6 +124,13 @@ export default function AdminSettingsPage() {
             setCurrency(s.currency || 'TRY')
             setTaxRate(s.taxRate ?? 20)
             setFreeShippingThreshold(s.freeShippingThreshold ?? 750)
+            if (s.shipping) {
+              setShipCarrier(s.shipping.carrier ?? '')
+              setShipName(s.shipping.name ?? '')
+              setShipDescription(s.shipping.description ?? '')
+              setShipEstimate(s.shipping.estimatedDelivery ?? '')
+              setShipFee(s.shipping.fee ?? 110)
+            }
             setOrderPrefix(s.orderPrefix || 'ZUU-2026')
             setAllowCustomerCancellation(!!s.allowCustomerCancellation)
           }
@@ -143,6 +161,13 @@ export default function AdminSettingsPage() {
           currency,
           taxRate: Number(taxRate),
           freeShippingThreshold: Number(freeShippingThreshold),
+          shipping: {
+            carrier: shipCarrier,
+            name: shipName,
+            description: shipDescription,
+            estimatedDelivery: shipEstimate,
+            fee: Number(shipFee),
+          },
           orderPrefix,
           allowCustomerCancellation,
         }),
@@ -200,6 +225,7 @@ export default function AdminSettingsPage() {
         {[
           { id: 'GENERAL', label: 'Genel Bilgiler' },
           { id: 'COMMERCE', label: 'Ticaret & Vergi' },
+          { id: 'SHIPPING', label: 'Kargo' },
           { id: 'ORDERS', label: 'Sipariş Kuralları' },
           { id: 'MAINTENANCE', label: 'Site Durumu (Bakım)' },
           { id: 'INTEGRATIONS', label: 'Entegrasyonlar & Güvenlik' },
@@ -282,7 +308,7 @@ export default function AdminSettingsPage() {
                 Ticaret, Para Birimi ve Vergi
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
-                Ödeme alma para birimi, standart KDV oranı ve ücretsiz kargo barajı.
+                Ödeme alma para birimi ve standart KDV oranı.
               </p>
             </div>
 
@@ -312,15 +338,77 @@ export default function AdminSettingsPage() {
                 />
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: SHIPPING ───────────────────────────────────────────────────── */}
+        {activeTab === 'SHIPPING' && (
+          <div className={styles.card}>
+            <div style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>Kargo ücreti ve teslimat metni</h2>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
+                Sepet, ödeme sayfası ve ürün sayfasında gösterilir; sipariş tutarı da bu ücrete göre hesaplanır.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
               <div>
-                <label className={styles.label}>Ücretsiz Kargo Eşiği (TL)</label>
+                <label className={styles.label} htmlFor="ship-name">Teslimat adı</label>
+                <input id="ship-name" value={shipName} onChange={(e) => setShipName(e.target.value)} className={styles.input} placeholder="Standart Teslimat" />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="ship-carrier">Kargo firması</label>
+                <input id="ship-carrier" value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} className={styles.input} placeholder="Sürat Kargo" />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="ship-estimate">Teslim süresi</label>
+                <input id="ship-estimate" value={shipEstimate} onChange={(e) => setShipEstimate(e.target.value)} className={styles.input} placeholder="2-3 iş günü" />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="ship-desc">Kısa açıklama</label>
+                <input id="ship-desc" value={shipDescription} onChange={(e) => setShipDescription(e.target.value)} className={styles.input} placeholder="Kapıya teslim" />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="ship-fee">Kargo ücreti (TL, KDV dahil)</label>
                 <input
+                  id="ship-fee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={shipFee}
+                  onChange={(e) => setShipFee(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={styles.input}
+                />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="ship-free">Ücretsiz kargo eşiği (TL)</label>
+                <input
+                  id="ship-free"
                   type="number"
                   min="0"
                   value={freeShippingThreshold}
                   onChange={(e) => setFreeShippingThreshold(e.target.value === '' ? '' : Number(e.target.value))}
                   className={styles.input}
                 />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.35rem 0 0' }}>
+                  {Number(freeShippingThreshold) === 0
+                    ? '0 girildiğinde tüm siparişlerde kargo ücretsiz olur.'
+                    : `₺${freeShippingThreshold} ve üzeri sepetlerde kargo ücretsiz.`}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.25rem', padding: '0.9rem 1rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-1)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 6 }}>Ödeme sayfasında görünüşü</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem' }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{shipName || 'Standart Teslimat'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                    {[shipCarrier, shipDescription, shipEstimate].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <div style={{ fontWeight: 600 }}>₺{Number(shipFee || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           </div>
@@ -444,7 +532,7 @@ export default function AdminSettingsPage() {
               {/* Technical context: Allowed IPs & Source */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
                 <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm, 4px)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
                     Yapılandırma Kaynağı
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>
@@ -462,7 +550,7 @@ export default function AdminSettingsPage() {
                 </div>
 
                 <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm, 4px)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
                     İzin Verilen IP Adresleri (Allowlist)
                   </div>
                   <div style={{ fontSize: '0.875rem', fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-primary)' }}>

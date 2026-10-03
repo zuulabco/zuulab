@@ -134,6 +134,18 @@ export function isIpAllowed(clientIp: string, allowedIps: string[]): boolean {
   return false
 }
 
+const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost'])
+
+/**
+ * A request made on the machine itself: opened as localhost / 127.0.0.1 and coming from
+ * a loopback address. Lets the developer use http://localhost:3000 during maintenance
+ * without listing it. Deployed sites are reached by their domain name and Vercel sets the
+ * real client address, so this can never match there.
+ */
+export function isLocalRequest(hostname: string, clientIp: string): boolean {
+  return LOOPBACK.has(hostname.toLowerCase().replace(/^\[|\]$/g, '')) && LOOPBACK.has(normalizeIp(clientIp))
+}
+
 /**
  * Generates editorial, premium maintenance HTML adhering to ZUULAB Design System v2.
  * Completely self-contained with zero external stylesheet dependencies to ensure 100% reliable rendering.

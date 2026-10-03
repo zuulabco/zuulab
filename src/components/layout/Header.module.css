@@ -1150,3 +1150,43 @@
   }
 }
 
+
+/* Drawer header: logo on the left, close button on the right */
+.mobileTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.mobileClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: calc(-1 * var(--sp-3));
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--dur-base) var(--ease-default);
+}
+
+.mobileClose:hover {
+  background: var(--surface-1);
+}
+
+.mobileClose:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+.mobileTopRow {
+  margin-bottom: var(--sp-6);
+}
+
+.mobileTopRow .mobileLogoRow {
+  margin-bottom: 0;
+}

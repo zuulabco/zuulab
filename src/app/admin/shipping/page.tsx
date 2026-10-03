@@ -437,6 +437,9 @@ export default function AdminShippingPage() {
           >
             Kargo Ayarları
           </button>
+          <Link href="/admin/settings?tab=SHIPPING" className={`${styles.btn} ${styles.btnSecondary}`}>
+            Kargo ücreti ve metni
+          </Link>
           <Link href="/admin/warehouse/packing" className={`${styles.btn} ${styles.btnSecondary}`}>
             Paketleme Masası &rarr;
           </Link>
@@ -456,7 +459,7 @@ export default function AdminShippingPage() {
           onClick={() => handleQuickFilterClick('ready')}
           className={`${styles.selectableCard} ${quickFilter === 'ready' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Kargoya Hazır
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -471,7 +474,7 @@ export default function AdminShippingPage() {
           onClick={() => handleQuickFilterClick('label_ready')}
           className={`${styles.selectableCard} ${quickFilter === 'label_ready' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Etiket Hazır
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -486,7 +489,7 @@ export default function AdminShippingPage() {
           onClick={() => handleQuickFilterClick('awaiting_label')}
           className={`${styles.selectableCard} ${quickFilter === 'awaiting_label' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Etiket Bekliyor
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#d97706', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -501,7 +504,7 @@ export default function AdminShippingPage() {
           onClick={() => handleQuickFilterClick('shipped')}
           className={`${styles.selectableCard} ${quickFilter === 'shipped' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Kargoya Verildi
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#4f46e5', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

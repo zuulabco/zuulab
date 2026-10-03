@@ -8,13 +8,12 @@ import { useCartStore } from '@/store/cartStore'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
-import { FREE_SHIPPING_THRESHOLD, DEFAULT_SHIPPING_METHODS } from '@/lib/services/shipping.service'
+import { useShippingConfig } from '@/hooks/useShippingConfig'
 import Modal from '@/components/common/Modal'
 import ProductCard from '@/components/home/ProductCard'
 import type { ProductListItem } from '@/types/product'
 import styles from './CartPage.module.css'
 
-const STANDARD_SHIPPING_FEE = DEFAULT_SHIPPING_METHODS[0]?.price ?? 49.9
 
 interface Props {
   recommendedProducts?: ProductListItem[]
@@ -38,24 +37,15 @@ export default function CartPageClient({
     subtotal,
   } = useCartStore()
 
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(initialFreeShippingThreshold)
+  const shippingConfig = useShippingConfig()
+  const freeShippingThreshold = shippingConfig.freeShippingThreshold ?? initialFreeShippingThreshold
+  const STANDARD_SHIPPING_FEE = shippingConfig.method.price
   const [isCouponOpen, setIsCouponOpen] = useState(false)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
   const [isCouponLoading, setIsCouponLoading] = useState(false)
   const [isClearModalOpen, setIsClearModalOpen] = useState(false)
 
-  // Sync latest dynamic free shipping threshold from DB
-  useEffect(() => {
-    fetch('/api/shipping/threshold', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && typeof data.freeShippingThreshold === 'number') {
-          setFreeShippingThreshold(data.freeShippingThreshold)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   // Server quote is authoritative; the local numbers only fill the first render.
   const { quote } = useCartQuote(
@@ -74,7 +64,8 @@ export default function CartPageClient({
 
   const localSub = subtotal()
   const sub = quote?.subtotal ?? localSub
-  const discount = quote ? quote.discountAmount : discountAmount
+  // Coupon part only; an automatic campaign discount is shown on its own row
+  const discount = quote ? (quote.couponDiscount ?? quote.discountAmount) : discountAmount
   const isFreeShipCoupon = coupon?.type === 'FREE_SHIPPING'
   const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
   const shippingFee =
@@ -432,9 +423,15 @@ export default function CartPageClient({
               <span className={styles.breakdownNum}>{formatPrice(sub)}</span>
             </div>
 
+            {(quote?.campaignDiscount ?? 0) > 0 && (
+              <div className={`${styles.breakdownRow} ${styles.discountRow}`}>
+                <span>kampanya ({quote?.campaign?.name})</span>
+                <span className={styles.breakdownNum}>-{formatPrice(quote?.campaignDiscount ?? 0)}</span>
+              </div>
+            )}
             {discount > 0 && (
               <div className={`${styles.breakdownRow} ${styles.discountRow}`}>
-                <span>indirim</span>
+                <span>kupon ({coupon?.code})</span>
                 <span className={styles.breakdownNum}>-{formatPrice(discount)}</span>
               </div>
             )}

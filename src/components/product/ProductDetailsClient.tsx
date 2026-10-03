@@ -7,7 +7,7 @@ import type { CatalogProduct } from '@/types/catalog'
 import { formatPrice, calcDiscountPercent } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from '@/store/toastStore'
-import { FREE_SHIPPING_THRESHOLD } from '@/lib/services/shipping.service'
+import { useShippingConfig } from '@/hooks/useShippingConfig'
 import FavoriteButton from './FavoriteButton'
 import StockAlertForm from './StockAlertForm'
 import styles from './ProductDetails.module.css'
@@ -21,6 +21,7 @@ type AccordionKey = 'about' | 'material' | 'specs' | 'shipping'
 export default function ProductDetailsClient({ product }: Props) {
   const router = useRouter()
   const addItem = useCartStore((s) => s.addItem)
+  const { freeShippingThreshold: FREE_SHIPPING_THRESHOLD } = useShippingConfig()
 
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
     product.variants && product.variants.length > 0 ? product.variants[0].id : null

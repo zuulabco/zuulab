@@ -144,7 +144,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setQuickFilter('ALL')}
           className={`${styles.selectableCard} ${quickFilter === 'ALL' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam İşlem
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -159,7 +159,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setQuickFilter('SUCCEEDED')}
           className={`${styles.selectableCard} ${quickFilter === 'SUCCEEDED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Başarılı Tahsilat
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -174,7 +174,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setQuickFilter('PENDING')}
           className={`${styles.selectableCard} ${quickFilter === 'PENDING' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Beklemede
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#d97706', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -189,7 +189,7 @@ export default function AdminPaymentsPage() {
           onClick={() => setQuickFilter('FAILED')}
           className={`${styles.selectableCard} ${quickFilter === 'FAILED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Başarısız
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: metrics.failed > 0 ? '#dc2626' : 'var(--text-muted)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -208,7 +208,7 @@ export default function AdminPaymentsPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Tahsilat Hacmi
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--brand-blue, #0080c4)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

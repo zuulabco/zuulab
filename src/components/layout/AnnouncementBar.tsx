@@ -30,21 +30,27 @@ export default function AnnouncementBar() {
   const pathname = usePathname()
   const [items, setItems] = useState<AnnouncementItem[]>(DEFAULT_ANNOUNCEMENTS)
 
+  // Bar items from the admin (Duyuru bandı), with running "ribbon" campaigns first
   useEffect(() => {
-    fetch('/api/cms/announcements')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.announcements) && data.announcements.length > 0) {
-          const mapped: AnnouncementItem[] = data.announcements.map((a: any) => ({
-            text: a.text,
-            cta: a.ctaLabel ? { label: a.ctaLabel, href: a.ctaHref || '/urunler' } : undefined,
-          }))
-          setItems(mapped)
-        }
-      })
-      .catch(() => {
-        // Fallback to default announcements
-      })
+    const json = (url: string) => fetch(url).then((res) => res.json()).catch(() => null)
+    Promise.all([json('/api/cms/announcements'), json('/api/campaigns')]).then(([ann, camp]) => {
+      const base: AnnouncementItem[] =
+        ann?.success && Array.isArray(ann.announcements) && ann.announcements.length > 0
+          ? ann.announcements.map((x: { text: string; ctaLabel?: string; ctaHref?: string }) => ({
+              text: x.text,
+              cta: x.ctaLabel ? { label: x.ctaLabel, href: x.ctaHref || '/urunler' } : undefined,
+            }))
+          : DEFAULT_ANNOUNCEMENTS
+      const ribbons: AnnouncementItem[] = camp?.success
+        ? camp.campaigns
+            .filter((c: { display: string }) => c.display === 'RIBBON')
+            .map((c: { headline: string; ctaLabel: string | null; ctaHref: string | null }) => ({
+              text: c.headline,
+              cta: c.ctaLabel ? { label: c.ctaLabel, href: c.ctaHref || '/urunler' } : undefined,
+            }))
+        : []
+      setItems([...ribbons, ...base])
+    })
   }, [])
 
   if (pathname === '/odeme') return null

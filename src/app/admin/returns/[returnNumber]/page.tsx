@@ -230,7 +230,7 @@ export default function AdminReturnDetailPage() {
             <div className={styles.panelBody}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
                     Müşteri
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>
@@ -242,7 +242,7 @@ export default function AdminReturnDetailPage() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
                     İade / Değişim Gerekçesi
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>
@@ -253,7 +253,7 @@ export default function AdminReturnDetailPage() {
 
               {returnReq.customerNote && (
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: 4 }}>
                     Müşteri Açıklaması
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, background: 'var(--surface-1)', padding: '10px 14px', borderRadius: 4 }}>
@@ -264,7 +264,7 @@ export default function AdminReturnDetailPage() {
 
               {returnReq.photoUrls && returnReq.photoUrls.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: 8 }}>
                     Eklenen Görseller / Kanıt
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -107,7 +107,7 @@ export default function AdminCustomersPage() {
           onClick={() => setStatusFilter('ALL')}
           className={`${styles.selectableCard} ${statusFilter === 'ALL' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Müşteri
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -122,7 +122,7 @@ export default function AdminCustomersPage() {
           onClick={() => setStatusFilter('ACTIVE')}
           className={`${styles.selectableCard} ${statusFilter === 'ACTIVE' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Aktif Hesaplar
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -137,7 +137,7 @@ export default function AdminCustomersPage() {
           onClick={() => setStatusFilter('SUSPENDED')}
           className={`${styles.selectableCard} ${statusFilter === 'SUSPENDED' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Askıya Alınanlar
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: metrics.suspended > 0 ? '#dc2626' : 'var(--text-muted)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -156,7 +156,7 @@ export default function AdminCustomersPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Müşteri Cirosu
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--brand-blue, #0080c4)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

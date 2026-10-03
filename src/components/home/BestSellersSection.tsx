@@ -13,6 +13,8 @@ interface Props {
   ariaLabel?: string
   /** Muted background, to separate two product rows that follow each other. */
   tone?: 'plain' | 'muted'
+  /** How many cards (4 or 8) */
+  limit?: number
 }
 
 export default function BestSellersSection({
@@ -23,6 +25,7 @@ export default function BestSellersSection({
   viewAllLabel = 'tümünü gör',
   ariaLabel,
   tone = 'plain',
+  limit = 4,
 }: Props) {
   if (!products.length) return null
 
@@ -34,7 +37,7 @@ export default function BestSellersSection({
       <div className={styles.container}>
         <div className={styles.header}>
           <div>
-            <span className={styles.eyebrow}>{eyebrow}</span>
+            {eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}
             <h2 className={styles.title}>{title}</h2>
           </div>
           <Link href={viewAllHref} className={styles.viewAll}>
@@ -47,7 +50,7 @@ export default function BestSellersSection({
         </div>
 
         <div className={styles.grid}>
-          {products.slice(0, 4).map((product) => (
+          {products.slice(0, limit).map((product) => (
             <ProductCard key={product.id} product={toProductListItem(product)} />
           ))}
         </div>

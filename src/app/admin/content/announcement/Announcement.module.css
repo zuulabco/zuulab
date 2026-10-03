@@ -1,0 +1,124 @@
+.preview {
+  margin-bottom: 20px;
+}
+
+.previewLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.bar {
+  display: flex;
+  gap: 28px;
+  overflow: hidden;
+  padding: 10px 16px;
+  background: var(--text-primary);
+  color: var(--text-inv);
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+
+.barItem b {
+  margin-left: 6px;
+  color: var(--zuu-yellow);
+  font-weight: 600;
+}
+
+.barEmpty {
+  color: var(--text-inv-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  min-height: 56px;
+}
+
+.rowOff .rowText {
+  opacity: 0.5;
+}
+
+.index {
+  width: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.text {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.cta {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background-color var(--dur-base) var(--ease-default);
+}
+
+.switch span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur-base) var(--ease-default);
+}
+
+.switch input:checked + span {
+  background: var(--text-primary);
+}
+
+.switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + span {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}

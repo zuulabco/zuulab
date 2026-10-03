@@ -232,7 +232,6 @@ export default function TodayOperationsPage() {
                 color: '#ffffff',
                 padding: '2px 8px',
                 borderRadius: 3,
-                textTransform: 'uppercase',
               }}
             >
               BUGÜN
@@ -355,7 +354,7 @@ export default function TodayOperationsPage() {
             transition: 'background-color 0.15s',
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#10b981', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#10b981' }}>
             KARGO
           </div>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', margin: '4px 0 2px' }}>
@@ -381,7 +380,7 @@ export default function TodayOperationsPage() {
             transition: 'background-color 0.15s',
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#f59e0b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#f59e0b' }}>
             ÜRETİM
           </div>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', margin: '4px 0 2px' }}>
@@ -407,7 +406,7 @@ export default function TodayOperationsPage() {
             transition: 'background-color 0.15s',
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#ef4444', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#ef4444' }}>
             KRİTİK STOK
           </div>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', margin: '4px 0 2px' }}>
@@ -433,7 +432,7 @@ export default function TodayOperationsPage() {
             transition: 'background-color 0.15s',
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#0080c4', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#0080c4' }}>
             BEKLEYEN SİPARİŞ
           </div>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)', margin: '4px 0 2px' }}>
@@ -476,7 +475,6 @@ export default function TodayOperationsPage() {
                   : (data?.materials?.criticalMaterialCount || 0) > 0
                   ? '#f59e0b'
                   : '#10b981',
-              textTransform: 'uppercase',
             }}
           >
             MALZEME
@@ -515,7 +513,6 @@ export default function TodayOperationsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 color: 'var(--text-primary)',
-                textTransform: 'uppercase',
                 margin: 0,
               }}
             >
@@ -634,7 +631,6 @@ export default function TodayOperationsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 color: '#b91c1c',
-                textTransform: 'uppercase',
                 margin: 0,
               }}
             >
@@ -751,7 +747,6 @@ export default function TodayOperationsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 color: '#b91c1c',
-                textTransform: 'uppercase',
                 margin: 0,
               }}
             >
@@ -845,7 +840,6 @@ export default function TodayOperationsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 color: 'var(--text-primary)',
-                textTransform: 'uppercase',
                 margin: 0,
               }}
             >
@@ -946,7 +940,6 @@ export default function TodayOperationsPage() {
                   fontWeight: 700,
                   letterSpacing: '0.04em',
                   color: 'var(--text-primary)',
-                  textTransform: 'uppercase',
                   margin: 0,
                 }}
               >
@@ -1066,7 +1059,6 @@ export default function TodayOperationsPage() {
                   fontWeight: 700,
                   letterSpacing: '0.04em',
                   color: 'var(--text-primary)',
-                  textTransform: 'uppercase',
                   margin: '0 0 2px 0',
                 }}
               >
@@ -1160,7 +1152,6 @@ export default function TodayOperationsPage() {
                 fontWeight: 700,
                 letterSpacing: '0.04em',
                 color: 'var(--text-primary)',
-                textTransform: 'uppercase',
                 margin: 0,
               }}
             >
@@ -1258,7 +1249,6 @@ export default function TodayOperationsPage() {
               fontWeight: 700,
               letterSpacing: '0.04em',
               color: 'var(--text-primary)',
-              textTransform: 'uppercase',
               margin: '0 0 4px 0',
             }}
           >

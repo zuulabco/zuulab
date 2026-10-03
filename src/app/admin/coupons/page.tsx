@@ -254,7 +254,7 @@ export default function AdminCouponsPage() {
           onClick={() => setQuickFilter('ACTIVE')}
           className={`${styles.selectableCard} ${quickFilter === 'ACTIVE' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Aktif Kuponlar
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -273,7 +273,7 @@ export default function AdminCouponsPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Kullanım
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -292,7 +292,7 @@ export default function AdminCouponsPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Sağlanan İndirim
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#dc2626', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -311,7 +311,7 @@ export default function AdminCouponsPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Oluşturulan Ciro
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--brand-blue, #0080c4)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

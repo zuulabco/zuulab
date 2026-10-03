@@ -1,5 +1,6 @@
 import 'server-only'
 import { db, isDatabaseConfigured } from '@/prisma/db'
+import { DEFAULT_SHIPPING_METHOD, type ShippingSettings } from '@/lib/services/shipping.service'
 
 export interface StoreSettings {
   storeName: string
@@ -11,7 +12,28 @@ export interface StoreSettings {
   freeShippingThreshold: number
   orderPrefix: string
   allowCustomerCancellation: boolean
+  /** The single delivery method shown at checkout */
+  shipping: ShippingSettings
   updatedAt?: string
+}
+
+const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
+  carrier: DEFAULT_SHIPPING_METHOD.carrier,
+  name: DEFAULT_SHIPPING_METHOD.name,
+  description: DEFAULT_SHIPPING_METHOD.description,
+  estimatedDelivery: DEFAULT_SHIPPING_METHOD.estimatedDelivery,
+  fee: DEFAULT_SHIPPING_METHOD.price,
+}
+
+function mergeShipping(saved: Partial<ShippingSettings> | undefined, base: ShippingSettings): ShippingSettings {
+  const fee = Number(saved?.fee)
+  return {
+    carrier: saved?.carrier?.trim() || base.carrier,
+    name: saved?.name?.trim() || base.name,
+    description: saved?.description?.trim() ?? base.description,
+    estimatedDelivery: saved?.estimatedDelivery?.trim() || base.estimatedDelivery,
+    fee: Number.isFinite(fee) && fee >= 0 ? Math.round(fee * 100) / 100 : base.fee,
+  }
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
@@ -24,6 +46,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   freeShippingThreshold: 750,
   orderPrefix: 'ZUU-2026',
   allowCustomerCancellation: true,
+  shipping: DEFAULT_SHIPPING_SETTINGS,
 }
 
 const SETTING_KEY_STORE_SETTINGS = 'store.settings'
@@ -93,6 +116,7 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         freeShippingThreshold,
         orderPrefix: dbSettings.orderPrefix ?? DEFAULT_STORE_SETTINGS.orderPrefix,
         allowCustomerCancellation: dbSettings.allowCustomerCancellation ?? DEFAULT_STORE_SETTINGS.allowCustomerCancellation,
+        shipping: mergeShipping(dbSettings.shipping, DEFAULT_SHIPPING_SETTINGS),
         updatedAt: (dbSettings as any).updatedAt,
       }
 
@@ -140,6 +164,7 @@ export async function updateStoreSettings(
     ...partial,
     freeShippingThreshold,
     taxRate: partial.taxRate !== undefined ? Number(partial.taxRate) : current.taxRate,
+    shipping: partial.shipping ? mergeShipping(partial.shipping, current.shipping) : current.shipping,
     updatedAt: new Date().toISOString(),
   }
 

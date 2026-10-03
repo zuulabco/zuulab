@@ -382,7 +382,7 @@
   height: 100%;
   width: 0%;
   border-radius: var(--radius-full);
-  animation: progressFill 6000ms linear forwards;
+  animation: progressFill var(--hero-interval, 6s) linear forwards;
 }
 
 .progressBarLight {
@@ -522,35 +522,49 @@
   }
 }
 
+/* ── Phones: photo on top, text underneath ───────────────
+   Text no longer sits on a washed-out photo; the image shows in full colour and the
+   slider height follows the tallest slide. */
 @media (max-width: 768px) {
   .heroBanner {
-    height: clamp(480px, 80vh, 560px);
+    height: auto;
+    --hero-img-h: min(80vw, 420px);
   }
 
-  /* Scrim switches to vertical gradient for mobile readability */
-  .scrimLight {
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.96) 0%,
-      rgba(255, 255, 255, 0.90) 52%,
-      rgba(255, 255, 255, 0.35) 80%,
-      rgba(255, 255, 255, 0) 100%
-    );
+  .slidesTrack {
+    display: grid;
   }
 
+  .slide {
+    position: relative;
+    grid-area: 1 / 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .slideLight {
+    background: var(--surface-0);
+  }
+
+  .slideDark {
+    background: var(--surface-inv);
+  }
+
+  .imageWrapper {
+    position: relative;
+    inset: auto;
+    height: var(--hero-img-h);
+    flex-shrink: 0;
+  }
+
+  .scrimLight,
   .scrimDark {
-    background: linear-gradient(
-      180deg,
-      rgba(17, 17, 16, 0.95) 0%,
-      rgba(17, 17, 16, 0.88) 52%,
-      rgba(17, 17, 16, 0.30) 80%,
-      transparent 100%
-    );
+    display: none;
   }
 
   .contentContainer {
-    padding-inline: var(--sp-4);
-    padding-block: var(--sp-6) var(--sp-16);
+    height: auto;
+    padding: var(--sp-5) var(--sp-4) var(--sp-6);
     justify-content: flex-start;
   }
 
@@ -560,25 +574,70 @@
   }
 
   .headline {
-    font-size: clamp(1.8rem, 6vw, 2.3rem);
-    line-height: 1.12;
+    font-size: clamp(1.75rem, 7.4vw, 2.2rem);
+    line-height: 1.1;
   }
 
   .description {
     font-size: var(--text-sm);
-    line-height: 1.5;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
+  .ctaRow {
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+  }
+
+  .primaryCta,
+  .secondaryCta {
+    flex: 1 1 auto;
+    justify-content: center;
+    height: 46px;
+    padding-inline: var(--sp-4);
+  }
+
+  .secondaryCtaLight {
+    background: var(--surface-0);
+  }
+
+  /* Controls sit on the bottom edge of the photo */
   .controlsBar {
-    bottom: var(--sp-3);
+    top: calc(var(--hero-img-h) - 52px);
+    bottom: auto;
   }
 
   .controlsInner {
     padding-inline: var(--sp-4);
   }
 
+  .slideIndex,
   .progressTrack {
-    width: 48px;
+    display: none;
+  }
+
+  .controlsLeft .dots {
+    display: flex;
+  }
+
+  .iconBtn {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.85);
+    border-color: transparent;
+    color: var(--text-primary);
+    backdrop-filter: blur(6px);
+  }
+
+  .imageWrapper .imgDesktopOnly {
+    display: none;
+  }
+
+  .imageWrapper .imgMobileOnly {
+    display: block;
   }
 }
 
@@ -601,4 +660,36 @@
   .pauseBtn {
     display: none;
   }
+}
+
+/* Desktop shows the wide image; phones the portrait one when there is one */
+.imgMobileOnly {
+  display: none;
+}
+
+/* Dots (phones only) */
+.dots {
+  display: none;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(17, 17, 16, 0.3);
+  cursor: pointer;
+  transition: width var(--dur-slow) var(--ease-default), background-color var(--dur-slow) var(--ease-default);
+}
+
+.dotActive {
+  width: 18px;
+  background: var(--text-primary);
 }

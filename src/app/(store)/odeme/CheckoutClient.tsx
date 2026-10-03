@@ -10,6 +10,7 @@ import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { calculateShipping } from '@/lib/services/shipping.service'
+import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 
@@ -29,24 +30,14 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   const { user, token, openAuthModal } = useAuthStore()
 
   const [mounted, setMounted] = useState(false)
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(initialFreeShippingThreshold)
+  const shippingConfig = useShippingConfig()
+  const freeShippingThreshold = shippingConfig.freeShippingThreshold ?? initialFreeShippingThreshold
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false)
   const submittingRef = useRef(false)
 
-  // Sync latest dynamic free shipping threshold from DB
-  useEffect(() => {
-    fetch('/api/shipping/threshold', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && typeof data.freeShippingThreshold === 'number') {
-          setFreeShippingThreshold(data.freeShippingThreshold)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   // Delivery & Customer state
   const [email, setEmail] = useState('')
@@ -270,14 +261,16 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   }
 
   const sub = quote?.subtotal ?? subtotal()
-  const discount = quote ? quote.discountAmount : discountAmount
+  // Coupon part only; an automatic campaign discount has its own row
+  const discount = quote ? (quote.couponDiscount ?? quote.discountAmount) : discountAmount
+  const campaignDiscount = quote?.campaignDiscount ?? 0
   const isFreeShipCoupon = (quote ? quote.coupon?.type : coupon?.type) === 'FREE_SHIPPING'
   const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
   // Per-method prices for the option cards; the selected method's fee comes from the quote.
-  const shippingCalc = calculateShipping(sub, shippingMethod, isFreeShipCoupon, threshold)
+  const shippingCalc = calculateShipping(sub, isFreeShipCoupon, threshold, shippingConfig.method)
   const quoteIsCurrent = Boolean(quote) && !quoteLoading && quote?.shippingMethod === shippingMethod
   const effectiveShipping = quoteIsCurrent ? quote!.shippingAmount : shippingCalc.shippingFee
-  const grandTotal = quoteIsCurrent ? quote!.total : Math.max(0, sub - discount + effectiveShipping)
+  const grandTotal = quoteIsCurrent ? quote!.total : Math.max(0, sub - discount - campaignDiscount + effectiveShipping)
   const remainingForFree = quote?.remainingForFreeShipping ?? shippingCalc.remainingForFreeShipping
   const freeShippingProgress = threshold === 0 ? 100 : Math.min(100, Math.round((sub / threshold) * 100))
   const cartIssues = quote?.issues ?? []
@@ -510,7 +503,9 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
       >
         <span className={styles.mobileSummaryLabel}>
           <span>{mobileSummaryOpen ? 'sipariş özetini gizle' : `sipariş özeti (${items.length} ürün)`}</span>
-          <span className={styles.mobileSummaryCaret} aria-hidden="true">{mobileSummaryOpen ? '▲' : '▼'}</span>
+          <svg className={`${styles.mobileSummaryCaret} ${mobileSummaryOpen ? styles.mobileSummaryCaretOpen : ''}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </span>
         <span className={styles.mobileSummaryTotal}>{formatPrice(grandTotal)}</span>
       </div>
@@ -917,8 +912,10 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                     <div className={styles.shippingCardLeft}>
                       <span className={`${styles.radioCircle} ${isSelected ? styles.radioCircleActive : ''}`} aria-hidden="true" />
                       <div className={styles.shippingInfo}>
-                        <span className={styles.shippingName}>{method.name} ({method.carrier})</span>
-                        <span className={styles.shippingDesc}>{method.description} · {method.estimatedDelivery}</span>
+                        <span className={styles.shippingName}>{method.name}</span>
+                        <span className={styles.shippingDesc}>
+                          {[method.carrier, method.description, method.estimatedDelivery].filter(Boolean).join(' · ')}
+                        </span>
                       </div>
                     </div>
 
@@ -1004,8 +1001,17 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
               color: 'var(--text-secondary)',
               lineHeight: 1.6
             }}>
-              <p style={{ margin: 0 }}>
-                🔒 <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
+              <p style={{ margin: 0, display: 'flex', gap: 'var(--sp-3)', alignItems: 'flex-start' }}>
+                <span className={styles.lockIcon} aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="10.5" width="16" height="10.5" rx="2.5" />
+                    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+                    <circle cx="12" cy="15.75" r="1.25" fill="currentColor" stroke="none" />
+                  </svg>
+                </span>
+                <span>
+                <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
+                </span>
               </p>
             </div>
 
@@ -1150,9 +1156,16 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
               <span className={styles.priceValue}>{formatPrice(sub)}</span>
             </div>
 
+            {campaignDiscount > 0 && (
+              <div className={`${styles.priceRow} ${styles.discountRow}`}>
+                <span>kampanya ({quote?.campaign?.name})</span>
+                <span className={styles.priceValue}>-{formatPrice(campaignDiscount)}</span>
+              </div>
+            )}
+
             {discount > 0 && (
               <div className={`${styles.priceRow} ${styles.discountRow}`}>
-                <span>indirim ({coupon?.code})</span>
+                <span>kupon ({coupon?.code})</span>
                 <span className={styles.priceValue}>-{formatPrice(discount)}</span>
               </div>
             )}

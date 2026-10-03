@@ -1,6 +1,8 @@
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
+import ScrollToTop from '@/components/layout/ScrollToTop'
+import CampaignModal from '@/components/layout/CampaignModal'
 import { getStoreNavigation } from '@/lib/services/catalog/navigation.service'
 
 export default async function StoreLayout({
@@ -13,10 +15,12 @@ export default async function StoreLayout({
 
   return (
     <div className="store-layout">
+      <ScrollToTop />
       <AnnouncementBar />
       <Header navigation={navigation} />
       <main className="store-main">{children}</main>
       <Footer />
+      <CampaignModal />
     </div>
   )
 }

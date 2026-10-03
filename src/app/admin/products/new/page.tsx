@@ -7,10 +7,25 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
+import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
 import styles from '../../admin.module.css'
+import form from './NewProduct.module.css'
+
+function slugify(value: string): string {
+  return value
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 export default function AdminNewProductPage() {
-  const { categories: ALL_CATEGORIES, collections: ALL_COLLECTIONS } = useAdminCatalogOptions()
+  const { categories, collections, addCategory, addCollection } = useAdminCatalogOptions()
   const router = useRouter()
   const { token, canFetch } = useAuthStore()
 
@@ -18,10 +33,12 @@ export default function AdminNewProductPage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Form state
+  // Basics
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
   const [sku, setSku] = useState('')
+  const [nextSku, setNextSku] = useState('')
   const [shortDescription, setShortDescription] = useState('')
   const [description, setDescription] = useState('')
 
@@ -30,14 +47,13 @@ export default function AdminNewProductPage() {
   const [compareAtPrice, setCompareAtPrice] = useState<number | ''>('')
   const [costPrice, setCostPrice] = useState<number | ''>('')
 
-  // Classification (Category & Collections)
+  // Classification
   const [categoryId, setCategoryId] = useState('')
-  // Default to the first category once the live list has loaded.
   useEffect(() => {
-    if (!categoryId && ALL_CATEGORIES.length > 0) setCategoryId(ALL_CATEGORIES[0].id)
-  }, [categoryId, ALL_CATEGORIES])
+    if (!categoryId && categories.length > 0) setCategoryId(categories[0].id)
+  }, [categoryId, categories])
   const [selectedCollections, setSelectedCollections] = useState<string[]>([])
-  const [material, setMaterial] = useState('PLA Premium (Biyouyumlu Organik Filament)')
+  const [material, setMaterial] = useState('PLA')
   const [status, setStatus] = useState<'ACTIVE' | 'DRAFT' | 'ARCHIVED'>('ACTIVE')
   const [isFeatured, setIsFeatured] = useState(false)
   const [isBestSeller, setIsBestSeller] = useState(false)
@@ -49,32 +65,24 @@ export default function AdminNewProductPage() {
   // Media
   const [imageUrl, setImageUrl] = useState('')
 
-  // Auto-generate slug and SKU from name
+  // The SKU the product gets if the field stays empty (shown as the placeholder)
+  useEffect(() => {
+    if (!canFetch) return
+    fetch('/api/admin/products/next-sku', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setNextSku(d.sku)
+      })
+      .catch(() => {})
+  }, [canFetch, token])
+
   const handleNameChange = (val: string) => {
     setName(val)
-    if (!slug || slug === name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) {
-      const generated = val
-        .toLowerCase()
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ı/g, 'i')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-      setSlug(generated)
-    }
-    if (!sku) {
-      const prefix = val.trim().substring(0, 3).toUpperCase() || 'ZUU'
-      setSku(`ZUU-${prefix}-${Math.floor(100 + Math.random() * 900)}`)
-    }
+    if (!slugTouched) setSlug(slugify(val))
   }
 
   const toggleCollection = (colSlug: string) => {
-    setSelectedCollections((prev) =>
-      prev.includes(colSlug) ? prev.filter((s) => s !== colSlug) : [...prev, colSlug]
-    )
+    setSelectedCollections((prev) => (prev.includes(colSlug) ? prev.filter((s) => s !== colSlug) : [...prev, colSlug]))
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,7 +102,7 @@ export default function AdminNewProductPage() {
       const data = await res.json()
       if (data.success && data.url) {
         setImageUrl(data.url)
-        toast.success('Görsel başarıyla yüklendi.')
+        toast.success('Görsel yüklendi.')
       } else {
         toast.error(data.error || 'Görsel yüklenemedi.')
       }
@@ -112,21 +120,16 @@ export default function AdminNewProductPage() {
       toast.error('Oturum açmanız gerekmektedir.')
       return
     }
-
     if (!name.trim() || price === '') {
-      toast.error('Lütfen ürün adı ve satış fiyatını giriniz.')
+      toast.error('Ürün adı ve satış fiyatı zorunludur.')
       return
     }
 
     setLoading(true)
-
     try {
       const res = await fetch('/api/admin/products', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: name.trim(),
           slug: slug.trim() || undefined,
@@ -150,388 +153,256 @@ export default function AdminNewProductPage() {
       })
 
       const data = await res.json()
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Ürün oluşturulamadı.')
-      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Ürün oluşturulamadı.')
 
-      toast.success(`'${name}' ürünü başarıyla kataloğa eklendi.`)
+      toast.success(`'${name}' kataloğa eklendi.`)
       router.push('/admin/products')
-    } catch (err: any) {
-      toast.error(err.message || 'Ürün oluşturulurken bir hata meydana geldi.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Ürün oluşturulurken bir hata oluştu.')
     } finally {
       setLoading(false)
     }
   }
 
+  const margin =
+    price !== '' && costPrice !== '' && Number(price) > 0
+      ? Math.round(((Number(price) - Number(costPrice)) / Number(price)) * 100)
+      : null
+
   return (
-    <div className={styles.pageContainer} style={{ maxWidth: 960 }}>
-      {/* Header */}
+    <div className={styles.pageContainer} style={{ maxWidth: 1120 }}>
       <div className={styles.pageHeader}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
-            <Link href="/admin/products" style={{ color: 'inherit', textDecoration: 'none' }}>
-              ← Ürün Listesine Dön
-            </Link>
-          </div>
-          <h1 className={styles.pageTitle}>Yeni Ürün Tanımla</h1>
-          <p className={styles.pageSubtitle}>Kataloğa yeni bir 3D baskı modeli, parametreleri ve stok bilgilerini ekleyin.</p>
+          <Link href="/admin/products" className={form.back}>← Ürünler</Link>
+          <h1 className={styles.pageTitle}>Yeni ürün</h1>
+          <p className={styles.pageSubtitle}>Zorunlu alanlar: ad, fiyat ve kategori. Diğerlerini sonra da doldurabilirsiniz.</p>
         </div>
-
         <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className={`${styles.btn} ${styles.btnPrimary}`}
-          >
-            {loading ? 'Kaydediliyor...' : '+ Ürünü Kataloğa Ekle'}
+          <Link href="/admin/products" className={`${styles.btn} ${styles.btnSecondary}`}>İptal</Link>
+          <button type="submit" form="new-product-form" disabled={loading} className={`${styles.btn} ${styles.btnPrimary}`}>
+            {loading ? 'Kaydediliyor…' : 'Ürünü kaydet'}
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {/* 1. Temel Bilgiler */}
-        <div className={styles.formCard}>
-          <h2 className={styles.formCardTitle}>1. Temel Bilgiler</h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <form id="new-product-form" onSubmit={handleSubmit} className={form.layout}>
+        {/* ── Main column ─────────────────────────────── */}
+        <div className={form.main}>
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Ürün bilgileri</h2>
+            <div className={form.stack}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="new-name">
-                  Ürün Adı *
-                </label>
+                <label className={styles.formLabel} htmlFor="new-name">Ürün adı *</label>
                 <input
                   id="new-name"
-                  type="text"
                   required
-                  placeholder="Örn: parametrik hive masa lambası"
+                  placeholder="Örn: Zuulight Nova masa lambası"
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                   className={styles.formInput}
                 />
               </div>
 
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="new-sku">
-                  SKU (Stok Kodu)
-                </label>
-                <input
-                  id="new-sku"
-                  type="text"
-                  placeholder="Örn: ZUU-LGT-101"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  className={styles.formInput}
-                  style={{ fontFamily: 'monospace' }}
-                />
-              </div>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-slug">
-                URL Slug (Otomatik oluşturulur)
-              </label>
-              <input
-                id="new-slug"
-                type="text"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className={styles.formInput}
-              />
-              <span className={styles.formHelp}>Vitrin linki: /urun/{slug || 'ornek-urun'}</span>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-short-desc">
-                Kısa Açıklama (Vitrin kartı spot metni)
-              </label>
-              <input
-                id="new-short-desc"
-                type="text"
-                placeholder="Örn: 3D baskı geometrik abajur, sıcak ambiyans ışığı."
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                className={styles.formInput}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-desc">
-                Detaylı Açıklama
-              </label>
-              <textarea
-                id="new-desc"
-                rows={4}
-                placeholder="Ürünün üretim süreci, malzeme kalitesi ve kullanım alanları hakkında detaylı bilgi..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className={styles.formTextarea}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Fiyatlandırma & Maliyet */}
-        <div className={styles.formCard}>
-          <h2 className={styles.formCardTitle}>2. Fiyatlandırma & Maliyet</h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-price">
-                Satış Fiyatı (TL) *
-              </label>
-              <input
-                id="new-price"
-                type="number"
-                step="0.01"
-                required
-                placeholder="249.90"
-                value={price}
-                onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                className={styles.formInput}
-                style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-compare-price">
-                Karşılaştırma Fiyatı (Üstü Çizili)
-              </label>
-              <input
-                id="new-compare-price"
-                type="number"
-                step="0.01"
-                placeholder="299.90"
-                value={compareAtPrice}
-                onChange={(e) => setCompareAtPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                className={styles.formInput}
-                style={{ fontVariantNumeric: 'tabular-nums' }}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className={styles.formLabel} htmlFor="new-cost-price">
-                  Maliyet Fiyatı (TL)
-                </label>
-                <span className={`${styles.badge} ${styles.badgeWarning}`}>Admin</span>
-              </div>
-              <input
-                id="new-cost-price"
-                type="number"
-                step="0.01"
-                placeholder="85.00"
-                value={costPrice}
-                onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                className={styles.formInput}
-                style={{ fontVariantNumeric: 'tabular-nums' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Sınıflandırma & Malzeme */}
-        <div className={styles.formCard}>
-          <h2 className={styles.formCardTitle}>3. Sınıflandırma, Koleksiyon & Malzeme</h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="new-category">
-                  Kategori *
-                </label>
-                <select
-                  id="new-category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className={styles.formSelect}
-                >
-                  {ALL_CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="new-material">
-                  3D Baskı Malzemesi
-                </label>
-                <input
-                  id="new-material"
-                  type="text"
-                  value={material}
-                  onChange={(e) => setMaterial(e.target.value)}
-                  className={styles.formInput}
-                />
-              </div>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>
-                Koleksiyonlar (Çoklu Seçim)
-              </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, background: 'var(--surface-1)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                {ALL_COLLECTIONS.map((col) => (
-                  <label key={col.slug} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCollections.includes(col.slug)}
-                      onChange={() => toggleCollection(col.slug)}
-                    />
-                    <span>{col.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 24, paddingTop: 6 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={isFeatured}
-                  onChange={(e) => setIsFeatured(e.target.checked)}
-                />
-                <span>Öne Çıkarılan Ürün Olarak İşaretle</span>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={isBestSeller}
-                  onChange={(e) => setIsBestSeller(e.target.checked)}
-                />
-                <span>Çok Satan Rozeti Ekle</span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Envanter & Durum */}
-        <div className={styles.formCard}>
-          <h2 className={styles.formCardTitle}>4. Envanter & Yayın Durumu</h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-stock">
-                Başlangıç Stoğu (Adet)
-              </label>
-              <input
-                id="new-stock"
-                type="number"
-                min="0"
-                value={stock}
-                onChange={(e) => setStock(e.target.value === '' ? '' : Number(e.target.value))}
-                className={styles.formInput}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-threshold">
-                Düşük Stok Uyarı Eşiği
-              </label>
-              <input
-                id="new-threshold"
-                type="number"
-                min="1"
-                value={lowStockThreshold}
-                onChange={(e) => setLowStockThreshold(e.target.value === '' ? '' : Number(e.target.value))}
-                className={styles.formInput}
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="new-status">
-                Yayın Durumu
-              </label>
-              <select
-                id="new-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className={styles.formSelect}
-              >
-                <option value="ACTIVE">Aktif (Doğrudan Yayında)</option>
-                <option value="DRAFT">Taslak (Vitrinde Gizli)</option>
-                <option value="ARCHIVED">Arşiv</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Görsel & Medya */}
-        <div className={styles.formCard}>
-          <h2 className={styles.formCardTitle}>5. Görsel & Medya</h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 16, alignItems: 'center' }}>
-            <div
-              style={{
-                position: 'relative',
-                width: 160,
-                height: 160,
-                backgroundColor: 'var(--surface-2)',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-                border: '1px solid var(--border)',
-              }}
-            >
-              {imageUrl ? (
-                <Image src={imageUrl} alt={name || 'Önizleme'} fill style={{ objectFit: 'cover' }} sizes="160px" />
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>
-                  Görsel Yok
+              <div className={form.row2}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="new-sku">Stok kodu (SKU)</label>
+                  <input
+                    id="new-sku"
+                    placeholder={nextSku ? `Boş bırakılırsa: ${nextSku}` : 'Boş bırakılırsa otomatik atanır'}
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value.toUpperCase())}
+                    className={`${styles.formInput} ${form.mono}`}
+                  />
                 </div>
-              )}
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="new-slug">Bağlantı adresi</label>
+                  <div className={form.prefixed}>
+                    <span>/urun/</span>
+                    <input
+                      id="new-slug"
+                      value={slug}
+                      onChange={(e) => {
+                        setSlugTouched(true)
+                        setSlug(slugify(e.target.value))
+                      }}
+                      placeholder="otomatik"
+                      className={styles.formInput}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-short-desc">Kısa açıklama</label>
+                <input
+                  id="new-short-desc"
+                  maxLength={200}
+                  placeholder="Ürün adının altında görünen tek cümle"
+                  value={shortDescription}
+                  onChange={(e) => setShortDescription(e.target.value)}
+                  className={styles.formInput}
+                />
+                <span className={styles.formHelp}>{shortDescription.length}/200</span>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-desc">Açıklama</label>
+                <textarea
+                  id="new-desc"
+                  rows={6}
+                  placeholder="Ölçüler, kullanım alanı, bakım…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={styles.formTextarea}
+                />
+              </div>
             </div>
+          </section>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Görsel</h2>
+            <div className={form.media}>
               <button
                 type="button"
-                disabled={uploadingImage}
+                className={form.dropzone}
                 onClick={() => fileInputRef.current?.click()}
-                className={`${styles.btn} ${styles.btnSecondary}`}
-                style={{ alignSelf: 'flex-start' }}
+                disabled={uploadingImage}
+                aria-label="Görsel yükle"
               >
-                {uploadingImage ? 'Yükleniyor...' : 'Dosyadan Görsel Yükle (Cloudinary / Yerel)'}
+                {imageUrl ? (
+                  <Image src={imageUrl} alt={name || 'Önizleme'} fill style={{ objectFit: 'cover' }} sizes="180px" />
+                ) : (
+                  <span>{uploadingImage ? 'Yükleniyor…' : 'Görsel seç'}</span>
+                )}
               </button>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} hidden />
+              <div className={form.stack}>
+                <p className={styles.formHelp} style={{ margin: 0 }}>
+                  Kare ya da 4:5 oranında, beyaz veya sade zeminli fotoğraflar kartlarda en iyi görünür.
+                </p>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} htmlFor="new-img-url">veya görsel adresi</label>
+                  <input
+                    id="new-img-url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://…"
+                    className={styles.formInput}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
 
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Fiyat</h2>
+            <div className={form.row3}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel} htmlFor="new-img-url">
-                  veya Doğrudan Görsel URL'si Giriniz:
-                </label>
+                <label className={styles.formLabel} htmlFor="new-price">Satış fiyatı (₺, KDV dahil) *</label>
                 <input
-                  id="new-img-url"
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="/images/products/... veya https://..."
-                  className={styles.formInput}
+                  id="new-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  placeholder="0,00"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={`${styles.formInput} ${form.num}`}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-compare-price">Üstü çizili fiyat</label>
+                <input
+                  id="new-compare-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="İndirim yoksa boş"
+                  value={compareAtPrice}
+                  onChange={(e) => setCompareAtPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={`${styles.formInput} ${form.num}`}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-cost-price">Maliyet</label>
+                <input
+                  id="new-cost-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Sadece yönetimde görünür"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={`${styles.formInput} ${form.num}`}
+                />
+                {margin !== null && <span className={styles.formHelp}>Kâr marjı: %{margin}</span>}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* ── Side column ─────────────────────────────── */}
+        <aside className={form.side}>
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Yayın</h2>
+            <div className={form.stack}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-status">Durum</label>
+                <select id="new-status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className={styles.formSelect}>
+                  <option value="ACTIVE">Yayında</option>
+                  <option value="DRAFT">Taslak (sitede görünmez)</option>
+                  <option value="ARCHIVED">Arşiv</option>
+                </select>
+              </div>
+              <label className={form.check}>
+                <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} />
+                <span>Öne çıkan ürün</span>
+              </label>
+              <label className={form.check}>
+                <input type="checkbox" checked={isBestSeller} onChange={(e) => setIsBestSeller(e.target.checked)} />
+                <span>Çok satan rozeti</span>
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Sınıflandırma</h2>
+            <div className={form.stack}>
+              <CategoryPicker id="new-category" value={categoryId} onChange={setCategoryId} categories={categories} onCreated={addCategory} />
+              <CollectionsPicker selected={selectedCollections} onToggle={toggleCollection} collections={collections} onCreated={addCollection} />
+              <MaterialPicker id="new-material" value={material} onChange={setMaterial} />
+            </div>
+          </section>
+
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Stok</h2>
+            <div className={form.row2}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-stock">Başlangıç stoğu</label>
+                <input
+                  id="new-stock"
+                  type="number"
+                  min="0"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={`${styles.formInput} ${form.num}`}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel} htmlFor="new-threshold">Az stok uyarısı</label>
+                <input
+                  id="new-threshold"
+                  type="number"
+                  min="1"
+                  value={lowStockThreshold}
+                  onChange={(e) => setLowStockThreshold(e.target.value === '' ? '' : Number(e.target.value))}
+                  className={`${styles.formInput} ${form.num}`}
                 />
               </div>
             </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingBottom: 24 }}>
-          <Link href="/admin/products" className={`${styles.btn} ${styles.btnSecondary}`}>
-            İptal
-          </Link>
-          <button
-            type="submit"
-            disabled={loading}
-            className={`${styles.btn} ${styles.btnPrimary}`}
-          >
-            {loading ? 'Kaydediliyor...' : '+ Ürünü Kataloğa Ekle'}
-          </button>
-        </div>
+          </section>
+        </aside>
       </form>
     </div>
   )

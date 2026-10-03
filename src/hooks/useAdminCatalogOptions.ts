@@ -42,5 +42,9 @@ export function useAdminCatalogOptions() {
       .finally(() => setLoaded(true))
   }, [canFetch, token])
 
-  return { categories, collections, loaded }
+  // Pickers that create a category or collection inline add it here right away
+  const addCategory = (c: AdminCategoryOption) => setCategories((list) => [...list, c])
+  const addCollection = (c: AdminCollectionOption) => setCollections((list) => [...list, c])
+
+  return { categories, collections, loaded, addCategory, addCollection }
 }

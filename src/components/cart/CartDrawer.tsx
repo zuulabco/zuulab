@@ -8,10 +8,9 @@ import { useCartStore } from '@/store/cartStore'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
-import { FREE_SHIPPING_THRESHOLD, DEFAULT_SHIPPING_METHODS } from '@/lib/services/shipping.service'
+import { useShippingConfig } from '@/hooks/useShippingConfig'
 import styles from './CartDrawer.module.css'
 
-const STANDARD_SHIPPING_FEE = DEFAULT_SHIPPING_METHODS[0]?.price ?? 49.9
 
 export default function CartDrawer() {
   const router = useRouter()
@@ -33,19 +32,9 @@ export default function CartDrawer() {
   // Transition lifecycle for smooth entrance and exit animations
   const [isRendered, setIsRendered] = useState(isDrawerOpen)
   const [isExiting, setIsExiting] = useState(false)
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(750)
-
-  // Sync latest dynamic free shipping threshold when drawer opens
-  useEffect(() => {
-    fetch('/api/shipping/threshold', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && typeof data.freeShippingThreshold === 'number') {
-          setFreeShippingThreshold(data.freeShippingThreshold)
-        }
-      })
-      .catch(() => {})
-  }, [isDrawerOpen])
+  // Delivery fee and free-shipping threshold set in the admin panel
+  const { freeShippingThreshold, method: shippingMethodConfig } = useShippingConfig()
+  const STANDARD_SHIPPING_FEE = shippingMethodConfig.price
 
   useEffect(() => {
     if (isDrawerOpen) {
@@ -314,10 +303,16 @@ export default function CartDrawer() {
                 <span>ara toplam</span>
                 <span>{formatPrice(sub)}</span>
               </div>
-              {discountAmount > 0 && (
+              {(quote?.campaignDiscount ?? 0) > 0 && (
                 <div className={`${styles.summaryRow} ${styles.discountRow}`}>
-                  <span>indirim</span>
-                  <span>-{formatPrice(discountAmount)}</span>
+                  <span>kampanya ({quote?.campaign?.name})</span>
+                  <span>-{formatPrice(quote?.campaignDiscount ?? 0)}</span>
+                </div>
+              )}
+              {(quote ? (quote.couponDiscount ?? 0) : discountAmount) > 0 && (
+                <div className={`${styles.summaryRow} ${styles.discountRow}`}>
+                  <span>kupon</span>
+                  <span>-{formatPrice(quote ? (quote.couponDiscount ?? 0) : discountAmount)}</span>
                 </div>
               )}
               <div className={styles.summaryRow}>

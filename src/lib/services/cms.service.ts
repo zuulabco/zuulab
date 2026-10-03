@@ -1,40 +1,26 @@
 import 'server-only'
+import { randomUUID } from 'node:crypto'
+import { db } from '@/prisma/db'
 import { logAuditEvent } from './admin.service'
+import {
+  defaultHomepage,
+  normalizeHomepage,
+  type AnnouncementItem,
+  type HomepageDocument,
+} from '@/lib/cms/homepage'
 
-export interface HeroContent {
-  brandWorld: string
-  originTag: string
-  headlineMain: string
-  headlineItalic: string
-  leadText: string
-  heroImage: string
-  mobileImage?: string
-  imageCaptionCode: string
-  imageCaptionText: string
-  primaryCtaText: string
-  primaryCtaHref: string
-  secondaryCtaText: string
-  secondaryCtaHref: string
-  active: boolean
-}
+/**
+ * Homepage content (hero slides, sections, announcement bar) and the media library.
+ *
+ * Stored in the `settings` table as JSON so it survives deploys and is the same on
+ * every server instance:
+ *   cms.homepage.draft      what the admin is editing
+ *   cms.homepage.published  what the storefront shows
+ *   cms.media               uploaded image references
+ * Saving changes the draft; publishing copies the draft to the published copy.
+ */
 
-export interface AnnouncementItem {
-  id: string
-  text: string
-  ctaLabel?: string
-  ctaHref?: string
-  active: boolean
-  sortOrder: number
-}
-
-export interface HomepageSectionConfig {
-  id: string
-  type: string
-  name: string
-  enabled: boolean
-  sortOrder: number
-  customSettings?: Record<string, unknown>
-}
+export type { AnnouncementItem, HomepageDocument } from '@/lib/cms/homepage'
 
 export interface MediaAsset {
   id: string
@@ -47,251 +33,157 @@ export interface MediaAsset {
   references: number
 }
 
-export interface CmsStoreState {
+export interface CmsState extends HomepageDocument {
   status: 'DRAFT' | 'PUBLISHED'
+  lastSavedAt: string | null
   lastPublishedAt: string | null
-  lastSavedAt: string
-  hero: HeroContent
-  announcements: AnnouncementItem[]
-  sections: HomepageSectionConfig[]
+  /** The draft differs from what is live */
+  hasUnpublishedChanges: boolean
   media: MediaAsset[]
 }
 
-const DEFAULT_HERO: HeroContent = {
-  brandWorld: 'zuukids · zuulife · zuulight · zuutoptan',
-  originTag: 'istanbul atölye',
-  headlineMain: 'üç boyutlu formlar,',
-  headlineItalic: 'yaşayan mekanlar.',
-  leadText:
-    'sıradan seri üretim yerine, talebinize özel 0.12mm hassasiyetle 3d basılan işlevsel masa objeleri, çocuk dünyası ve aydınlatma formları.',
-  heroImage:
-    'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1600&q=85',
-  imageCaptionCode: 'ref. 2026',
-  imageCaptionText: 'organik katman geometrisi & biyo-pla',
-  primaryCtaText: 'tüm koleksiyonlar',
-  primaryCtaHref: '/koleksiyonlar',
-  secondaryCtaText: 'zuukids serisi',
-  secondaryCtaHref: '/koleksiyon/zuukids',
-  active: true,
+const KEY_DRAFT = 'cms.homepage.draft'
+const KEY_PUBLISHED = 'cms.homepage.published'
+const KEY_MEDIA = 'cms.media'
+
+interface Stored<T> {
+  savedAt: string
+  doc: T
 }
 
-const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
-  {
-    id: 'ann-1',
-    text: 'zuukids yeni serisi yayında — çocuk güvenli pla objeleri',
-    ctaLabel: 'incele',
-    ctaHref: '/koleksiyon/zuukids',
-    active: true,
-    sortOrder: 1,
-  },
-  {
-    id: 'ann-2',
-    text: '750 ₺ ve üzeri tüm siparişlerde ücretsiz kargo',
-    active: true,
-    sortOrder: 2,
-  },
-  {
-    id: 'ann-3',
-    text: 'sipariş üzerine 0.12mm hassasiyetle 3d üretim',
-    active: true,
-    sortOrder: 3,
-  },
-  {
-    id: 'ann-4',
-    text: 'zuulight parametrik masa lambaları',
-    active: true,
-    sortOrder: 4,
-  },
-]
-
-const DEFAULT_SECTIONS: HomepageSectionConfig[] = [
-  { id: 'sec-hero', type: 'hero', name: 'Editorial Campaign Hero', enabled: true, sortOrder: 1 },
-  { id: 'sec-categories', type: 'category_strip', name: 'Collection Worlds Strip', enabled: true, sortOrder: 2 },
-  { id: 'sec-best-sellers', type: 'best_sellers', name: 'En Çok Tercih Edilenler', enabled: true, sortOrder: 3, customSettings: { limit: 4 } },
-  { id: 'sec-zuukids', type: 'zuukids_spotlight', name: 'ZuuKids Koleksiyon Vitrini', enabled: true, sortOrder: 4 },
-  { id: 'sec-banner-light', type: 'collection_banner_light', name: 'ZuuLight Kampanya Bannerı', enabled: true, sortOrder: 5 },
-  { id: 'sec-new-arrivals', type: 'new_arrivals', name: 'Yeni Eklenen Tasarımlar', enabled: true, sortOrder: 6 },
-  { id: 'sec-banner-life', type: 'collection_banner_life', name: 'ZuuLife Çalışma Alanı Bannerı', enabled: true, sortOrder: 7 },
-  { id: 'sec-process', type: 'process', name: '4 Aşamalı 3D Üretim Süreci', enabled: true, sortOrder: 8 },
-  { id: 'sec-lifestyle', type: 'lifestyle_grid', name: 'Yaşam Alanı Görsel Grid', enabled: true, sortOrder: 9 },
-  { id: 'sec-newsletter', type: 'newsletter', name: 'Bülten & İletişim', enabled: true, sortOrder: 10 },
-]
-
-const DEFAULT_MEDIA: MediaAsset[] = [
-  {
-    id: 'med-1',
-    name: 'hero_main_lifestyle.webp',
-    url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1600&q=85',
-    size: '142 KB',
-    type: 'image/webp',
-    dimensions: '1600x1067',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 10).toISOString(),
-    references: 2,
-  },
-  {
-    id: 'med-2',
-    name: 'zuukids_spotlight_spread.webp',
-    url: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=1200&q=85',
-    size: '98 KB',
-    type: 'image/webp',
-    dimensions: '1200x800',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 7).toISOString(),
-    references: 1,
-  },
-  {
-    id: 'med-3',
-    name: 'zuulight_ambient_lamp.webp',
-    url: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1400&q=85',
-    size: '115 KB',
-    type: 'image/webp',
-    dimensions: '1400x933',
-    createdAt: new Date(Date.now() - 3600000 * 24 * 5).toISOString(),
-    references: 1,
-  },
-]
-
-// Current working copy (DRAFT)
-let draftCmsState: CmsStoreState = {
-  status: 'DRAFT',
-  lastPublishedAt: new Date().toISOString(),
-  lastSavedAt: new Date().toISOString(),
-  hero: { ...DEFAULT_HERO },
-  announcements: [...DEFAULT_ANNOUNCEMENTS],
-  sections: [...DEFAULT_SECTIONS],
-  media: [...DEFAULT_MEDIA],
+async function readKey<T>(key: string): Promise<Stored<T> | null> {
+  try {
+    const row = await db.orm.public.Setting.select('value').where({ key }).first()
+    if (!row?.value) return null
+    const parsed = JSON.parse(row.value)
+    return parsed && typeof parsed === 'object' && 'doc' in parsed ? (parsed as Stored<T>) : null
+  } catch (err) {
+    console.error(`[cms] could not read ${key}:`, err)
+    return null
+  }
 }
 
-// Live production copy (PUBLISHED)
-let publishedCmsState: CmsStoreState = {
-  ...draftCmsState,
-  status: 'PUBLISHED',
+async function writeKey<T>(key: string, doc: T, label: string): Promise<Stored<T>> {
+  const stored: Stored<T> = { savedAt: new Date().toISOString(), doc }
+  const value = JSON.stringify(stored)
+  await db.runtime().execute(
+    db.raw.sql`
+      INSERT INTO settings (id, key, value, type, "group", label, updated_at)
+      VALUES (${randomUUID()}, ${key}, ${value}, 'json', 'cms', ${label}, now())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `.affectedCount().build()
+  )
+  return stored
 }
 
-/**
- * Retrieves the published CMS content consumed safely by public storefront
- */
-export async function getPublishedHomepageContent(): Promise<CmsStoreState> {
-  return publishedCmsState
+/** The live homepage; defaults until something has been published */
+export async function getPublishedHomepageContent(): Promise<HomepageDocument> {
+  const published = await readKey<HomepageDocument>(KEY_PUBLISHED)
+  return published ? normalizeHomepage(published.doc) : defaultHomepage()
 }
 
-/**
- * Retrieves the active announcement ticker messages for public storefront
- */
 export async function getPublishedAnnouncements(): Promise<AnnouncementItem[]> {
-  return publishedCmsState.announcements
+  return (await getPublishedHomepageContent()).announcements
     .filter((a) => a.active)
     .sort((a, b) => a.sortOrder - b.sortOrder)
 }
 
-/**
- * Retrieves CMS content for the admin panel (draft or published)
- */
-export async function adminGetCms(mode: 'DRAFT' | 'PUBLISHED' = 'DRAFT'): Promise<CmsStoreState> {
-  return mode === 'PUBLISHED' ? publishedCmsState : draftCmsState
+async function readMedia(): Promise<MediaAsset[]> {
+  return (await readKey<MediaAsset[]>(KEY_MEDIA))?.doc ?? []
 }
 
-/**
- * Saves draft changes made in the admin panel
- */
-export async function adminSaveDraftCms(
-  payload: Partial<CmsStoreState>,
-  adminEmail = 'system'
-): Promise<CmsStoreState> {
-  draftCmsState = {
-    ...draftCmsState,
-    ...payload,
-    status: 'DRAFT',
-    lastSavedAt: new Date().toISOString(),
+export async function adminGetCms(mode: 'DRAFT' | 'PUBLISHED' = 'DRAFT'): Promise<CmsState> {
+  const [draft, published, media] = await Promise.all([
+    readKey<HomepageDocument>(KEY_DRAFT),
+    readKey<HomepageDocument>(KEY_PUBLISHED),
+    readMedia(),
+  ])
+  const publishedDoc = published ? normalizeHomepage(published.doc) : defaultHomepage()
+  const draftDoc = draft ? normalizeHomepage(draft.doc) : publishedDoc
+  const doc = mode === 'PUBLISHED' ? publishedDoc : draftDoc
+  return {
+    ...doc,
+    status: mode,
+    lastSavedAt: draft?.savedAt ?? null,
+    lastPublishedAt: published?.savedAt ?? null,
+    hasUnpublishedChanges: JSON.stringify(draftDoc) !== JSON.stringify(publishedDoc),
+    media,
   }
+}
 
-  await logAuditEvent({
-    action: 'CONTENT_SAVED_DRAFT',
-    entity: 'CMS',
-    entityId: 'homepage',
-    metadata: { adminEmail },
+/** Saves the editor's changes as the draft (the site does not change yet). */
+export async function adminSaveDraftCms(payload: Partial<HomepageDocument>, adminEmail = 'system'): Promise<CmsState> {
+  const current = await adminGetCms('DRAFT')
+  const next = normalizeHomepage({
+    hero: payload.hero ?? current.hero,
+    sections: payload.sections ?? current.sections,
+    announcements: payload.announcements ?? current.announcements,
   })
-
-  return draftCmsState
+  await writeKey(KEY_DRAFT, next, 'Ana sayfa taslağı')
+  await logAuditEvent({ action: 'CONTENT_SAVED_DRAFT', entity: 'CMS', entityId: 'homepage', metadata: { adminEmail } })
+  return adminGetCms('DRAFT')
 }
 
-/**
- * Publishes draft changes to the live public website
- */
-export async function adminPublishCms(adminEmail = 'system'): Promise<CmsStoreState> {
-  const now = new Date().toISOString()
-  publishedCmsState = {
-    ...draftCmsState,
-    status: 'PUBLISHED',
-    lastPublishedAt: now,
-  }
-  draftCmsState.lastPublishedAt = now
-
+/** Puts the draft live. */
+export async function adminPublishCms(adminEmail = 'system'): Promise<CmsState> {
+  const draft = await adminGetCms('DRAFT')
+  const doc = normalizeHomepage(draft)
+  await writeKey(KEY_DRAFT, doc, 'Ana sayfa taslağı')
+  await writeKey(KEY_PUBLISHED, doc, 'Yayındaki ana sayfa')
   await logAuditEvent({
     action: 'CONTENT_PUBLISHED',
     entity: 'CMS',
     entityId: 'homepage',
-    metadata: {
-      adminEmail,
-      publishedAt: now,
-      activeSections: publishedCmsState.sections.filter((s) => s.enabled).length,
-    },
+    metadata: { adminEmail, activeSections: doc.sections.filter((s) => s.enabled).length },
   })
-
-  return publishedCmsState
+  return adminGetCms('PUBLISHED')
 }
 
 /**
- * Adds an uploaded asset to the media library
+ * Announcement bar changes go live at once: the bar is updated in both the draft and
+ * the published copy, without publishing other unfinished homepage edits.
  */
+export async function adminSetAnnouncements(list: AnnouncementItem[], adminEmail = 'system'): Promise<AnnouncementItem[]> {
+  const [draft, published] = await Promise.all([adminGetCms('DRAFT'), adminGetCms('PUBLISHED')])
+  const announcements = normalizeHomepage({ announcements: list }).announcements
+  await writeKey(KEY_DRAFT, normalizeHomepage({ ...draft, announcements }), 'Ana sayfa taslağı')
+  await writeKey(KEY_PUBLISHED, normalizeHomepage({ ...published, announcements }), 'Yayındaki ana sayfa')
+  await logAuditEvent({
+    action: 'ANNOUNCEMENTS_UPDATED',
+    entity: 'CMS',
+    entityId: 'announcements',
+    metadata: { count: announcements.length, adminEmail },
+  })
+  return announcements
+}
+
 export async function adminAddMediaAsset(
   asset: Omit<MediaAsset, 'id' | 'createdAt' | 'references'>,
   adminEmail = 'system'
 ): Promise<MediaAsset> {
-  const newAsset: MediaAsset = {
-    id: `med-${Date.now()}`,
-    ...asset,
-    createdAt: new Date().toISOString(),
-    references: 0,
-  }
-  draftCmsState.media.unshift(newAsset)
-  publishedCmsState.media.unshift(newAsset)
-
+  const newAsset: MediaAsset = { id: `med-${Date.now()}`, ...asset, createdAt: new Date().toISOString(), references: 0 }
+  await writeKey(KEY_MEDIA, [newAsset, ...(await readMedia())], 'Medya kütüphanesi')
   await logAuditEvent({
     action: 'MEDIA_UPLOADED',
     entity: 'Media',
     entityId: newAsset.id,
     metadata: { name: newAsset.name, url: newAsset.url, adminEmail },
   })
-
   return newAsset
 }
 
-/**
- * Deletes a media asset if not referenced
- */
-export async function adminDeleteMediaAsset(
-  id: string,
-  adminEmail = 'system'
-): Promise<{ success: boolean; error?: string }> {
-  const asset = draftCmsState.media.find((m) => m.id === id)
+/** Removes a library entry unless the published homepage still shows that image. */
+export async function adminDeleteMediaAsset(id: string, adminEmail = 'system'): Promise<{ success: boolean; error?: string }> {
+  const media = await readMedia()
+  const asset = media.find((m) => m.id === id)
   if (!asset) return { success: false, error: 'Medya dosyası bulunamadı.' }
 
-  if (asset.references > 0) {
-    return {
-      success: false,
-      error: `Bu görsel ${asset.references} aktif içerikte kullanılmaktadır. Silinemez.`,
-    }
+  const live = JSON.stringify(await getPublishedHomepageContent())
+  if (live.includes(asset.url)) {
+    return { success: false, error: 'Bu görsel yayındaki ana sayfada kullanılıyor. Önce oradan kaldırın.' }
   }
 
-  draftCmsState.media = draftCmsState.media.filter((m) => m.id !== id)
-  publishedCmsState.media = publishedCmsState.media.filter((m) => m.id !== id)
-
-  await logAuditEvent({
-    action: 'MEDIA_DELETED',
-    entity: 'Media',
-    entityId: id,
-    metadata: { name: asset.name, adminEmail },
-  })
-
+  await writeKey(KEY_MEDIA, media.filter((m) => m.id !== id), 'Medya kütüphanesi')
+  await logAuditEvent({ action: 'MEDIA_DELETED', entity: 'Media', entityId: id, metadata: { name: asset.name, adminEmail } })
   return { success: true }
 }

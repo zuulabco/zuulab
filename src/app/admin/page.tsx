@@ -149,7 +149,7 @@ export default function AdminDashboardPage() {
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div className={styles.pageHeader}>
         <div>
-          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '4px' }}>
             ZUULAB ATÖLYE & MAĞAZA
           </div>
           <h1 className={styles.pageTitle}>Yönetim Merkezi</h1>
@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
         }}
       >
         <div className={styles.card} style={{ padding: '16px 20px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Bugünkü Sipariş
           </span>
           <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
@@ -200,7 +200,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '16px 20px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Hazırlanan Sipariş
           </span>
           <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '4px', color: processingOrders > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
@@ -212,7 +212,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '16px 20px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Gönderilecek Kargo
           </span>
           <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '4px', color: awaitingShipment > 0 ? '#10b981' : 'var(--text-primary)' }}>
@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '16px 20px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             3D Baskıda
           </span>
           <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '4px', color: 'var(--brand-blue, #0284c7)' }}>
@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className={styles.card} style={{ padding: '16px 20px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
             Kritik Stok
           </span>
           <div style={{ fontSize: '24px', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '4px', color: criticalStockCount > 0 ? 'var(--danger)' : 'var(--text-primary)' }}>
@@ -252,7 +252,7 @@ export default function AdminDashboardPage() {
       {attentionItems.length > 0 && (
         <div className={styles.attentionCard}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h2 style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, color: 'var(--text-primary)' }}>
+            <h2 style={{ fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', margin: 0, color: 'var(--text-primary)' }}>
               Dikkat Gerektiren Operasyonlar
             </h2>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>

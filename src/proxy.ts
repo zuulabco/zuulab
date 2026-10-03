@@ -5,6 +5,7 @@ import {
   getMaintenanceAllowedIps,
   getClientIp,
   isIpAllowed,
+  isLocalRequest,
   getMaintenanceHtml,
   getCachedMaintenanceState,
   setCachedMaintenanceState,
@@ -169,7 +170,7 @@ export async function proxy(request: NextRequest) {
   const clientIp = getClientIp(request.headers)
   const allowedIps = getMaintenanceAllowedIps()
 
-  if (isIpAllowed(clientIp, allowedIps)) {
+  if (isIpAllowed(clientIp, allowedIps) || isLocalRequest(request.nextUrl.hostname, clientIp)) {
     const response = NextResponse.next()
     response.headers.set('x-maintenance-bypass', 'allowed-ip')
     return response

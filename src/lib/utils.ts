@@ -142,3 +142,28 @@ export function buildPaginationMeta(
     hasPrev: page > 1,
   }
 }
+
+/**
+ * Shortens text to at most `max` characters without cutting a word in half, ending
+ * with "…" when something was left out. Text that already fits is returned as is.
+ */
+export function clipAtWord(text: string, max: number): string {
+  const clean = text.trim()
+  if (clean.length <= max) return clean
+  const cut = clean.slice(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  const base = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut
+  return `${base.replace(/[\s,;:.\-–—]+$/, '')}…`
+}
+
+/**
+ * A summary line for a product. Older imports stored the first 200 characters of the
+ * description, which can stop mid-word; such a cut is shown ending in "…" instead.
+ */
+export function tidyShortDescription(short: string, description: string): string {
+  const s = (short ?? '').trim()
+  const d = (description ?? '').trim()
+  if (!s) return ''
+  const wasCut = d.length > s.length && d.startsWith(s) && !/[.!?…]$/.test(s)
+  return wasCut ? clipAtWord(d, s.length) : s
+}

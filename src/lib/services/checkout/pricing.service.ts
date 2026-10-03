@@ -1,9 +1,10 @@
 import 'server-only'
 import { db } from '@/prisma/db'
 import { DEFAULT_VAT_RATE, orderVat, round2 } from '@/lib/pricing/money'
-import { calculateShipping } from '../shipping.service'
-import { getFreeShippingThreshold } from '../settings/store-settings.service'
+import { calculateShipping, shippingMethodFromSettings } from '../shipping.service'
+import { getStoreSettings } from '../settings/store-settings.service'
 import { couponProductDiscount, resolveCoupon, type ApplicableCoupon } from '../coupons.service'
+import { resolveCartCampaigns, type AppliedCampaign } from '../campaigns.service'
 
 export type ShippingMethodId = 'STANDARD' | 'EXPRESS'
 
@@ -39,7 +40,14 @@ export interface CartQuote {
   lines: PricedLine[]
   issues: CartIssue[]
   subtotal: number
+  /** Campaign discount + coupon discount */
   discountAmount: number
+  /** Money off from an automatic store campaign */
+  campaignDiscount: number
+  /** Money off from the coupon */
+  couponDiscount: number
+  /** The campaign behind `campaignDiscount`, or a free-shipping campaign */
+  campaign: AppliedCampaign | null
   shippingMethod: ShippingMethodId
   shippingAmount: number
   taxAmount: number
@@ -66,7 +74,8 @@ export async function quoteCart(params: {
   shippingMethod?: ShippingMethodId
   userId?: string | null
 }): Promise<CartQuote> {
-  const shippingMethod: ShippingMethodId = params.shippingMethod === 'EXPRESS' ? 'EXPRESS' : 'STANDARD'
+  // One delivery method; 'EXPRESS' from older carts is treated as standard
+  const shippingMethod: ShippingMethodId = 'STANDARD'
   const merged = mergeItems(params.items)
 
   const productIds = [...new Set(merged.map((i) => i.productId))]
@@ -93,6 +102,7 @@ export async function quoteCart(params: {
 
   const lines: PricedLine[] = []
   const issues: CartIssue[] = []
+  const categoryOf = new Map(products.map((p) => [p.id, p.categoryId]))
 
   for (const item of merged) {
     const product = productById.get(item.productId)
@@ -161,13 +171,22 @@ export async function quoteCart(params: {
     couponError = resolved.error
   }
 
-  const discountAmount = coupon ? couponProductDiscount(coupon, subtotal) : 0
-  const freeShippingThreshold = await getFreeShippingThreshold()
+  // Automatic campaign first, then the coupon on what is left
+  const campaigns = await resolveCartCampaigns({
+    lines: lines.map((l) => ({ lineTotal: l.lineTotal, categoryId: categoryOf.get(l.productId) ?? '' })),
+    subtotal,
+    userId: params.userId,
+  })
+  const campaignDiscount = campaigns.discount
+  const couponDiscount = coupon ? couponProductDiscount(coupon, round2(subtotal - campaignDiscount)) : 0
+  const discountAmount = round2(Math.min(subtotal, campaignDiscount + couponDiscount))
+  const settings = await getStoreSettings()
+  const freeShippingThreshold = settings.freeShippingThreshold
   const shipping = calculateShipping(
     subtotal,
-    shippingMethod,
-    coupon?.type === 'FREE_SHIPPING',
-    freeShippingThreshold
+    coupon?.type === 'FREE_SHIPPING' || Boolean(campaigns.freeShippingCampaign),
+    freeShippingThreshold,
+    shippingMethodFromSettings(settings.shipping)
   )
   const shippingAmount = lines.length === 0 ? 0 : round2(shipping.shippingFee)
   const total = round2(Math.max(0, subtotal - discountAmount + shippingAmount))
@@ -177,6 +196,9 @@ export async function quoteCart(params: {
     issues,
     subtotal,
     discountAmount,
+    campaignDiscount,
+    couponDiscount,
+    campaign: campaigns.discountCampaign ?? campaigns.freeShippingCampaign,
     shippingMethod,
     shippingAmount,
     taxAmount: orderVat({ lines, discountAmount, shippingAmount }),

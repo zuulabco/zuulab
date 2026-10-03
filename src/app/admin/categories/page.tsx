@@ -264,7 +264,7 @@ export default function AdminCategoriesPage() {
           onClick={() => setStatusFilter('ALL')}
           className={`${styles.selectableCard} ${statusFilter === 'ALL' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Toplam Kategori
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -279,7 +279,7 @@ export default function AdminCategoriesPage() {
           onClick={() => setStatusFilter('WITH_PRODUCTS')}
           className={`${styles.selectableCard} ${statusFilter === 'WITH_PRODUCTS' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Ürün Bulunanlar
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#16a34a', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -294,7 +294,7 @@ export default function AdminCategoriesPage() {
           onClick={() => setStatusFilter('EMPTY')}
           className={`${styles.selectableCard} ${statusFilter === 'EMPTY' ? styles.selectableCardActive : ''}`}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Boş Kategoriler
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: metrics.empty > 0 ? '#d97706' : 'var(--text-muted)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
@@ -313,7 +313,7 @@ export default function AdminCategoriesPage() {
             padding: '14px 16px',
           }}
         >
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
             Sınıflandırılmış Ürün
           </div>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>

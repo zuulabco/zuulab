@@ -1,4 +1,5 @@
 import 'server-only'
+import { tidyShortDescription } from '@/lib/utils'
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { db } from '@/prisma/db'
@@ -110,7 +111,7 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
       slug: p.slug,
       sku: p.sku,
       description: p.description || '',
-      shortDescription: p.shortDescription || '',
+      shortDescription: tidyShortDescription(p.shortDescription || '', p.description || ''),
       categoryId: category.id,
       categoryName: category.name,
       categorySlug: category.slug,
