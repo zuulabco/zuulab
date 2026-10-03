@@ -56,7 +56,10 @@ export default function CartPageClient({
   // A coupon that no longer applies (cart changed, limit reached, expired) is dropped
   // with the server's reason instead of silently showing a discount that won't be given.
   useEffect(() => {
-    if (quote && coupon && !quote.coupon) {
+    // Only a quote priced WITH this code may reject it. Right after a code is applied
+    // the page still holds the previous quote (priced without any code); reading that
+    // as a rejection removed every freshly applied coupon.
+    if (quote && coupon && quote.requestedCouponCode === coupon.code && !quote.coupon) {
       removeCoupon()
       toast.error(quote.couponError || 'Kupon bu sepet için artık geçerli değil.')
     }

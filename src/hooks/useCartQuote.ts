@@ -35,6 +35,8 @@ export interface CartQuoteView {
   remainingForFreeShipping: number
   coupon: { code: string; type: 'PERCENTAGE' | 'FIXED' | 'FREE_SHIPPING' } | null
   couponError?: string
+  /** Coupon code this quote was priced with (set on the client, not by the server). */
+  requestedCouponCode: string | null
 }
 
 interface QuoteInput {
@@ -78,7 +80,7 @@ export function useCartQuote(input: QuoteInput, options: { enabled?: boolean } =
       const data = await res.json()
       if (id !== requestId.current) return
       if (data.success) {
-        setQuote(data.data as CartQuoteView)
+        setQuote({ ...(data.data as CartQuoteView), requestedCouponCode: JSON.parse(body).couponCode ?? null })
         setError(null)
       } else {
         setError(data.error || 'Sepet tutarı hesaplanamadı.')

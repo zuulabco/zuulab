@@ -55,10 +55,23 @@ export function matchProvince(value: string | null | undefined): TrProvince | nu
   return BY_KEY.get(key) ?? ALIASES[key] ?? null
 }
 
-/** Suggestions while typing: names that start with the text first, then ones containing it. */
-export function suggestProvinces(value: string, limit = 8): TrProvince[] {
+// Most populous first: what most customers are looking for before they type anything
+const POPULAR: TrProvince[] = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya']
+
+/** All 81 for an empty field: the five largest first, then the rest A–Z. */
+export const PROVINCES_POPULAR_FIRST: readonly TrProvince[] = [
+  ...POPULAR,
+  ...TR_PROVINCES.filter((p) => !POPULAR.includes(p)),
+]
+
+/**
+ * Suggestions for the city field. Empty → all provinces, popular first. Typing →
+ * names that start with the text, then names containing it (plus short names like
+ * "urfa" → Şanlıurfa).
+ */
+export function suggestProvinces(value: string): TrProvince[] {
   const key = provinceKey(value)
-  if (!key) return TR_PROVINCES.slice(0, limit)
+  if (!key) return [...PROVINCES_POPULAR_FIRST]
   const starts: TrProvince[] = []
   const contains: TrProvince[] = []
   for (const p of TR_PROVINCES) {
@@ -69,5 +82,5 @@ export function suggestProvinces(value: string, limit = 8): TrProvince[] {
   const alias = ALIASES[key]
   const out = [...starts, ...contains]
   if (alias && !out.includes(alias)) out.unshift(alias)
-  return out.slice(0, limit)
+  return out
 }

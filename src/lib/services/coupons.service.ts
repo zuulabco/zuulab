@@ -147,6 +147,8 @@ export async function validateCoupon(params: {
     couponCode: params.code,
     shippingMethod: params.shippingMethod,
     userId: params.userId,
+    // Only signed-in requests reach here with a userId
+    memberUserId: params.userId,
   })
 
   if (!quote.coupon) {

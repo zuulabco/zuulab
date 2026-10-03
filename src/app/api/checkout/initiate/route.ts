@@ -102,6 +102,7 @@ export async function POST(request: Request) {
     // 2. Create Order (prices, stock hold and expected-total check are authoritative)
     const order = await createOrder({
       userId: effectiveUserId,
+      isMember: Boolean(user),
       items,
       couponCode,
       shippingMethod,

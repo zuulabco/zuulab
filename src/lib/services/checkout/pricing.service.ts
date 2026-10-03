@@ -72,7 +72,14 @@ export async function quoteCart(params: {
   items: CartItemInput[]
   couponCode?: string | null
   shippingMethod?: ShippingMethodId
+  /** Order owner (a guest checkout has one too); used for per-user coupon limits. */
   userId?: string | null
+  /**
+   * Signed-in member making this request, or null. Member-only campaigns (first
+   * order) look at this, never at userId: a guest order also carries a userId, and
+   * a guest typing a member's e-mail even carries that member's id.
+   */
+  memberUserId?: string | null
 }): Promise<CartQuote> {
   // One delivery method; 'EXPRESS' from older carts is treated as standard
   const shippingMethod: ShippingMethodId = 'STANDARD'
@@ -175,7 +182,7 @@ export async function quoteCart(params: {
   const campaigns = await resolveCartCampaigns({
     lines: lines.map((l) => ({ lineTotal: l.lineTotal, categoryId: categoryOf.get(l.productId) ?? '' })),
     subtotal,
-    userId: params.userId,
+    userId: params.memberUserId ?? null,
   })
   const campaignDiscount = campaigns.discount
   const couponDiscount = coupon ? couponProductDiscount(coupon, round2(subtotal - campaignDiscount)) : 0

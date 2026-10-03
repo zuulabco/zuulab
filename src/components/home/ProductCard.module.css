@@ -288,11 +288,10 @@
 }
 
 .category {
-  font-family: var(--font-mono);
-  font-size: 10px;
+  font-family: var(--font-sans);
+  font-size: 11px;
   color: var(--text-muted);
   text-transform: lowercase;
-  letter-spacing: 0.04em;
 }
 
 .rating {

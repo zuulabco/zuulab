@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { matchProvince, suggestProvinces } from '@/lib/geo/tr-provinces'
 import styles from './CityInput.module.css'
 
@@ -38,6 +38,11 @@ export default function CityInput({ id, value, onChange, inputClassName = '', er
   const inputRef = useRef<HTMLInputElement>(null)
 
   const options = open ? suggestProvinces(value) : []
+
+  // Long list (all 81 when empty): keep the keyboard-highlighted row in view
+  useEffect(() => {
+    if (active >= 0) document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: 'nearest' })
+  }, [active, listId])
   const shownError = error || touchedError
 
   const choose = (name: string) => {

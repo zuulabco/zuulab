@@ -11,6 +11,7 @@ import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
 import { VariantsAndSizeCards } from '../ProductVariantsEditor'
+import { SITE_URL } from '@/lib/config/urls'
 import styles from '../../admin.module.css'
 
 export default function AdminEditProductPage() {
@@ -33,6 +34,8 @@ export default function AdminEditProductPage() {
   // Product fields
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  // Address the storefront knows (last saved), so an unsaved slug edit can't break the link
+  const [liveSlug, setLiveSlug] = useState('')
   const [sku, setSku] = useState('')
   const [barcode, setBarcode] = useState('')
   const [shortDescription, setShortDescription] = useState('')
@@ -139,6 +142,7 @@ export default function AdminEditProductPage() {
           const p = data.product
           setName(p.name || '')
           setSlug(p.slug || '')
+          setLiveSlug(p.slug || '')
           setSku(p.sku || '')
           setBarcode(p.barcode || '')
           setShortDescription(p.shortDescription || '')
@@ -274,6 +278,7 @@ export default function AdminEditProductPage() {
       }
 
       toast.success('Ürün detayları başarıyla kaydedildi.')
+      setLiveSlug(slug)
     } catch (err: any) {
       toast.error(err.message || 'Ürün güncellenirken hata oluştu.')
     } finally {
@@ -387,6 +392,22 @@ export default function AdminEditProductPage() {
             <Link href="/admin/products" style={{ color: 'inherit', textDecoration: 'none' }}>
               ← Ürün Listesine Dön
             </Link>
+            {liveSlug && (
+              <>
+                <span aria-hidden="true">·</span>
+                {/* Storefront is another host than the dashboard: plain link, new tab */}
+                <a
+                  href={`${SITE_URL}/urun/${encodeURIComponent(liveSlug)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--zuu-blue)', textDecoration: 'none' }}
+                  title={status === 'ACTIVE' ? 'Mağazadaki ürün sayfasını yeni sekmede aç' : 'Ürün yayında değil; mağazada görünmez'}
+                >
+                  Ürüne git ↗
+                </a>
+                {status !== 'ACTIVE' && <span>(yayında değil)</span>}
+              </>
+            )}
           </div>
           <h1 className={styles.pageTitle}>{name || 'Ürün Düzenle'}</h1>
           <p className={styles.pageSubtitle}>

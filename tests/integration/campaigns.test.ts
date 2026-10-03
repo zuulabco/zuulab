@@ -105,7 +105,11 @@ describe('campaigns in cart pricing', () => {
     await campaign({ name: 'Hoş geldin', kind: 'DISCOUNT', type: 'FIXED', discountValue: 150, audience: 'FIRST_ORDER', categoryIds: [categoryId] })
     const guest = await quoteCart({ items: [{ productId: cheapId, quantity: 1 }] })
     expect(guest.campaign?.name).not.toBe('Hoş geldin')
-    const member = await quoteCart({ items: [{ productId: cheapId, quantity: 1 }], userId })
+    // A guest checkout carries a user id too (or a member's, if they typed that e-mail);
+    // without a signed-in member it must not get the member-only discount.
+    const guestWithOwner = await quoteCart({ items: [{ productId: cheapId, quantity: 1 }], userId })
+    expect(guestWithOwner.campaign?.name).not.toBe('Hoş geldin')
+    const member = await quoteCart({ items: [{ productId: cheapId, quantity: 1 }], userId, memberUserId: userId })
     expect(member.campaign?.name).toBe('Hoş geldin')
     expect(member.campaignDiscount).toBe(150)
   }, 60_000)

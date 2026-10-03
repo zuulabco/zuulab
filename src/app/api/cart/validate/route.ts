@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const user = await authenticateRequest(request).catch(() => null)
-    const quote = await quoteCart({ ...parsed.data, userId: user?.id })
+    const quote = await quoteCart({ ...parsed.data, userId: user?.id, memberUserId: user?.id })
 
     return NextResponse.json({ success: true, data: quote })
   } catch (error) {

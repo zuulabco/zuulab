@@ -22,6 +22,8 @@ export const PAYMENT_HOLD_MINUTES = 35
 
 export interface CreateOrderPayload {
   userId: string
+  /** True when a signed-in member places the order (not a guest checkout). */
+  isMember?: boolean
   items: Array<{ productId: string; variantId?: string | null; quantity: number }>
   couponCode?: string | null
   shippingMethod?: 'STANDARD' | 'EXPRESS'
@@ -408,7 +410,13 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     }
   }
 
-  const quote = await quoteCart({ items, couponCode, shippingMethod, userId })
+  const quote = await quoteCart({
+    items,
+    couponCode,
+    shippingMethod,
+    userId,
+    memberUserId: payload.isMember ? userId : null,
+  })
 
   if (quote.lines.length === 0) {
     throw new CheckoutError('EMPTY_CART', 'Sipariş oluşturmak için sepetinizde geçerli ürün bulunamadı.', { quote })

@@ -31,6 +31,14 @@ describe('Turkish provinces', () => {
     expect(matchProvince(input)).toBeNull()
   })
 
+  it('empty field lists all 81, the five largest first, then A–Z', () => {
+    const all = suggestProvinces('')
+    expect(all).toHaveLength(81)
+    expect(all.slice(0, 5)).toEqual(['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya'])
+    expect(all.slice(5, 8)).toEqual(['Adana', 'Adıyaman', 'Afyonkarahisar'])
+    expect(new Set(all).size).toBe(81)
+  })
+
   it('suggests prefix matches first', () => {
     expect(suggestProvinces('ka').slice(0, 3)).toEqual(['Kahramanmaraş', 'Karabük', 'Karaman'])
     expect(suggestProvinces('is')).toContain('İstanbul')
