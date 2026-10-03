@@ -157,7 +157,7 @@ export default async function HomePage() {
       case 'process':
         return <ProcessSection />
       case 'lifestyle':
-        return <LifestyleGrid />
+        return <LifestyleGrid settings={section.settings} />
       case 'final_discovery':
         return <HomeFinalDiscovery />
       case 'newsletter':

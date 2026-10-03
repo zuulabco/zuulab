@@ -300,10 +300,6 @@ export default async function CollectionsDiscoveryPage() {
 
       {/* ── Bottom Atölye Strip ── */}
       <div className={styles.bottomStrip}>
-        <div className={styles.bottomNote}>
-          <span className={styles.eyebrowDot} aria-hidden />
-          <span>istanbul atölyemizde hassas katmanlı 3d fdm üretimi · biyo-bozunur pla</span>
-        </div>
         <Link href="/urunler" className={styles.bottomLink}>
           <span>tüm ürün kataloğunu görüntüle</span>
           <span aria-hidden>→</span>

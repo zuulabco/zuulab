@@ -98,6 +98,24 @@ export interface TextCtaSettings {
   tone: 'plain' | 'muted' | 'dark'
 }
 
+export interface LifestyleTile {
+  imageUrl: string
+  alt: string
+  /** Small caption on the photo; empty hides it */
+  label: string
+  /** Optional link when the photo is clicked */
+  href: string
+}
+
+export interface LifestyleSettings {
+  heading: string
+  body: string
+  linkLabel: string
+  linkHref: string
+  /** Tall, wide and square photo, in that order */
+  tiles: [LifestyleTile, LifestyleTile, LifestyleTile]
+}
+
 export type EmptySettings = Record<string, never>
 
 export interface SectionSettingsMap {
@@ -108,7 +126,7 @@ export interface SectionSettingsMap {
   banner: BannerSettings
   text_cta: TextCtaSettings
   process: EmptySettings
-  lifestyle: EmptySettings
+  lifestyle: LifestyleSettings
   final_discovery: EmptySettings
   newsletter: EmptySettings
 }
@@ -248,9 +266,34 @@ export const SECTION_TEMPLATES: { [T in SectionType]: SectionTemplate<T> } = {
   lifestyle: {
     type: 'lifestyle',
     name: 'Yaşam alanı galerisi',
-    description: 'Ürünlerin kullanıldığı mekânlardan görsel kolaj.',
+    description: 'Bir metin kutusu ve üç fotoğraf (dikey, yatay, kare); ürünlerin kullanıldığı mekânlar.',
     repeatable: false,
-    defaults: () => ({}),
+    defaults: () => ({
+      heading: 'mekana karakter katan formlar.',
+      body: 'kullanıcılarımızın evlerinden, çocuk odalarından ve çalışma alanlarından objelerimizin günlük yaşamdaki duruşu.',
+      linkLabel: '@zuulab instagram',
+      linkHref: 'https://instagram.com/zuulab',
+      tiles: [
+        {
+          imageUrl: 'https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1000&q=85',
+          alt: 'zuulab dekorasyon objesi yaşam alanında',
+          label: '',
+          href: '',
+        },
+        {
+          imageUrl: 'https://images.unsplash.com/photo-1593062096033-9a26b09da705?auto=format&fit=crop&w=1200&q=85',
+          alt: 'zuulab çalışma alanı masa organizeri',
+          label: 'masan için düzen',
+          href: '/koleksiyon/zuulife',
+        },
+        {
+          imageUrl: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=800&q=85',
+          alt: 'zuulight masa lambası',
+          label: 'zuulight masa lambası',
+          href: '/koleksiyon/zuulight',
+        },
+      ],
+    }),
   },
   final_discovery: {
     type: 'final_discovery',
@@ -278,6 +321,7 @@ export function sectionTitle(s: HomeSection): string {
   if (s.type === 'product_rail') return `${base}: ${s.settings.title}`
   if (s.type === 'banner' || s.type === 'text_cta') return `${base}: ${s.settings.title}`
   if (s.type === 'product_spotlight') return `${base}: ${s.settings.eyebrow}`
+  if (s.type === 'lifestyle') return `${base}: ${s.settings.heading}`
   return base
 }
 
@@ -348,7 +392,7 @@ export const DEFAULT_SLIDES: HeroSlide[] = [
     id: 'zuulab',
     enabled: true,
     label: 'zuulab',
-    badge: 'zuulab · istanbul atölye',
+    badge: 'zuulab · atölye',
     headline: 'üç boyutlu formlar,',
     headlineAccent: 'yaşayan mekanlar.',
     description: 'talebinize özel 3d basılan işlevsel masa objeleri, çocuk dünyası ve aydınlatma formları.',
@@ -407,7 +451,7 @@ export const DEFAULT_SECTIONS: HomeSection[] = [
     enabled: true,
     settings: railDefaults({ eyebrow: 'müşterilerimizin listelerinden', title: 'en çok favorilenenler', source: 'favorites', tone: 'muted' }),
   },
-  { id: 'sec-lifestyle', type: 'lifestyle', enabled: true, settings: {} },
+  { id: 'sec-lifestyle', type: 'lifestyle', enabled: true, settings: SECTION_TEMPLATES.lifestyle.defaults() },
   { id: 'sec-final', type: 'final_discovery', enabled: true, settings: {} },
   { id: 'sec-newsletter', type: 'newsletter', enabled: true, settings: {} },
 ]

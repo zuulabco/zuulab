@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
+import { ImageField } from '../content/homepage/editors'
 import styles from '../admin.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
 
@@ -662,18 +663,13 @@ export default function AdminCollectionsPage() {
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
-                  Kapak Görseli URL
-                </label>
-                <input
-                  type="text"
-                  placeholder="https://... veya /images/..."
-                  value={heroImage}
-                  onChange={(e) => setHeroImage(e.target.value)}
-                  className={styles.input}
-                />
-              </div>
+              <ImageField
+                id="collection-hero"
+                label="Kapak görseli"
+                value={heroImage}
+                onChange={setHeroImage}
+                help="Dosyadan yükleyin ya da adres yapıştırın. 1600×1200 önerilir; konu ortada olsun."
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
@@ -688,16 +684,7 @@ export default function AdminCollectionsPage() {
                   <option value="INACTIVE">Pasif (vitrinde gizli)</option>
                 </select>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Logo URL</label>
-                <input
-                  type="text"
-                  placeholder="/logo.svg veya https://..."
-                  value={logo}
-                  onChange={(e) => setLogo(e.target.value)}
-                  className={styles.input}
-                />
-              </div>
+              <ImageField id="collection-logo" label="Logo" value={logo} onChange={setLogo} help="SVG ya da şeffaf PNG." />
             </div>
 
             <div>

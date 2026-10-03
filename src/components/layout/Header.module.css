@@ -1190,3 +1190,7 @@
 .mobileTopRow .mobileLogoRow {
   margin-bottom: 0;
 }
+
+.megaMenuBottomLink {
+  margin-left: auto;
+}

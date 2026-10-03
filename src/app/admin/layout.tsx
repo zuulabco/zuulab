@@ -99,6 +99,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Ana sayfa', href: '/content/homepage', icon: 'layout' },
       { label: 'Duyuru bandı', href: '/content/announcement', icon: 'announcement' },
+      { label: 'Sosyal medya', href: '/content/social', icon: 'share' },
       { label: 'Medya', href: '/content/media', icon: 'media' },
     ],
   },

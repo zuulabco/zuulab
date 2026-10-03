@@ -8,6 +8,7 @@ import {
   type BannerSettings,
   type HeroSlide,
   type HomeSection,
+  type LifestyleSettings,
   type ProductRailSettings,
   type SectionType,
   type SpotlightSettings,
@@ -453,6 +454,43 @@ function TextCtaEditor({ s, set, id }: { s: TextCtaSettings; set: (s: TextCtaSet
   )
 }
 
+function LifestyleEditor({ s, set, id }: { s: LifestyleSettings; set: (s: LifestyleSettings) => void; id: string }) {
+  const u = <K extends keyof LifestyleSettings>(k: K, v: LifestyleSettings[K]) => set({ ...s, [k]: v })
+  const tile = (i: 0 | 1 | 2, patch: Partial<LifestyleSettings['tiles'][number]>) =>
+    u('tiles', s.tiles.map((t, j) => (j === i ? { ...t, ...patch } : t)) as LifestyleSettings['tiles'])
+  const names = ['Dikey fotoğraf (sol)', 'Yatay fotoğraf (sağ üst)', 'Kare fotoğraf (sağ alt)']
+  const sizes = ['1000×1250 önerilir', '1600×1000 önerilir', '1000×1000 önerilir']
+  return (
+    <>
+      <Field label="Başlık" htmlFor={`${id}-h`}><TextInput id={`${id}-h`} value={s.heading} onChange={(v) => u('heading', v)} /></Field>
+      <Field label="Metin" htmlFor={`${id}-b`}>
+        <textarea id={`${id}-b`} rows={3} className={styles.formTextarea} value={s.body} onChange={(e) => u('body', e.target.value)} />
+      </Field>
+      <div className={h.row2}>
+        <Field label="Bağlantı yazısı" htmlFor={`${id}-ll`}><TextInput id={`${id}-ll`} value={s.linkLabel} onChange={(v) => u('linkLabel', v)} /></Field>
+        <Field label="Bağlantı" htmlFor={`${id}-lh`} help="Örn. instagram profiliniz"><TextInput id={`${id}-lh`} value={s.linkHref} onChange={(v) => u('linkHref', v)} /></Field>
+      </div>
+      {s.tiles.map((t, i) => (
+        <div key={i} className={h.group}>
+          <h4>{names[i]}</h4>
+          <ImageField id={`${id}-img-${i}`} label="Görsel" value={t.imageUrl} onChange={(v) => tile(i as 0 | 1 | 2, { imageUrl: v })} help={sizes[i]} />
+          <div className={h.row2}>
+            <Field label="Fotoğraf üstündeki etiket" htmlFor={`${id}-lb-${i}`} help="Boş bırakılırsa gösterilmez.">
+              <TextInput id={`${id}-lb-${i}`} value={t.label} onChange={(v) => tile(i as 0 | 1 | 2, { label: v })} />
+            </Field>
+            <Field label="Tıklayınca gidilecek sayfa" htmlFor={`${id}-hr-${i}`} help="İsteğe bağlı, örn. /koleksiyon/zuulife">
+              <TextInput id={`${id}-hr-${i}`} value={t.href} onChange={(v) => tile(i as 0 | 1 | 2, { href: v })} />
+            </Field>
+          </div>
+          <Field label="Görsel açıklaması (erişilebilirlik)" htmlFor={`${id}-alt-${i}`}>
+            <TextInput id={`${id}-alt-${i}`} value={t.alt} onChange={(v) => tile(i as 0 | 1 | 2, { alt: v })} />
+          </Field>
+        </div>
+      ))}
+    </>
+  )
+}
+
 export function SectionEditor({ section, onChange, catalog }: { section: HomeSection; onChange: (s: HomeSection) => void; catalog: CatalogOptions }) {
   const id = section.id
   const tpl = SECTION_TEMPLATES[section.type]
@@ -469,6 +507,9 @@ export function SectionEditor({ section, onChange, catalog }: { section: HomeSec
       break
     case 'text_cta':
       body = <TextCtaEditor id={id} s={section.settings} set={(settings) => onChange({ ...section, settings })} />
+      break
+    case 'lifestyle':
+      body = <LifestyleEditor id={id} s={section.settings} set={(settings) => onChange({ ...section, settings })} />
       break
     default:
       body = <p className={h.note}>Bu bölümün ayarı yok; içeriği katalogdan ve sabit tasarımdan gelir. Sırasını değiştirebilir ya da gizleyebilirsiniz.</p>

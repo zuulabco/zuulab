@@ -271,7 +271,7 @@ export default function HesapClient() {
           {/* Workshop Guarantee Note */}
           <div className={styles.activityCard}>
             <p className={styles.activityText}>
-              tüm siparişleriniz istanbul atölyemizde hassas 3d üretimle hazırlanır ve hasarsız teslimat güvencesiyle özel koruma paketinde sevk edilir.
+              tüm siparişleriniz atölyemizde 3d baskıyla hazırlanır ve özenle paketlenerek gönderilir.
             </p>
           </div>
         </main>

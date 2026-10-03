@@ -249,10 +249,6 @@ export default function Header({ navigation }: { navigation: StoreNavigation }) 
 
                   {/* ── Bottom CTA strip ──────────────────── */}
                   <div className={styles.megaMenuBottomBar}>
-                    <div className={styles.megaMenuBottomNote}>
-                      <span className={styles.bottomDot} aria-hidden />
-                      <span>istanbul atölyemizde hassas katmanlı 3d üretim · biyo-bozunur pla</span>
-                    </div>
                     <Link
                       href="/urunler"
                       className={styles.megaMenuBottomLink}

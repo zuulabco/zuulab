@@ -126,3 +126,22 @@
     display: none;
   }
 }
+
+/* Off-screen copy of one set, used to size the loop */
+.measure {
+  position: absolute;
+  visibility: hidden;
+  display: flex;
+  width: max-content;
+  pointer-events: none;
+}
+
+/* The bar keeps its height while loading and fades the text in once */
+.marqueeTrack {
+  opacity: 0;
+  transition: opacity var(--dur-slower) var(--ease-out);
+}
+
+.marqueeReady {
+  opacity: 1;
+}
