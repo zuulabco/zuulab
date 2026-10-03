@@ -3,6 +3,7 @@ import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import ScrollToTop from '@/components/layout/ScrollToTop'
 import CampaignModal from '@/components/layout/CampaignModal'
+import CookieBanner from '@/components/layout/CookieBanner'
 import { getStoreNavigation } from '@/lib/services/catalog/navigation.service'
 
 export default async function StoreLayout({
@@ -21,6 +22,7 @@ export default async function StoreLayout({
       <main className="store-main">{children}</main>
       <Footer />
       <CampaignModal />
+      <CookieBanner />
     </div>
   )
 }

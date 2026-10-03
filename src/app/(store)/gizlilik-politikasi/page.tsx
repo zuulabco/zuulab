@@ -77,6 +77,29 @@ export default function GizlilikPolitikasiPage() {
             <a href="mailto:info@zuulab.com">info@zuulab.com</a> adresine iletebilirsiniz.
           </p>
         </section>
+
+        <section id="cerezler" className={styles.section}>
+          <h2>5. çerezler</h2>
+          <p>
+            Sitemiz yalnızca çalışması için gerekli çerezleri ve tarayıcı depolamasını kullanır:
+          </p>
+          <ul>
+            <li>
+              <strong>Oturum:</strong> Hesabınıza giriş yaptığınızda oturumunuzu güvenle açık tutar.
+            </li>
+            <li>
+              <strong>Sepet ve favoriler:</strong> Sepetinizdeki ve favorilerinizdeki ürünleri sayfalar arasında hatırlar.
+            </li>
+            <li>
+              <strong>Tercihler:</strong> Çerez tercihinizi ve gördüğünüz kampanya duyurularını hatırlar.
+            </li>
+          </ul>
+          <p>
+            Şu anda analiz veya reklam çerezi kullanmıyoruz. İleride kullanırsak bunu yalnızca &quot;tümünü kabul
+            et&quot; seçeneğini işaretleyen ziyaretçiler için yaparız. Tercihinizi değiştirmek için tarayıcınızdan bu
+            sitenin verilerini silmeniz yeterlidir; bir sonraki ziyaretinizde size yeniden sorulur.
+          </p>
+        </section>
       </article>
     </div>
   )

@@ -83,7 +83,7 @@ export default function HomeNewsletter() {
                   }}
                   aria-invalid={status === 'error'}
                   aria-describedby={status === 'error' ? 'newsletter-error' : undefined}
-                  placeholder="ornek@alanadi.com"
+                  placeholder="ornek@gmail.com"
                   required
                   className={styles.input}
                   disabled={loading}

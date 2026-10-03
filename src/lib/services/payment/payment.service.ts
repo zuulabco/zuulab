@@ -17,6 +17,7 @@ import {
 } from '../orders.service'
 import { commitOrderStock, reacquireOrderStock, InsufficientStockError } from '../checkout/stock.service'
 import { recordCouponUsage } from '../coupons.service'
+import { sendNewOrderAlert } from '../notification/store-order-email'
 import { logAuditEvent } from '../admin.service'
 import { createNotification } from '../notification/notification.service'
 
@@ -316,6 +317,9 @@ async function handleSuccess(
   if (!transition.success) {
     console.error(`[payment.service] ${order.orderNumber} paid but could not be confirmed: ${transition.error}`)
   }
+
+  // "Sipariş Geldi!" mail to the shop; runs once per order (only the winning callback gets here)
+  await sendNewOrderAlert(order.id)
 
   if (stock.oversold) {
     await logAuditEvent({

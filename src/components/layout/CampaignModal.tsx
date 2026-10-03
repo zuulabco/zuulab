@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Modal from '@/components/common/Modal'
 import { toast } from '@/store/toastStore'
+import { CONSENT_EVENT, getConsent } from '@/lib/consent'
 import styles from './CampaignModal.module.css'
 
 interface PublicCampaign {
@@ -38,11 +39,20 @@ export default function CampaignModal() {
   const pathname = usePathname()
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null)
   const [open, setOpen] = useState(false)
+  // Wait for the cookie choice so a first-time visitor never gets the bar and a pop-up at once
+  // (nothing is drawn from this value, so reading it during render is hydration-safe)
+  const [consented, setConsented] = useState(() => typeof window !== 'undefined' && getConsent() !== null)
+
+  useEffect(() => {
+    const onChoice = () => setConsented(true)
+    window.addEventListener(CONSENT_EVENT, onChoice)
+    return () => window.removeEventListener(CONSENT_EVENT, onChoice)
+  }, [])
 
   const quiet = QUIET_PATHS.some((p) => pathname === p || pathname?.startsWith(`${p}/`))
 
   useEffect(() => {
-    if (quiet || campaign) return
+    if (quiet || campaign || !consented) return
     let timer: ReturnType<typeof setTimeout> | undefined
     fetch('/api/campaigns')
       .then((r) => r.json())
@@ -63,7 +73,7 @@ export default function CampaignModal() {
       })
       .catch(() => {})
     return () => clearTimeout(timer)
-  }, [quiet, campaign])
+  }, [quiet, campaign, consented])
 
   const close = () => {
     setOpen(false)
@@ -95,30 +105,46 @@ export default function CampaignModal() {
   ].filter(Boolean)
 
   return (
-    <Modal isOpen={open} onClose={close} maxWidth="440px" ariaLabel={campaign.headline}>
-      <div className={styles.body}>
-        {campaign.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
+    <Modal
+      isOpen={open}
+      onClose={close}
+      maxWidth="460px"
+      ariaLabel={campaign.headline}
+      className={styles.panel}
+      showCloseBtn={false}
+    >
+      <button type="button" className={`${styles.close} ${campaign.imageUrl ? styles.closeOnImage : ''}`} onClick={close} aria-label="Kapat">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+
+      {campaign.imageUrl && (
+        <div className={styles.media}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={campaign.imageUrl} alt="" className={styles.image} />
-        )}
+        </div>
+      )}
+
+      <div className={styles.body}>
         {campaign.label && <span className={styles.label}>{campaign.label}</span>}
         <h2 className={styles.headline}>{campaign.headline}</h2>
         {campaign.message && <p className={styles.message}>{campaign.message}</p>}
         {campaign.couponCode && (
           <button type="button" className={styles.code} onClick={copyCode} aria-label={`Kodu kopyala: ${campaign.couponCode}`}>
-            <span>{campaign.couponCode}</span>
-            <small>kopyala</small>
+            <span className={styles.codeValue}>{campaign.couponCode}</span>
+            <span className={styles.codeAction}>kopyala</span>
           </button>
         )}
         {conditions.length > 0 && <p className={styles.conditions}>{conditions.join(' · ')}</p>}
         <div className={styles.actions}>
           {campaign.ctaLabel && campaign.ctaHref && (
-            <Link href={campaign.ctaHref} className="btn btn-primary btn-lg" onClick={close}>
+            <Link href={campaign.ctaHref} className={`btn btn-primary btn-lg ${styles.cta}`} onClick={close}>
               {campaign.ctaLabel}
             </Link>
           )}
-          <button type="button" className="btn btn-ghost btn-lg" onClick={close}>
-            Kapat
+          <button type="button" className={styles.dismiss} onClick={close}>
+            şimdi değil
           </button>
         </div>
       </div>

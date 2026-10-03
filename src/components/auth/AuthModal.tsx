@@ -12,7 +12,6 @@ export default function AuthModal() {
     signInWithGoogle,
     signInWithEmail,
     registerWithEmail,
-    devLogin,
     isLoading,
     error,
     clearError,
@@ -204,28 +203,6 @@ export default function AuthModal() {
           </button>
         </form>
 
-        {/* Quick Developer Fast-Logins for Instant Testing */}
-        <div className={styles.devShortcuts}>
-          <span className={styles.devLabel}>hızlı test girişleri:</span>
-          <div className={styles.devBtnsRow}>
-            <button
-              type="button"
-              className={styles.devBtn}
-              onClick={() => devLogin('CUSTOMER')}
-              title="Örnek Müşteri olarak hızlı oturum aç"
-            >
-              müşteri demo
-            </button>
-            <button
-              type="button"
-              className={styles.devBtn}
-              onClick={() => devLogin('ADMIN')}
-              title="Yönetici (Admin) olarak hızlı oturum aç"
-            >
-              yönetici demo (admin)
-            </button>
-          </div>
-        </div>
       </Modal>
     )
   }

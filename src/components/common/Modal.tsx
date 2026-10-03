@@ -45,7 +45,7 @@ export default function Modal({
         setIsRendered(false)
         setIsExiting(false)
         previousActiveElement.current?.focus()
-      }, 190) // Match overlayExit duration
+      }, 230) // Just past the 220ms exit animation (Modal.module.css)
       return () => clearTimeout(timer)
     }
   }, [isOpen, isRendered])
