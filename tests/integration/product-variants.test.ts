@@ -126,6 +126,18 @@ describe('product options', () => {
   }, 60_000)
 })
 
+describe('removing options', () => {
+  it('clears the option list so the product page shows no empty option row', async () => {
+    const cleared = await variants.saveProductVariants(productId, { options: [], variants: [] })
+    expect(cleared.options).toEqual([])
+    expect(cleared.variants.every((v) => !v.isActive)).toBe(true)
+    expect((await product())?.variantOptions ?? null).toBeNull()
+    const p = (await loadSnapshot()).products.find((x) => x.id === productId)!
+    expect(p.variantOptions).toBeUndefined()
+    expect(p.variants).toEqual([])
+  }, 60_000)
+})
+
 describe('measurements', () => {
   it('saves size, weight and detail rows', async () => {
     const d = await variants.saveProductDetails(productId, {

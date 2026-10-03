@@ -160,6 +160,7 @@ export function getMaintenanceHtml(): string {
   <meta name="description" content="ZUULAB şu anda yapım aşamasında. Yeni deneyimimizi hazırlıyoruz.">
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/ZL_FAVICON.svg" type="image/svg+xml">
   <style>
     *, *::before, *::after {
       box-sizing: border-box;

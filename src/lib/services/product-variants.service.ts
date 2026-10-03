@@ -184,7 +184,16 @@ export async function saveProductVariants(
     for (const e of existing) {
       if (!keep.has(e.id) && e.isActive) await tx.orm.public.ProductVariant.where({ id: e.id }).update({ isActive: false })
     }
-    await tx.orm.public.Product.where({ id: productId }).update({ variantOptions: (options.length ? options : null) as never })
+    // Written with SQL: through the ORM a null JSON value was silently skipped, so a
+    // removed option stayed on the product page as an empty "renk:" row.
+    await tx.execute(
+      (options.length
+        ? db.raw.sql`UPDATE products SET variant_options = ${JSON.stringify(options)}::jsonb, updated_at = now() WHERE id = ${productId}`
+        : db.raw.sql`UPDATE products SET variant_options = NULL, updated_at = now() WHERE id = ${productId}`
+      )
+        .affectedCount()
+        .build()
+    )
     await tx.execute(db.raw.sql`
       UPDATE products SET stock = (
         SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = ${productId} AND is_active
