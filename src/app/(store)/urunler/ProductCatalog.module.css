@@ -1086,3 +1086,89 @@
     min-width: 0;
   }
 }
+
+/* ── Smooth filter panels ─────────────────────────────── */
+/* Filter groups and the selected-filter chips open and close by easing their height */
+.groupPanel,
+.pillsPanel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--dur-slower) var(--ease-default),
+    opacity var(--dur-slow) var(--ease-default);
+}
+
+.groupPanelOpen,
+.pillsPanelOpen {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.groupPanelInner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.pillsPanelOpen .groupPanelInner {
+  padding-bottom: var(--sp-4);
+}
+
+.filterPill {
+  animation: pillIn var(--dur-slow) var(--ease-out);
+}
+
+@keyframes pillIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+/* "tümünü temizle" fades in with the first filter */
+.filterClearAll {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-default), color var(--dur-fast) var(--ease-default);
+}
+
+.filterClearAllOn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Chips live in the sidebar on wide screens and under the toolbar on phones */
+.mobilePills {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .mobilePills {
+    display: block;
+  }
+}
+
+/* A new result set rises in softly, card by card */
+.gridEnter .gridCell {
+  animation: cellIn 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+
+@keyframes cellIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groupPanel,
+  .pillsPanel,
+  .filterClearAll {
+    transition: none;
+  }
+  .filterPill,
+  .gridEnter .gridCell {
+    animation: none;
+  }
+}

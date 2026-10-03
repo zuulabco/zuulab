@@ -8,7 +8,7 @@ const STEPS = [
   },
   {
     title: 'hassas dilimleme',
-    desc: 'mikro katman analizi yapılır; dolgu yoğunluğu ve soğutma eğrileri mikron seviyesinde hesaplanır.',
+    desc: 'her model baskıya hazırlanır; doluluk, destek ve baskı yönü ürüne göre ayarlanır.',
   },
   {
     title: 'endüstriyel üretim',

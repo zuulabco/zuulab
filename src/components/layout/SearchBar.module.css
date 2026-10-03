@@ -500,3 +500,99 @@
   appearance: none;
   display: none;
 }
+
+/* ── Refresh: softer panel, roomier field, animated close ─────── */
+.overlay {
+  background: rgba(17, 17, 16, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal {
+  top: 76px;
+  width: min(640px, calc(100vw - 32px));
+  border: none;
+  border-radius: 16px;
+  box-shadow:
+    0 24px 60px -20px rgba(17, 17, 16, 0.35),
+    0 0 0 1px rgba(17, 17, 16, 0.06);
+  overflow: hidden;
+}
+
+.form {
+  min-height: 64px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-5);
+  gap: var(--sp-3);
+}
+
+.icon {
+  color: var(--text-primary);
+}
+
+.input {
+  font-size: var(--text-lg);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color var(--dur-base) var(--ease-default);
+}
+
+.closeBtn:hover {
+  background: var(--surface-1);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 1px;
+}
+
+.kbd {
+  border-radius: 6px;
+  text-transform: lowercase;
+}
+
+.overlayClosing {
+  animation: searchFadeOut 220ms var(--ease-default) forwards;
+}
+
+.modalClosing {
+  animation: searchSlideUp 220ms var(--ease-default) forwards;
+}
+
+@keyframes searchFadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes searchSlideUp {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.985);
+  }
+}
+
+@media (max-width: 640px) {
+  .modal {
+    top: 12px;
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .modal,
+  .overlayClosing,
+  .modalClosing {
+    animation: none;
+  }
+}

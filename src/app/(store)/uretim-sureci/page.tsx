@@ -22,13 +22,13 @@ const STEPS = [
     title: 'katman katman üretim (fdm / fff)',
     desc:
       'Yüksek hassasiyetli 0.4mm nozüllerle, 210°C sıcaklıkta eritilen biyo-polimer filament katman katman inşa edilir. Ürünün büyüklüğüne göre baskı süresi 4 ila 36 saat arasında değişir.',
-    note: 'çözünürlük: 0.12–0.20mm katman / malzeme: endüstriyel pla+, petg',
+    note: 'nozül: 0.4 mm / malzeme: pla, petg',
   },
   {
     num: '03',
     title: 'yüzey temizliği & kürleme',
     desc:
-      'Baskı tablasından alınan parça soğutulduktan sonra destek yapıları (supports) elle temizlenir. Yüzeydeki mikron düzeyindeki çapaklar giderilerek pürüzsüz doku sağlanır.',
+      'Baskı tablasından alınan parça soğutulduktan sonra destek yapıları (supports) elle temizlenir. Yüzeydeki çapaklar giderilerek pürüzsüz doku sağlanır.',
     note: 'süreç: elle temizlik, ısıl denge / süre: ürüne göre 15–45 dk',
   },
   {

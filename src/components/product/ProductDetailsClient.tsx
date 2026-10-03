@@ -338,7 +338,7 @@ export default function ProductDetailsClient({ product }: Props) {
                 <ul className={styles.featureList}>
                   <li>Her model baskı sonrası mekanik yüzey temizleme ve el kontrolünden geçer.</li>
                   <li>Geri dönüştürülebilir koruyucu ambalaj ile darbelere dayanıklı paketleme.</li>
-                  <li>Katman katman hassas üretim tekniğiyle üretilir; her parça tekil mikrodokular barındırır.</li>
+                  <li>Katman katman 3d baskıyla üretilir; her parçanın yüzeyinde ince katman izleri görülebilir.</li>
                 </ul>
               </div>
             </div>

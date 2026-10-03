@@ -38,7 +38,7 @@ export default async function CollectionsDiscoveryPage() {
         <h1 className={styles.title}>koleksiyonlar</h1>
         <p className={styles.subtitle}>
           farklı yaşam ritimlerine, mekanlara ve fonksiyonel arayışlara adanmış 3d üretim evrenleri.
-          her koleksiyon kendine özgü tasarım dili, katman hassasiyeti ve biyo-bozunur malzeme felsefesiyle şekillenir.
+          her koleksiyon kendine özgü tasarım dili ve malzeme seçimiyle şekillenir.
         </p>
       </header>
 

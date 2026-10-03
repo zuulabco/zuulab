@@ -5,6 +5,7 @@ import {
   getUserFavoriteProducts,
   addFavorite,
 } from '@/lib/services/favorites.service'
+import { toProductListItem } from '@/types/catalog'
 
 export async function GET(request: Request) {
   try {
@@ -17,7 +18,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       productIds,
-      products: favoriteProducts,
+      // Card shape (inStock, primaryImage…), the same as product listings; stock already
+      // counts variant combinations
+      products: favoriteProducts.map(toProductListItem),
     })
   } catch (error: any) {
     const isAuth = error.message?.includes('UNAUTHORIZED')

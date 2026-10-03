@@ -183,7 +183,7 @@ export function SlideEditor({ slide, onChange, catalog }: { slide: HeroSlide; on
       <section className={h.group}>
         <h4>Görsel</h4>
         <ImageField id={`img-${slide.id}`} label="Geniş görsel (masaüstü)" value={slide.imageUrl} onChange={(v) => set('imageUrl', v)} help="En az 1920×1080. Metin solda durur; ürün sağda olsun." />
-        <ImageField id={`mimg-${slide.id}`} label="Telefon görseli (isteğe bağlı)" value={slide.mobileImageUrl} onChange={(v) => set('mobileImageUrl', v)} help="Telefonda metnin üstünde, 5:4 oranında görünür. Boşsa geniş görsel kırpılır." />
+        <ImageField id={`mimg-${slide.id}`} label="Telefon görseli (isteğe bağlı)" value={slide.mobileImageUrl} onChange={(v) => set('mobileImageUrl', v)} help="Telefonda slaytın tamamını kaplar: dikey, yaklaşık 1200×1800 (2:3). Ürünü üst yarıya koyun, alt kısımda yazılar durur. Boşsa geniş görsel ortadan kırpılır." />
         <div className={h.row2}>
           <Field label="Görselin odak noktası">
             <Segmented label="Odak" value={slide.focus} onChange={(v) => set('focus', v)} options={[{ value: 'left', label: 'Sol' }, { value: 'center', label: 'Orta' }, { value: 'right', label: 'Sağ' }]} />

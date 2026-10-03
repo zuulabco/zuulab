@@ -66,8 +66,8 @@ export default function HakkimizdaPage() {
             <span className={styles.sectionLabel}>stüdyo</span>
             <article className={styles.prose}>
               <p>
-                Geleneksel seri üretimin getirdiği tekdüzelik yerine; mikron düzeyinde
-                kalibrasyon, sürdürülebilir biyo-polimer malzemeler ve modüler tasarım
+                Geleneksel seri üretimin getirdiği tekdüzelik yerine; özenli
+                kalibrasyon, bitki kaynaklı PLA gibi malzemeler ve modüler tasarım
                 prensipleriyle çalışıyoruz.
               </p>
               <p>

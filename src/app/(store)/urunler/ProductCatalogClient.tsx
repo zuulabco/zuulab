@@ -334,6 +334,9 @@ export default function ProductCatalogClient({
     inStockOnly, minPrice, maxPrice, selectedColors, selectedMaterial, sortBy,
   ])
 
+  // Changes whenever the visible set changes, so the grid replays its fade-in
+  const resultKey = useMemo(() => filteredProducts.map((p) => p.id).join('|'), [filteredProducts])
+
   // ── Derive which colors actually appear in the current product set ─
   const availableColors = useMemo(() => {
     const colorCounts = new Map<string, number>()
@@ -448,17 +451,40 @@ export default function ProductCatalogClient({
     }
   }, [isCategoryPage, isCollectionPage, pathname, router])
 
+  // Chips for the active filters. Always rendered so opening and closing can animate.
+  const selectedFilters = (
+    <div className={`${styles.pillsPanel} ${activePills.length > 0 ? styles.pillsPanelOpen : ''}`} inert={activePills.length === 0}>
+      <div className={styles.groupPanelInner}>
+        <div className={styles.activeFiltersRow}>
+          {activePills.map((pill) => (
+            <span key={pill.label} className={styles.filterPill}>
+              {pill.label}
+              <button type="button" onClick={pill.onRemove} aria-label={`${pill.label} filtresini kaldır`} className={styles.filterPillRemove}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
   // ── Filter Panel ───────────────────────────────────────────
   const filterPanel = (
     <div className={styles.filterPanel}>
       <div className={styles.filterHeader}>
         <span className={styles.filterHeading}>Filtreler</span>
-        {activeFiltersCount > 0 && (
-          <button type="button" className={styles.filterClearAll} onClick={handleResetFilters}>
-            temizle
-          </button>
-        )}
+        <button
+          type="button"
+          className={`${styles.filterClearAll} ${activeFiltersCount > 0 ? styles.filterClearAllOn : ''}`}
+          onClick={handleResetFilters}
+          tabIndex={activeFiltersCount > 0 ? 0 : -1}
+          aria-hidden={activeFiltersCount === 0}
+        >
+          tümünü temizle
+        </button>
       </div>
+      <div className={styles.sidebarPills}>{selectedFilters}</div>
 
       {/* ── Kategori ── */}
       <div className={styles.filterGroup}>
@@ -471,39 +497,41 @@ export default function ProductCatalogClient({
           <span>Kategori</span>
           <AccordionIcon open={categoryOpen} />
         </button>
-        {categoryOpen && (
-          <div className={styles.filterGroupBody}>
-            {!isCategoryPage && (
-              <label className={styles.filterRadioLabel}>
-                <input
-                  type="radio"
-                  name="catalog-category"
-                  className={styles.filterRadio}
-                  checked={selectedCategory === 'all'}
-                  onChange={() => updateUrl({ category: 'all' })}
-                />
-                <span className={styles.filterRadioText}>tüm kategoriler</span>
-                <span className={styles.filterCount}>{products.length}</span>
-              </label>
-            )}
-            {categories.map((c) => {
-              const count = products.filter((p) => p.categorySlug === c.slug).length
-              return (
-                <label key={c.id} className={styles.filterRadioLabel}>
-                  <input
-                    type="radio"
-                    name="catalog-category"
-                    className={styles.filterRadio}
-                    checked={selectedCategory === c.slug}
-                    onChange={() => updateUrl({ category: c.slug })}
-                  />
-                  <span className={styles.filterRadioText}>{c.name}</span>
-                  <span className={styles.filterCount}>{count}</span>
-                </label>
-              )
-            })}
+        <div className={`${styles.groupPanel} ${categoryOpen ? styles.groupPanelOpen : ''}`} inert={!categoryOpen}>
+          <div className={styles.groupPanelInner}>
+              <div className={styles.filterGroupBody}>
+                {!isCategoryPage && (
+                  <label className={styles.filterRadioLabel}>
+                    <input
+                      type="radio"
+                      name="catalog-category"
+                      className={styles.filterRadio}
+                      checked={selectedCategory === 'all'}
+                      onChange={() => updateUrl({ category: 'all' })}
+                    />
+                    <span className={styles.filterRadioText}>tüm kategoriler</span>
+                    <span className={styles.filterCount}>{products.length}</span>
+                  </label>
+                )}
+                {categories.map((c) => {
+                  const count = products.filter((p) => p.categorySlug === c.slug).length
+                  return (
+                    <label key={c.id} className={styles.filterRadioLabel}>
+                      <input
+                        type="radio"
+                        name="catalog-category"
+                        className={styles.filterRadio}
+                        checked={selectedCategory === c.slug}
+                        onChange={() => updateUrl({ category: c.slug })}
+                      />
+                      <span className={styles.filterRadioText}>{c.name}</span>
+                      <span className={styles.filterCount}>{count}</span>
+                    </label>
+                  )
+                })}
+              </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div className={styles.filterDivider} />
@@ -521,58 +549,22 @@ export default function ProductCatalogClient({
               <span>Koleksiyon</span>
               <AccordionIcon open={collectionOpen} />
             </button>
-            {collectionOpen && (
-              <div className={styles.filterGroupBody} role="radiogroup" aria-label="Koleksiyon Filtresi">
-                {/* Tüm koleksiyonlar */}
-                <label
-                  className={`${styles.filterRadioLabel} ${selectedCollection === 'all' ? styles.filterRadioLabelActive : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    updateUrl({ collection: 'all' })
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ' || e.key === 'Enter') {
-                      e.preventDefault()
-                      updateUrl({ collection: 'all' })
-                    }
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="catalog-collection"
-                    className={styles.filterRadio}
-                    checked={selectedCollection === 'all'}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                  <span className={styles.filterRadioText}>tüm koleksiyonlar</span>
-                  <span className={styles.filterCount}>{products.length}</span>
-                </label>
-
-                {/* Individual distinct collections */}
-                {collections.map((c) => {
-                  const count = products.filter((p) => {
-                    const colls = p.collections || (p.collectionWorld && p.collectionWorld !== 'general' ? [p.collectionWorld] : [])
-                    return colls.includes(c.slug)
-                  }).length
-                  const isChecked = selectedCollection === c.slug
-                  return (
+            <div className={`${styles.groupPanel} ${collectionOpen ? styles.groupPanelOpen : ''}`} inert={!collectionOpen}>
+              <div className={styles.groupPanelInner}>
+                  <div className={styles.filterGroupBody} role="radiogroup" aria-label="Koleksiyon Filtresi">
+                    {/* Tüm koleksiyonlar */}
                     <label
-                      key={c.slug}
-                      className={`${styles.filterRadioLabel} ${isChecked ? styles.filterRadioLabelActive : ''}`}
+                      className={`${styles.filterRadioLabel} ${selectedCollection === 'all' ? styles.filterRadioLabelActive : ''}`}
                       onClick={(e) => {
                         e.preventDefault()
-                        // Toggle-off: if already checked, revert to 'all' (clears collection param); otherwise select c.slug
-                        updateUrl({ collection: isChecked ? 'all' : c.slug })
+                        updateUrl({ collection: 'all' })
                       }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
                         if (e.key === ' ' || e.key === 'Enter') {
                           e.preventDefault()
-                          updateUrl({ collection: isChecked ? 'all' : c.slug })
+                          updateUrl({ collection: 'all' })
                         }
                       }}
                     >
@@ -580,17 +572,55 @@ export default function ProductCatalogClient({
                         type="radio"
                         name="catalog-collection"
                         className={styles.filterRadio}
-                        checked={isChecked}
+                        checked={selectedCollection === 'all'}
                         readOnly
                         tabIndex={-1}
                       />
-                      <span className={styles.filterRadioText}>{c.name}</span>
-                      <span className={styles.filterCount}>{count}</span>
+                      <span className={styles.filterRadioText}>tüm koleksiyonlar</span>
+                      <span className={styles.filterCount}>{products.length}</span>
                     </label>
-                  )
-                })}
+    
+                    {/* Individual distinct collections */}
+                    {collections.map((c) => {
+                      const count = products.filter((p) => {
+                        const colls = p.collections || (p.collectionWorld && p.collectionWorld !== 'general' ? [p.collectionWorld] : [])
+                        return colls.includes(c.slug)
+                      }).length
+                      const isChecked = selectedCollection === c.slug
+                      return (
+                        <label
+                          key={c.slug}
+                          className={`${styles.filterRadioLabel} ${isChecked ? styles.filterRadioLabelActive : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            // Toggle-off: if already checked, revert to 'all' (clears collection param); otherwise select c.slug
+                            updateUrl({ collection: isChecked ? 'all' : c.slug })
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault()
+                              updateUrl({ collection: isChecked ? 'all' : c.slug })
+                            }
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="catalog-collection"
+                            className={styles.filterRadio}
+                            checked={isChecked}
+                            readOnly
+                            tabIndex={-1}
+                          />
+                          <span className={styles.filterRadioText}>{c.name}</span>
+                          <span className={styles.filterCount}>{count}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
               </div>
-            )}
+            </div>
           </div>
           <div className={styles.filterDivider} />
         </>
@@ -612,40 +642,42 @@ export default function ProductCatalogClient({
               )}
               <AccordionIcon open={colorOpen} />
             </button>
-            {colorOpen && (
-              <div className={styles.filterGroupBody}>
-                <div className={styles.colorSwatchGrid}>
-                  {availableColors.map((colorDef) => {
-                    const isActive = selectedColors.includes(colorDef.slug)
-                    return (
+            <div className={`${styles.groupPanel} ${colorOpen ? styles.groupPanelOpen : ''}`} inert={!colorOpen}>
+              <div className={styles.groupPanelInner}>
+                  <div className={styles.filterGroupBody}>
+                    <div className={styles.colorSwatchGrid}>
+                      {availableColors.map((colorDef) => {
+                        const isActive = selectedColors.includes(colorDef.slug)
+                        return (
+                          <button
+                            key={colorDef.slug}
+                            type="button"
+                            className={`${styles.colorSwatch} ${isActive ? styles.colorSwatchActive : ''}`}
+                            style={{
+                              '--swatch-color': colorDef.hex,
+                              '--swatch-border': colorDef.border ?? colorDef.hex,
+                            } as React.CSSProperties}
+                            title={colorDef.label}
+                            aria-label={`${colorDef.label}${isActive ? ' (seçili)' : ''}`}
+                            aria-pressed={isActive}
+                            onClick={() => handleToggleColor(colorDef.slug)}
+                          />
+                        )
+                      })}
+                    </div>
+                    {selectedColors.length > 0 && (
                       <button
-                        key={colorDef.slug}
                         type="button"
-                        className={`${styles.colorSwatch} ${isActive ? styles.colorSwatchActive : ''}`}
-                        style={{
-                          '--swatch-color': colorDef.hex,
-                          '--swatch-border': colorDef.border ?? colorDef.hex,
-                        } as React.CSSProperties}
-                        title={colorDef.label}
-                        aria-label={`${colorDef.label}${isActive ? ' (seçili)' : ''}`}
-                        aria-pressed={isActive}
-                        onClick={() => handleToggleColor(colorDef.slug)}
-                      />
-                    )
-                  })}
-                </div>
-                {selectedColors.length > 0 && (
-                  <button
-                    type="button"
-                    className={styles.filterClearAll}
-                    style={{ marginTop: 8 }}
-                    onClick={() => updateUrl({ colors: [] })}
-                  >
-                    renkleri temizle
-                  </button>
-                )}
+                        className={styles.filterClearAll}
+                        style={{ marginTop: 8 }}
+                        onClick={() => updateUrl({ colors: [] })}
+                      >
+                        renkleri temizle
+                      </button>
+                    )}
+                  </div>
               </div>
-            )}
+            </div>
           </div>
           <div className={styles.filterDivider} />
         </>
@@ -664,36 +696,38 @@ export default function ProductCatalogClient({
               <span>Malzeme</span>
               <AccordionIcon open={materialOpen} />
             </button>
-            {materialOpen && (
-              <div className={styles.filterGroupBody}>
-                <label className={styles.filterRadioLabel}>
-                  <input
-                    type="radio"
-                    name="catalog-material"
-                    className={styles.filterRadio}
-                    checked={selectedMaterial === 'all'}
-                    onChange={() => updateUrl({ material: 'all' })}
-                  />
-                  <span className={styles.filterRadioText}>tüm malzemeler</span>
-                </label>
-                {availableMaterials.map((mat) => {
-                  const count = products.filter((p) => extractMaterialSlug(p.material) === mat.slug).length
-                  return (
-                    <label key={mat.slug} className={styles.filterRadioLabel}>
+            <div className={`${styles.groupPanel} ${materialOpen ? styles.groupPanelOpen : ''}`} inert={!materialOpen}>
+              <div className={styles.groupPanelInner}>
+                  <div className={styles.filterGroupBody}>
+                    <label className={styles.filterRadioLabel}>
                       <input
                         type="radio"
                         name="catalog-material"
                         className={styles.filterRadio}
-                        checked={selectedMaterial === mat.slug}
-                        onChange={() => updateUrl({ material: mat.slug })}
+                        checked={selectedMaterial === 'all'}
+                        onChange={() => updateUrl({ material: 'all' })}
                       />
-                      <span className={styles.filterRadioText}>{mat.label}</span>
-                      <span className={styles.filterCount}>{count}</span>
+                      <span className={styles.filterRadioText}>tüm malzemeler</span>
                     </label>
-                  )
-                })}
+                    {availableMaterials.map((mat) => {
+                      const count = products.filter((p) => extractMaterialSlug(p.material) === mat.slug).length
+                      return (
+                        <label key={mat.slug} className={styles.filterRadioLabel}>
+                          <input
+                            type="radio"
+                            name="catalog-material"
+                            className={styles.filterRadio}
+                            checked={selectedMaterial === mat.slug}
+                            onChange={() => updateUrl({ material: mat.slug })}
+                          />
+                          <span className={styles.filterRadioText}>{mat.label}</span>
+                          <span className={styles.filterCount}>{count}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
               </div>
-            )}
+            </div>
           </div>
           <div className={styles.filterDivider} />
         </>
@@ -710,45 +744,47 @@ export default function ProductCatalogClient({
           <span>Fiyat Aralığı</span>
           <AccordionIcon open={priceOpen} />
         </button>
-        {priceOpen && (
-          <div className={styles.filterGroupBody}>
-            <div className={styles.priceInputRow}>
-              <div className={styles.priceInputWrap}>
-                <span className={styles.priceInputPrefix}>₺</span>
-                <input
-                  type="number"
-                  className={styles.priceInput}
-                  inputMode="numeric"
-                  value={localMinPrice}
-                  min={MIN_PRICE}
-                  max={PRICE_LIMIT}
-                  step={1}
-                  onChange={(e) => handleMinPriceChange(e.target.value)}
-                  onBlur={() => updateUrl({ minPrice: parsePriceBound(localMinPrice) })}
-                  aria-label="Minimum fiyat"
-                  placeholder="0"
-                />
+        <div className={`${styles.groupPanel} ${priceOpen ? styles.groupPanelOpen : ''}`} inert={!priceOpen}>
+          <div className={styles.groupPanelInner}>
+              <div className={styles.filterGroupBody}>
+                <div className={styles.priceInputRow}>
+                  <div className={styles.priceInputWrap}>
+                    <span className={styles.priceInputPrefix}>₺</span>
+                    <input
+                      type="number"
+                      className={styles.priceInput}
+                      inputMode="numeric"
+                      value={localMinPrice}
+                      min={MIN_PRICE}
+                      max={PRICE_LIMIT}
+                      step={1}
+                      onChange={(e) => handleMinPriceChange(e.target.value)}
+                      onBlur={() => updateUrl({ minPrice: parsePriceBound(localMinPrice) })}
+                      aria-label="Minimum fiyat"
+                      placeholder="0"
+                    />
+                  </div>
+                  <span className={styles.priceRangeSep}>—</span>
+                  <div className={styles.priceInputWrap}>
+                    <span className={styles.priceInputPrefix}>₺</span>
+                    <input
+                      type="number"
+                      className={styles.priceInput}
+                      inputMode="numeric"
+                      value={localMaxPrice}
+                      min={MIN_PRICE}
+                      max={PRICE_LIMIT}
+                      step={1}
+                      onChange={(e) => handleMaxPriceChange(e.target.value)}
+                      onBlur={() => updateUrl({ maxPrice: parsePriceBound(localMaxPrice) })}
+                      aria-label="Maksimum fiyat"
+                      placeholder="1000"
+                    />
+                  </div>
+                </div>
               </div>
-              <span className={styles.priceRangeSep}>—</span>
-              <div className={styles.priceInputWrap}>
-                <span className={styles.priceInputPrefix}>₺</span>
-                <input
-                  type="number"
-                  className={styles.priceInput}
-                  inputMode="numeric"
-                  value={localMaxPrice}
-                  min={MIN_PRICE}
-                  max={PRICE_LIMIT}
-                  step={1}
-                  onChange={(e) => handleMaxPriceChange(e.target.value)}
-                  onBlur={() => updateUrl({ maxPrice: parsePriceBound(localMaxPrice) })}
-                  aria-label="Maksimum fiyat"
-                  placeholder="1000"
-                />
-              </div>
-            </div>
           </div>
-        )}
+        </div>
       </div>
 
       <div className={styles.filterDivider} />
@@ -764,19 +800,21 @@ export default function ProductCatalogClient({
           <span>Özellikler</span>
           <AccordionIcon open={featuresOpen} />
         </button>
-        {featuresOpen && (
-          <div className={styles.filterGroupBody}>
-            <label className={styles.filterCheckLabel}>
-              <input
-                type="checkbox"
-                className={styles.filterCheck}
-                checked={inStockOnly}
-                onChange={(e) => updateUrl({ stock: e.target.checked })}
-              />
-              <span className={styles.filterCheckText}>yalnızca stokta olanlar</span>
-            </label>
+        <div className={`${styles.groupPanel} ${featuresOpen ? styles.groupPanelOpen : ''}`} inert={!featuresOpen}>
+          <div className={styles.groupPanelInner}>
+              <div className={styles.filterGroupBody}>
+                <label className={styles.filterCheckLabel}>
+                  <input
+                    type="checkbox"
+                    className={styles.filterCheck}
+                    checked={inStockOnly}
+                    onChange={(e) => updateUrl({ stock: e.target.checked })}
+                  />
+                  <span className={styles.filterCheckText}>yalnızca stokta olanlar</span>
+                </label>
+              </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -853,27 +891,8 @@ export default function ProductCatalogClient({
           </div>
         </div>
 
-        {/* Active Filter Pills */}
-        {activePills.length > 0 && (
-          <div className={styles.activeFiltersRow}>
-            {activePills.map((pill) => (
-              <span key={pill.label} className={styles.filterPill}>
-                {pill.label}
-                <button
-                  type="button"
-                  onClick={pill.onRemove}
-                  aria-label={`${pill.label} filtresini kaldır`}
-                  className={styles.filterPillRemove}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button type="button" className={styles.clearAllPills} onClick={handleResetFilters}>
-              tümünü temizle
-            </button>
-          </div>
-        )}
+        {/* Selected filters (phones; on wide screens they sit in the sidebar) */}
+        <div className={styles.mobilePills}>{selectedFilters}</div>
 
         {/* Mobile Toolbar */}
         <div className={styles.mobileToolbar}>
@@ -913,10 +932,18 @@ export default function ProductCatalogClient({
         {/* Product Grid Area */}
         <div className={`${styles.gridArea} ${isPending ? styles.isPending : ''}`}>
           {filteredProducts.length > 0 ? (
-            <div className={styles.grid} style={{ ['--cols' as string]: gridColumns }}>
+            <div
+              key={resultKey}
+              className={`${styles.grid} ${styles.gridEnter}`}
+              style={{ ['--cols' as string]: gridColumns }}
+            >
               {filteredProducts.map((p, index) => (
                 // Each card is named so a column change can animate it to its new place
-                <div key={p.id} className={styles.gridCell} style={{ viewTransitionName: `pc-${p.id.replace(/[^a-zA-Z0-9_-]/g, '-')}` }}>
+                <div
+                  key={p.id}
+                  className={styles.gridCell}
+                  style={{ viewTransitionName: `pc-${p.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`, ['--i' as string]: Math.min(index, 11) }}
+                >
                   <ProductCard product={toProductListItem(p)} priority={index < 4} />
                 </div>
               ))}
@@ -1047,7 +1074,7 @@ function AccordionIcon({ open }: { open: boolean }) {
       aria-hidden
       style={{
         transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform var(--dur-fast) var(--ease-default)',
+        transition: 'transform var(--dur-slow) var(--ease-default)',
         flexShrink: 0,
       }}
     >

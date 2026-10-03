@@ -44,6 +44,9 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
     categories: navigation.categories.slice(0, 3),
   }
   const [open, setOpen] = useState(false)
+  // Plays the closing animation before the panel is removed
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [query, setQuery] = useState('')
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -84,13 +87,25 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
   }
 
   const openSearch = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setClosing(false)
     setOpen(true)
     setTimeout(() => inputRef.current?.focus(), 50)
   }, [])
 
   const closeSearch = useCallback(() => {
-    setOpen(false)
-    setQuery('')
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduced) {
+      setOpen(false)
+      setQuery('')
+      return
+    }
+    setClosing(true)
+    closeTimer.current = setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+      setQuery('')
+    }, 220)
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -180,8 +195,8 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
 
       {open && (
         <>
-          <div className={styles.overlay} onClick={closeSearch} aria-hidden />
-          <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Ürün Arama">
+          <div className={`${styles.overlay} ${closing ? styles.overlayClosing : ''}`} onClick={closeSearch} aria-hidden />
+          <div className={`${styles.modal} ${closing ? styles.modalClosing : ''}`} role="dialog" aria-modal="true" aria-label="Ürün Arama">
             {/* Search Input Bar */}
             <form onSubmit={handleSubmit} className={styles.form}>
               <span className={styles.icon} aria-hidden>
@@ -208,7 +223,9 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
                   <XIcon />
                 </button>
               )}
-              <kbd className={styles.kbd}>ESC</kbd>
+              <button type="button" className={styles.closeBtn} onClick={closeSearch} aria-label="Aramayı kapat">
+                <kbd className={styles.kbd}>esc</kbd>
+              </button>
             </form>
 
             {/* Results & Suggestions Dropdown Body */}

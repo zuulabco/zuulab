@@ -135,6 +135,25 @@ export default function ProductCard({ product, priority = false }: Props) {
         )}
       </div>
 
+      {/* Discount ribbon: a blue strip under the photo with the saving scrolling past */}
+      {discount > 0 && product.inStock && (
+        <div className={styles.saleRibbon}>
+          <span className="sr-only">%{discount} indirimli</span>
+          <div className={styles.saleTrack} aria-hidden="true">
+            {Array.from({ length: 2 }).map((_, half) => (
+              <span key={half} className={styles.saleHalf}>
+                {Array.from({ length: 4 }).map((__, i) => (
+                  <span key={i} className={styles.saleItem}>
+                    %{discount} indirim
+                    {product.oldPrice ? <em>{formatPrice(product.oldPrice - product.price)} kazanç</em> : null}
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Metadata & Details ───────────────────────────── */}
       <div className={styles.info}>
         <div className={styles.metaRow}>

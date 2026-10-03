@@ -29,3 +29,8 @@ export function cloudinaryCardLoader({ src, width, quality }: ImageLoaderProps):
 export function cloudinaryLoader({ src, width, quality }: ImageLoaderProps): string {
   return withTransformation(src, `c_limit,w_${width},q_${quality ?? 'auto'},f_auto`)
 }
+
+/** Featured product photo (4:5): trims a baked-in white frame, then fills the frame */
+export function cloudinaryFeatureLoader({ src, width, quality }: ImageLoaderProps): string {
+  return withTransformation(src, `e_trim:10/c_fill,g_auto,ar_4:5,w_${width},q_${quality ?? 'auto'},f_auto`)
+}
