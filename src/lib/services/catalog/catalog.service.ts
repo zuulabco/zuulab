@@ -1,4 +1,5 @@
 import 'server-only'
+import { normalizeOptions } from '@/lib/services/product-variants.service'
 import { tidyShortDescription } from '@/lib/utils'
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
@@ -30,6 +31,15 @@ interface CatalogSnapshot {
 }
 
 /** Uncached loader; exported for tests and scripts. */
+/** Stored option definitions with types and swatches filled in; never breaks the catalog */
+function safeOptions(raw: unknown) {
+  try {
+    return normalizeOptions(raw)
+  } catch {
+    return undefined
+  }
+}
+
 export async function loadSnapshot(): Promise<CatalogSnapshot> {
   const [products, images, variants, specs, categories, collections, links, ratings, sold, favorites, materials] = await Promise.all([
     db.orm.public.Product.where({ isActive: true }).all(),
@@ -142,7 +152,7 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
       stock: (variantsByProduct.get(p.id) ?? []).length
         ? (variantsByProduct.get(p.id) ?? []).reduce((sum, v) => sum + Math.max(0, v.stock), 0)
         : p.stock,
-      variantOptions: Array.isArray(p.variantOptions) ? (p.variantOptions as Array<{ name: string; values: string[] }>) : undefined,
+      variantOptions: Array.isArray(p.variantOptions) ? safeOptions(p.variantOptions) : undefined,
       rating: rating?.avg ? Math.round(Number(rating.avg) * 10) / 10 : 0,
       reviewCount: rating?.count ?? 0,
       images: productImages,

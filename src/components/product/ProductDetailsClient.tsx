@@ -10,6 +10,7 @@ import { toast } from '@/store/toastStore'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import FavoriteButton from './FavoriteButton'
 import StockAlertForm from './StockAlertForm'
+import { isLight, presetFor, swatchBackground } from '@/lib/catalog/colors'
 import styles from './ProductDetails.module.css'
 
 interface Props {
@@ -17,6 +18,11 @@ interface Props {
 }
 
 type AccordionKey = 'about' | 'material' | 'specs' | 'shipping'
+
+/** Colour options show swatches; older products named their colour option "Renk" */
+function isColorOption(option: { name: string; type?: string }): boolean {
+  return option.type === 'color' || (!option.type && option.name.toLocaleLowerCase('tr-TR') === 'renk')
+}
 
 export default function ProductDetailsClient({ product }: Props) {
   const router = useRouter()
@@ -28,7 +34,8 @@ export default function ProductDetailsClient({ product }: Props) {
   const variants = product.variants ?? []
   const optionsOf = (v: (typeof variants)[number]): Record<string, string> => v.options ?? { [v.name]: v.value }
   const variantOptions =
-    product.variantOptions && product.variantOptions.length > 0
+    // Options are only offered while at least one combination is on sale
+    product.variantOptions && product.variantOptions.length > 0 && variants.length > 0
       ? product.variantOptions
       : variants.length > 0
         ? [{ name: variants[0].name, values: [...new Set(variants.map((v) => v.value))] }]
@@ -195,6 +202,26 @@ export default function ProductDetailsClient({ product }: Props) {
               if (anyWithValue.length === 0) return null
               const soldOut = candidate ? candidate.stock <= 0 : anyWithValue.every((v) => v.stock <= 0)
               const isSelected = selection[option.name] === value
+              if (isColorOption(option)) {
+                const colors = option.swatches?.[value] ?? [presetFor(value) ?? '#bdbdbd']
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    title={soldOut ? `${value} — stokta değil` : value}
+                    className={`${styles.swatchBtn} ${isSelected ? styles.swatchBtnActive : ''} ${soldOut ? styles.swatchSoldOut : ''}`}
+                    onClick={() => choose(option.name, value)}
+                    aria-label={soldOut ? `${value} (stokta değil)` : value}
+                  >
+                    <span
+                      className={`${styles.swatchDot} ${colors.length === 1 && isLight(colors[0]) ? styles.swatchDotLight : ''}`}
+                      style={{ background: swatchBackground(colors) }}
+                    />
+                  </button>
+                )
+              }
               return (
                 <button
                   key={value}
@@ -205,10 +232,6 @@ export default function ProductDetailsClient({ product }: Props) {
                   onClick={() => choose(option.name, value)}
                   aria-label={soldOut ? `${value} (stokta değil)` : value}
                 >
-                  {candidate?.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={candidate.imageUrl} alt="" className={styles.variantThumb} />
-                  )}
                   <span>{value}</span>
                 </button>
               )

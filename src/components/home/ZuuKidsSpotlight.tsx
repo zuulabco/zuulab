@@ -7,7 +7,7 @@ import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import type { ProductListItem } from '@/types/catalog'
 import { SECTION_TEMPLATES, type SpotlightSettings } from '@/lib/cms/homepage'
-import { isCloudinaryUrl, cloudinaryFeatureLoader, cloudinaryCardLoader } from '@/lib/images/cloudinary-loader'
+import { isCloudinaryUrl, cloudinaryFeatureLoader } from '@/lib/images/cloudinary-loader'
 import styles from './ZuuKidsSpotlight.module.css'
 
 interface Props {
@@ -66,18 +66,6 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false, setting
                 loader={isCloudinaryUrl(product.primaryImage) ? cloudinaryFeatureLoader : undefined}
                 className={styles.photo}
               />
-            )}
-            {product.secondaryImage && (
-              <span className={styles.inset} aria-hidden="true">
-                <Image
-                  src={product.secondaryImage}
-                  alt=""
-                  fill
-                  sizes="160px"
-                  loader={isCloudinaryUrl(product.secondaryImage) ? cloudinaryCardLoader : undefined}
-                  className={styles.photo}
-                />
-              </span>
             )}
             {discount > 0 && <span className={styles.saleTag}>%{discount} indirim</span>}
           </Link>

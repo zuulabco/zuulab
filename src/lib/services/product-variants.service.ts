@@ -3,6 +3,7 @@ import { db } from '@/prisma/db'
 import { dbNumeric } from '@/lib/db/numeric'
 import { invalidateCatalog } from '@/lib/cache/catalog-cache'
 import { logAuditEvent } from './admin.service'
+import { cleanSwatch, presetFor } from '@/lib/catalog/colors'
 
 /**
  * Product options (Renk, Boyut…) and their combinations.
@@ -19,7 +20,11 @@ import { logAuditEvent } from './admin.service'
 
 export interface VariantOption {
   name: string
+  /** 'color' options show swatches on the product page; 'text' ones show labels */
+  type: 'color' | 'text'
   values: string[]
+  /** color options: the colours of each value's swatch (2+ make a gradient) */
+  swatches?: Record<string, string[]>
 }
 
 export interface VariantRowInput {
@@ -68,7 +73,22 @@ export function normalizeOptions(input: unknown): VariantOption[] {
     }
     if (values.length === 0) throw new VariantValidationError(`'${name}' seçeneğine en az bir değer girin.`)
     if (values.length > MAX_VALUES) throw new VariantValidationError(`Bir seçenekte en fazla ${MAX_VALUES} değer olabilir.`)
-    out.push({ name, values })
+    // Options saved before types existed: one named 'Renk' is a colour option
+    const rawType = (raw as Partial<VariantOption>)?.type
+    const type: VariantOption['type'] = rawType === 'color' || (!rawType && name.toLocaleLowerCase('tr-TR') === 'renk') ? 'color' : 'text'
+    if (type === 'color') {
+      if (out.some((o) => o.type === 'color')) throw new VariantValidationError('Bir üründe tek renk seçeneği olabilir.')
+      const given = ((raw as VariantOption)?.swatches ?? {}) as Record<string, unknown>
+      const swatches: Record<string, string[]> = {}
+      for (const v of values) {
+        const colors = cleanSwatch(given[v])
+        const preset = presetFor(v)
+        swatches[v] = colors.length ? colors : preset ? [preset] : ['#bdbdbd']
+      }
+      out.push({ name, type, values, swatches })
+    } else {
+      out.push({ name, type, values })
+    }
   }
   if (out.length > MAX_OPTIONS) throw new VariantValidationError(`En fazla ${MAX_OPTIONS} seçenek (örn. renk, boyut, malzeme) tanımlanabilir.`)
   return out

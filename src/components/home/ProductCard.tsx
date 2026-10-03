@@ -142,9 +142,9 @@ export default function ProductCard({ product, priority = false }: Props) {
           <div className={styles.saleTrack} aria-hidden="true">
             {Array.from({ length: 2 }).map((_, half) => (
               <span key={half} className={styles.saleHalf}>
-                {Array.from({ length: 4 }).map((__, i) => (
+                {Array.from({ length: 6 }).map((__, i) => (
                   <span key={i} className={styles.saleItem}>
-                    indirim
+                    İNDİRİM
                   </span>
                 ))}
               </span>

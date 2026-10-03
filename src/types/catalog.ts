@@ -30,7 +30,7 @@ export interface CatalogProduct {
   /** Outer size in millimetres, from the product form */
   dimensions?: { lengthMm: number | null; widthMm: number | null; heightMm: number | null }
   /** Option definitions, e.g. [{ name: 'Renk', values: ['Kırmızı', 'Mavi'] }] */
-  variantOptions?: Array<{ name: string; values: string[] }>
+  variantOptions?: Array<{ name: string; type?: 'color' | 'text'; values: string[]; swatches?: Record<string, string[]> }>
   productionTime: string
   colors?: string[]
   isFeatured: boolean

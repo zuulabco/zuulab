@@ -94,12 +94,29 @@ describe('product options', () => {
   it('shows options, photos and summed stock on the storefront', async () => {
     const snap = await loadSnapshot()
     const p = snap.products.find((x) => x.id === productId)!
-    expect(p.variantOptions?.[0]).toEqual({ name: 'Renk', values: ['Kırmızı'] })
+    expect(p.variantOptions?.[0]).toMatchObject({ name: 'Renk', type: 'color', values: ['Kırmızı'], swatches: { Kırmızı: ['#d32f2f'] } })
     expect(p.variants?.length).toBe(2)
     expect(p.variants?.[0].options).toEqual({ Renk: 'Kırmızı', Boyut: 'S' })
     expect(p.variants?.[0].imageUrl).toBe('https://example.com/kirmizi.jpg')
     expect(p.stock).toBe(5)
   }, 60_000)
+
+  it('keeps colour swatches, fills presets and reads old "Renk" options as colours', () => {
+    const [color, size] = variants.normalizeOptions([
+      { name: 'Renk', type: 'color', values: ['Kırmızı', 'Gün batımı'], swatches: { 'Gün batımı': ['#F57C00', '#7b1fa2', 'red'] } },
+      { name: 'Boyut', type: 'text', values: ['S'] },
+    ])
+    expect(color.type).toBe('color')
+    expect(color.swatches).toEqual({ Kırmızı: ['#d32f2f'], 'Gün batımı': ['#f57c00', '#7b1fa2'] })
+    expect(size).toEqual({ name: 'Boyut', type: 'text', values: ['S'] })
+    expect(variants.normalizeOptions([{ name: 'Renk', values: ['Mavi'] }])[0]).toMatchObject({ type: 'color', swatches: { Mavi: ['#1e88e5'] } })
+    expect(() =>
+      variants.normalizeOptions([
+        { name: 'Renk', type: 'color', values: ['A'] },
+        { name: 'Ton', type: 'color', values: ['B'] },
+      ])
+    ).toThrow(/tek renk/)
+  })
 
   it('rejects duplicate option names and empty options', async () => {
     await expect(
