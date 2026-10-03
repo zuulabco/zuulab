@@ -10,16 +10,12 @@ import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { formatTrMobile, normalizeTrMobile } from '@/lib/validations/phone'
+import { matchProvince } from '@/lib/geo/tr-provinces'
+import CityInput, { cityError } from '@/components/forms/CityInput'
 import { calculateShipping } from '@/lib/services/shipping.service'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
-
-const CITIES = [
-  'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana', 'Konya',
-  'Gaziantep', 'Kocaeli', 'Eskişehir', 'Mersin', 'Kayseri', 'Samsun',
-  'Denizli', 'Trabzon', 'Diyarbakır', 'Muğla', 'Tekirdağ', 'Aydın', 'Balıkesir'
-]
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
@@ -44,7 +40,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
-  const [city, setCity] = useState('İstanbul')
+  const [city, setCity] = useState('')
   const [district, setDistrict] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
   const [postalCode, setPostalCode] = useState('34000')
@@ -100,7 +96,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   const [modalFirstName, setModalFirstName] = useState('')
   const [modalLastName, setModalLastName] = useState('')
   const [modalPhone, setModalPhone] = useState('')
-  const [modalCity, setModalCity] = useState('İstanbul')
+  const [modalCity, setModalCity] = useState('')
   const [modalDistrict, setModalDistrict] = useState('')
   const [modalAddressLine, setModalAddressLine] = useState('')
   const [modalPostalCode, setModalPostalCode] = useState('34000')
@@ -172,7 +168,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
     setModalFirstName(nameParts[0] || (user?.name?.split(' ')[0] ?? ''))
     setModalLastName(nameParts.slice(1).join(' ') || (user?.name?.split(' ').slice(1).join(' ') ?? ''))
     setModalPhone(phone || '')
-    setModalCity(city || 'İstanbul')
+    setModalCity(city || '')
     setModalDistrict(district || '')
     setModalAddressLine('')
     setModalPostalCode(postalCode || '34000')
@@ -193,6 +189,11 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
       setModalError('Lütfen tüm zorunlu alanları doldurun.')
       return
     }
+    const modalCityError = cityError(modalCity)
+    if (modalCityError) {
+      setModalError(modalCityError)
+      return
+    }
 
     setModalSaving(true)
     setModalError(null)
@@ -203,7 +204,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
         firstName: modalFirstName.trim(),
         lastName: modalLastName.trim(),
         phone: modalPhone.trim(),
-        city: modalCity,
+        city: matchProvince(modalCity) ?? modalCity,
         district: modalDistrict.trim(),
         postalCode: modalPostalCode.trim() || '34000',
         addressLine1: modalAddressLine.trim(),
@@ -335,6 +336,10 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
     if (!normalizeTrMobile(phone)) {
       errors.phone = 'Geçerli bir cep telefonu numarası giriniz (0555 555 55 55).'
     }
+    const cityProblem = cityError(city)
+    if (cityProblem) {
+      errors.city = cityProblem
+    }
     if (!district.trim()) {
       errors.district = 'İlçe alanı zorunludur.'
     }
@@ -391,7 +396,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
           shippingAddress: {
             fullName: fullName.trim(),
             phone: phone.trim(),
-            city,
+            city: matchProvince(city) ?? city,
             district: district.trim(),
             neighborhood: neighborhood.trim() || undefined,
             postalCode: postalCode.trim() || '34000',
@@ -403,7 +408,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
             : {
                 fullName: billingFullName.trim() || fullName.trim(),
                 phone: phone.trim(),
-                city,
+                city: matchProvince(city) ?? city,
                 district: district.trim(),
                 postalCode: postalCode.trim() || '34000',
                 addressLine: addressLine.trim(),
@@ -711,17 +716,16 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                   <label className={styles.label} htmlFor="checkout-city">
                     şehir <span className={styles.reqMark}>*</span>
                   </label>
-                  <select
+                  <CityInput
                     id="checkout-city"
-                    autoComplete="address-level1"
-                    className={styles.select}
+                    inputClassName={`${styles.input} ${fieldErrors.city ? styles.inputErrorBorder : ''}`}
                     value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                  >
-                    {CITIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                    error={fieldErrors.city}
+                    onChange={(v) => {
+                      setCity(v)
+                      if (fieldErrors.city) setFieldErrors((p) => ({ ...p, city: '' }))
+                    }}
+                  />
                 </div>
 
                 <div className={styles.formGroup}>
@@ -1280,16 +1284,12 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
             <div className={styles.formGroup}>
               <label className={styles.label} htmlFor="modal-city">şehir *</label>
-              <select
+              <CityInput
                 id="modal-city"
-                className={styles.select}
+                inputClassName={styles.input}
                 value={modalCity}
-                onChange={(e) => setModalCity(e.target.value)}
-              >
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+                onChange={setModalCity}
+              />
             </div>
 
             <div className={styles.formGroup}>

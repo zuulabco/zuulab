@@ -100,6 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Ana sayfa', href: '/content/homepage', icon: 'layout' },
       { label: 'Duyuru bandı', href: '/content/announcement', icon: 'announcement' },
       { label: 'Sosyal medya', href: '/content/social', icon: 'share' },
+      { label: 'Bülten', href: '/content/newsletter', icon: 'mail' },
       { label: 'Medya', href: '/content/media', icon: 'media' },
     ],
   },

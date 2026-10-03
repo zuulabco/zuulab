@@ -6,6 +6,8 @@ import { toast } from '@/store/toastStore'
 import AccountNav from '@/components/account/AccountNav'
 import AccountHeader from '@/components/account/AccountHeader'
 import { formatTrMobile } from '@/lib/validations/phone'
+import { matchProvince } from '@/lib/geo/tr-provinces'
+import CityInput, { cityError } from '@/components/forms/CityInput'
 import Modal from '@/components/common/Modal'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Adresler.module.css'
@@ -26,12 +28,6 @@ interface AddressItem {
   isDefault: boolean
 }
 
-const CITIES = [
-  'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana', 'Konya',
-  'Gaziantep', 'Kocaeli', 'Eskişehir', 'Mersin', 'Kayseri', 'Samsun',
-  'Denizli', 'Trabzon', 'Diyarbakır', 'Muğla', 'Tekirdağ', 'Aydın', 'Balıkesir'
-]
-
 export default function AdreslerClient() {
   const { user, token, openAuthModal } = useAuthStore()
   const [mounted, setMounted] = useState(false)
@@ -45,7 +41,8 @@ export default function AdreslerClient() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
-  const [city, setCity] = useState('İstanbul')
+  const [city, setCity] = useState('')
+  const [cityProblem, setCityProblem] = useState('')
   const [district, setDistrict] = useState('')
   const [postalCode, setPostalCode] = useState('34000')
   const [addressLine1, setAddressLine1] = useState('')
@@ -112,7 +109,8 @@ export default function AdreslerClient() {
     setFirstName(user.name?.split(' ')[0] || '')
     setLastName(user.name?.split(' ').slice(1).join(' ') || '')
     setPhone('')
-    setCity('İstanbul')
+    setCity('')
+    setCityProblem('')
     setDistrict('')
     setPostalCode('34000')
     setAddressLine1('')
@@ -128,6 +126,7 @@ export default function AdreslerClient() {
     setLastName(addr.lastName)
     setPhone(addr.phone)
     setCity(addr.city)
+    setCityProblem('')
     setDistrict(addr.district)
     setPostalCode(addr.postalCode)
     setAddressLine1(addr.addressLine1)
@@ -138,6 +137,11 @@ export default function AdreslerClient() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    const problem = cityError(city)
+    if (problem) {
+      setCityProblem(problem)
+      return
+    }
     setSaving(true)
 
     const payload = {
@@ -145,7 +149,7 @@ export default function AdreslerClient() {
       firstName,
       lastName,
       phone,
-      city,
+      city: matchProvince(city) ?? city,
       district,
       postalCode,
       addressLine1,
@@ -397,16 +401,17 @@ export default function AdreslerClient() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>şehir *</label>
-            <select
-              className={styles.select}
+            <label className={styles.label} htmlFor="address-city">şehir *</label>
+            <CityInput
+              id="address-city"
+              inputClassName={styles.input}
               value={city}
-              onChange={(e) => setCity(e.target.value)}
-            >
-              {CITIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+              error={cityProblem}
+              onChange={(v) => {
+                setCity(v)
+                setCityProblem('')
+              }}
+            />
           </div>
 
           <div className={styles.formGroup}>

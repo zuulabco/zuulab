@@ -2,6 +2,12 @@ import React from 'react'
 
 /** Line icons for the admin navigation (24px grid, stroke follows text colour). */
 const PATHS: Record<string, React.ReactNode> = {
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3.5 6.5 8.5 6.5 8.5-6.5" />
+    </>
+  ),
   share: (
     <>
       <circle cx="18" cy="5" r="2.5" />

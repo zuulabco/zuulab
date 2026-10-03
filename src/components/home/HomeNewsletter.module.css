@@ -227,3 +227,29 @@
     height: 48px;
   }
 }
+
+/* Consent for commercial e-mail (required, stored with the subscription) */
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.consent input {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--text-primary);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--error);
+}

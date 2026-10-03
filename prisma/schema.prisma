@@ -967,6 +967,9 @@ model Coupon {
   isActive       Boolean       @default(true) @map("is_active")
   validFrom      DateTime?     @map("valid_from")
   validUntil     DateTime?     @map("valid_until")
+  // MANUAL: made in the admin panel. NEWSLETTER: random single-use welcome code.
+  source         String        @default("MANUAL")
+  assignedEmail  String?       @map("assigned_email")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
@@ -2395,6 +2398,29 @@ model MaterialStockMovement {
 
 // Fixed-window request counters shared by every server instance
 // (src/lib/security/rate-limiter.ts). Rows are tiny and pruned as they expire.
+/// Newsletter list with the consent record required for commercial e-mail (6563).
+/// PENDING until the confirmation link is clicked, then ACTIVE; UNSUBSCRIBED keeps
+/// the row (and its consent history) instead of deleting it.
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  status         String    @default("PENDING")
+  token          String    @unique
+  source         String    @default("homepage")
+  consentText    String    @map("consent_text")
+  consentIp      String?   @map("consent_ip")
+  consentAgent   String?   @map("consent_agent")
+  couponId       String?   @map("coupon_id")
+  confirmEmailAt DateTime? @map("confirm_email_at")
+  confirmedAt    DateTime? @map("confirmed_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("newsletter_subscribers")
+}
+
 model RateLimit {
   key          String   @id
   count        Int

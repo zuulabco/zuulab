@@ -62,6 +62,10 @@ export interface EmailSendOptions {
   html: string
   text?: string
   from?: string
+  /** Where customer replies go (e.g. a monitored inbox when sending from a no-reply address). */
+  replyTo?: string
+  /** Extra headers, e.g. List-Unsubscribe for newsletters. */
+  headers?: Record<string, string>
   idempotencyKey?: string
 }
 

@@ -7,6 +7,8 @@ import { formatPrice } from '@/lib/utils'
 import Modal from '@/components/common/Modal'
 import styles from '../admin.module.css'
 import { SkeletonRows } from '@/components/common/Skeleton'
+import { Segmented } from '../content/homepage/editors'
+import NewsletterCodes from './NewsletterCodes'
 
 interface CouponItem {
   id: string
@@ -33,6 +35,8 @@ export default function AdminCouponsPage() {
   const { token, canFetch } = useAuthStore()
   const { addToast } = useToastStore()
 
+  // Hand-made coupons vs. automatic newsletter welcome codes, kept apart
+  const [view, setView] = useState<'MANUAL' | 'NEWSLETTER'>('MANUAL')
   const [coupons, setCoupons] = useState<CouponItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -232,14 +236,33 @@ export default function AdminCouponsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className={styles.primaryButton}
-        >
-          + Yeni Kupon Oluştur
-        </button>
+        {view === 'MANUAL' && (
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className={styles.primaryButton}
+          >
+            + Yeni Kupon Oluştur
+          </button>
+        )}
       </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <Segmented
+          label="Kupon türü"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'MANUAL', label: 'Kuponlarım' },
+            { value: 'NEWSLETTER', label: 'Bülten kodları' },
+          ]}
+        />
+      </div>
+
+      {view === 'NEWSLETTER' ? (
+        <NewsletterCodes />
+      ) : (
+      <>
 
       {/* ── METRIC STATS CARDS ──────────────────────────────────────────────── */}
       <div
@@ -543,6 +566,9 @@ export default function AdminCouponsPage() {
           </tbody>
         </table>
       </div>
+
+      </>
+      )}
 
       {/* ── CREATE / EDIT COUPON MODAL ────────────────────────────────────────── */}
       <Modal

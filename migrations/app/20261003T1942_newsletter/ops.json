@@ -1,0 +1,242 @@
+[
+  {
+    "id": "table.newsletter_subscribers",
+    "label": "Create table \"newsletter_subscribers\"",
+    "summary": "Creates table \"newsletter_subscribers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "newsletter_subscribers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"newsletter_subscribers\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"newsletter_subscribers\"",
+        "sql": "CREATE TABLE \"public\".\"newsletter_subscribers\" (\n  \"confirm_email_at\" timestamp(3),\n  \"confirmed_at\" timestamp(3),\n  \"consent_agent\" text,\n  \"consent_ip\" text,\n  \"consent_text\" text NOT NULL,\n  \"coupon_id\" text,\n  \"created_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"id\" text NOT NULL,\n  \"source\" text DEFAULT 'homepage' NOT NULL,\n  \"status\" text DEFAULT 'PENDING' NOT NULL,\n  \"token\" text NOT NULL,\n  \"unsubscribed_at\" timestamp(3),\n  \"updated_at\" timestamp(3) NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"newsletter_subscribers\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.coupons.assigned_email",
+    "label": "Add column \"assigned_email\" to \"coupons\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "assigned_email",
+        "table": "coupons"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"assigned_email\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "assigned_email"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"assigned_email\"",
+        "sql": "ALTER TABLE \"public\".\"coupons\" ADD COLUMN \"assigned_email\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"assigned_email\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "assigned_email"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.coupons.source",
+    "label": "Add column \"source\" to \"coupons\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "source",
+        "table": "coupons"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"source\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "source"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"source\"",
+        "sql": "ALTER TABLE \"public\".\"coupons\" ADD COLUMN \"source\" text DEFAULT 'MANUAL' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"source\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "coupons",
+          "source"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.newsletter_subscribers.newsletter_subscribers_email_key",
+    "label": "Create index \"newsletter_subscribers_email_key\" on \"newsletter_subscribers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "newsletter_subscribers_email_key",
+        "table": "newsletter_subscribers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"newsletter_subscribers_email_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_email_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"newsletter_subscribers_email_key\"",
+        "sql": "CREATE UNIQUE INDEX \"newsletter_subscribers_email_key\" ON \"public\".\"newsletter_subscribers\" (\"email\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"newsletter_subscribers_email_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_email_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.newsletter_subscribers.newsletter_subscribers_status_idx",
+    "label": "Create index \"newsletter_subscribers_status_idx\" on \"newsletter_subscribers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "newsletter_subscribers_status_idx",
+        "table": "newsletter_subscribers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"newsletter_subscribers_status_idx\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_status_idx\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"newsletter_subscribers_status_idx\"",
+        "sql": "CREATE INDEX \"newsletter_subscribers_status_idx\" ON \"public\".\"newsletter_subscribers\" (\"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"newsletter_subscribers_status_idx\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_status_idx\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.newsletter_subscribers.newsletter_subscribers_token_key",
+    "label": "Create index \"newsletter_subscribers_token_key\" on \"newsletter_subscribers\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "newsletter_subscribers_token_key",
+        "table": "newsletter_subscribers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"newsletter_subscribers_token_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_token_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"newsletter_subscribers_token_key\"",
+        "sql": "CREATE UNIQUE INDEX \"newsletter_subscribers_token_key\" ON \"public\".\"newsletter_subscribers\" (\"token\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"newsletter_subscribers_token_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"newsletter_subscribers_token_key\""
+        ]
+      }
+    ]
+  }
+]

@@ -2,6 +2,8 @@ export interface BaseEmailParams {
   title: string
   preheader?: string
   contentHtml: string
+  /** Replaces the default "sent because of your order" footer line (e.g. newsletter mails). */
+  footerHtml?: string
 }
 
 export function renderEmailBase(params: BaseEmailParams): {
@@ -120,8 +122,8 @@ export function renderEmailBase(params: BaseEmailParams): {
         ${params.contentHtml}
       </div>
       <div class="footer">
-        <div>Bu bilgilendirme e-postası ZUULAB sipariş hareketiniz nedeniyle otomatik olarak gönderilmiştir.</div>
-        <div style="margin-top: 6px;">Sorularınız veya destek talepleriniz için <a href="https://zuulab.com/hesap">hesabım</a> üzerinden bize ulaşabilirsiniz.</div>
+        ${params.footerHtml ?? `<div>Bu bilgilendirme e-postası ZUULAB sipariş hareketiniz nedeniyle otomatik olarak gönderilmiştir.</div>
+        <div style="margin-top: 6px;">Sorularınız veya destek talepleriniz için <a href="https://zuulab.com/hesap">hesabım</a> üzerinden bize ulaşabilirsiniz.</div>`}
         <div style="margin-top: 10px; font-size: 10px; color: rgba(255, 255, 255, 0.25);">© 2026 ZUULAB. Tüm hakları saklıdır.</div>
       </div>
     </div>

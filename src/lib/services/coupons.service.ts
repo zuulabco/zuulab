@@ -48,8 +48,25 @@ export async function resolveCoupon(params: {
     return { coupon: null, error: 'Bu kuponun geçerlilik süresi dışında bulunuyorsunuz.' }
   }
 
-  if (row.maxUses !== null && row.maxUses !== undefined && row.currentUses >= row.maxUses) {
-    return { coupon: null, error: 'Bu kuponun kullanım limiti dolmuştur.' }
+  if (row.maxUses !== null && row.maxUses !== undefined) {
+    if (row.currentUses >= row.maxUses) {
+      return { coupon: null, error: 'Bu kuponun kullanım limiti dolmuştur.' }
+    }
+    // Uses are counted when an order is paid, so a limited code sitting in someone
+    // else's unfinished payment is held for them until that payment window closes.
+    // Without this, two people could pay with the same single-use code at once.
+    const [held] = (await db.runtime().query(
+      db.raw.sql`SELECT COUNT(*)::int AS n FROM orders
+                 WHERE coupon_id = ${row.id} AND status = 'PAYMENT_PENDING'
+                   AND (payment_expires_at IS NULL OR payment_expires_at > now())
+                   AND user_id IS DISTINCT FROM ${params.userId ?? ''}`
+        .returnsRow({ n: 'pg/int4@1' } as never)
+        .build()
+    )) as unknown as Array<{ n: number }>
+    const heldCount = Number(held?.n ?? 0)
+    if (row.currentUses + heldCount >= row.maxUses) {
+      return { coupon: null, error: 'Bu kupon şu anda başka bir siparişte kullanılıyor.' }
+    }
   }
 
   const minCart = row.minCartAmount !== null ? Number(row.minCartAmount) : 0

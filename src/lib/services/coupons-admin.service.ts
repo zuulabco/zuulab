@@ -18,6 +18,10 @@ export interface AdminCoupon {
   isActive: boolean
   validFrom?: string | null
   validUntil?: string | null
+  /** MANUAL (made here) or NEWSLETTER (random welcome code) */
+  source?: 'MANUAL' | 'NEWSLETTER'
+  assignedEmail?: string | null
+  createdAt?: string | null
 }
 
 const COUPON_TYPES = new Set(['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'])
@@ -40,6 +44,9 @@ function toAdminCoupon(row: CouponRow): AdminCoupon {
     isActive: row.isActive,
     validFrom: dbTimestampToIso(row.validFrom),
     validUntil: dbTimestampToIso(row.validUntil),
+    source: (row.source === 'NEWSLETTER' ? 'NEWSLETTER' : 'MANUAL'),
+    assignedEmail: row.assignedEmail ?? null,
+    createdAt: dbTimestampToIso(row.createdAt),
   }
 }
 
@@ -98,14 +105,15 @@ const COUNTED_STATUSES = new Set([
 ])
 
 /**
- * Retrieves all coupons with usage statistics from paid orders.
+ * Retrieves coupons of one source with usage statistics from paid orders.
+ * Hand-made coupons and newsletter welcome codes are listed separately.
  */
-export async function adminGetCouponsWithStats() {
-  const coupons = await db.orm.public.Coupon.orderBy((c) => c.createdAt.desc()).all()
+export async function adminGetCouponsWithStats(source: 'MANUAL' | 'NEWSLETTER' = 'MANUAL') {
+  const coupons = await db.orm.public.Coupon.where({ source }).orderBy((c) => c.createdAt.desc()).all()
   const ids = coupons.map((c) => c.id)
   const orders = ids.length
     ? await db.orm.public.Order
-        .select('couponId', 'status', 'discountAmount', 'total')
+        .select('couponId', 'status', 'discountAmount', 'total', 'orderNumber', 'createdAt')
         .where((o) => o.couponId.in(ids))
         .all()
     : []
@@ -118,8 +126,12 @@ export async function adminGetCouponsWithStats() {
     const revenueGenerated = paid.reduce((sum, o) => sum + Number(o.total), 0)
     const remainingLimit = coup.maxUses ? Math.max(0, coup.maxUses - usageCount) : null
 
+    const lastPaid = paid.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
+
     return {
       ...coup,
+      usedInOrder: lastPaid?.orderNumber ?? null,
+      usedAt: lastPaid ? dbTimestampToIso(lastPaid.createdAt) : null,
       usedCount: usageCount,
       totalDiscountGranted,
       revenueGenerated,

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/services/auth.service'
 import { updateAddress, deleteAddress } from '@/lib/services/address.service'
 import { z } from 'zod'
 import { trMobilePhone } from '@/lib/validations/phone'
+import { trProvince } from '@/lib/validations/province'
 
 const updateAddressSchema = z.object({
   title: z.string().min(1).max(50).optional(),
@@ -11,7 +12,7 @@ const updateAddressSchema = z.object({
   phone: trMobilePhone().optional(),
   addressLine1: z.string().min(10).max(250).optional(),
   addressLine2: z.string().max(100).optional().nullable(),
-  city: z.string().min(2).max(50).optional(),
+  city: trProvince().optional(),
   district: z.string().min(2).max(50).optional(),
   postalCode: z.string().min(3).max(10).optional(),
   country: z.string().optional(),

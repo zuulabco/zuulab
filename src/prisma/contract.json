@@ -124,6 +124,10 @@
       "model": "MaterialStock",
       "namespace": "public"
     },
+    "newsletter_subscribers": {
+      "model": "NewsletterSubscriber",
+      "namespace": "public"
+    },
     "notifications": {
       "model": "Notification",
       "namespace": "public"
@@ -2365,6 +2369,13 @@
           },
           "Coupon": {
             "fields": {
+              "assignedEmail": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "code": {
                 "nullable": false,
                 "type": {
@@ -2457,6 +2468,13 @@
                   }
                 }
               },
+              "source": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "type": {
                 "nullable": false,
                 "type": {
@@ -2547,6 +2565,9 @@
             },
             "storage": {
               "fields": {
+                "assignedEmail": {
+                  "column": "assigned_email"
+                },
                 "code": {
                   "column": "code"
                 },
@@ -2579,6 +2600,9 @@
                 },
                 "minCartAmount": {
                   "column": "min_cart_amount"
+                },
+                "source": {
+                  "column": "source"
                 },
                 "type": {
                   "column": "type"
@@ -5408,6 +5432,172 @@
               },
               "namespaceId": "public",
               "table": "material_stock_movements"
+            }
+          },
+          "NewsletterSubscriber": {
+            "fields": {
+              "confirmEmailAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "confirmedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "consentAgent": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "consentIp": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "consentText": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "couponId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "email": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "source": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "token": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "unsubscribedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "confirmEmailAt": {
+                  "column": "confirm_email_at"
+                },
+                "confirmedAt": {
+                  "column": "confirmed_at"
+                },
+                "consentAgent": {
+                  "column": "consent_agent"
+                },
+                "consentIp": {
+                  "column": "consent_ip"
+                },
+                "consentText": {
+                  "column": "consent_text"
+                },
+                "couponId": {
+                  "column": "coupon_id"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "source": {
+                  "column": "source"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "token": {
+                  "column": "token"
+                },
+                "unsubscribedAt": {
+                  "column": "unsubscribed_at"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "newsletter_subscribers"
             }
           },
           "Notification": {
@@ -18427,6 +18617,11 @@
             },
             "coupons": {
               "columns": {
+                "assigned_email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "code": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -18512,6 +18707,15 @@
                     "precision": 10,
                     "scale": 2
                   }
+                },
+                "source": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "MANUAL"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
                 },
                 "type": {
                   "codecId": "pg/enum@1",
@@ -20753,6 +20957,137 @@
                     "color"
                   ],
                   "name": "material_stocks_store_id_material_name_color_key",
+                  "unique": true
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
+            "newsletter_subscribers": {
+              "columns": {
+                "confirm_email_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "confirmed_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "consent_agent": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "consent_ip": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "consent_text": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "coupon_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "created_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "source": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "homepage"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "status": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PENDING"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "token": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "unsubscribed_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "email"
+                  ],
+                  "name": "newsletter_subscribers_email_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
+                    "status"
+                  ],
+                  "name": "newsletter_subscribers_status_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "token"
+                  ],
+                  "name": "newsletter_subscribers_token_key",
                   "unique": true
                 }
               ],
@@ -29657,10 +29992,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "e40f6c721605fb07dad5c2d6a59b8a38140a7aaf96085b7e19a8f20269a89ac9"
+    "storageHash": "50b533fcf70cd97836b6b1b19becdffe72e09b7058483c7a6cad9c1cb9b01f48"
   },
   "execution": {
-    "executionHash": "f900834b4f4cd376de5dbef740e53715dff4ce5112b97fa32b9dce0a517b8c47",
+    "executionHash": "c0567e6d3146606d1ca48b11cb8eb7e15ff1a4a49de19a691c87dba7d3248bac",
     "mutations": {
       "defaults": [
         {
@@ -30267,6 +30602,32 @@
           },
           "ref": {
             "entry": "material_stocks",
+            "field": "updated_at",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "cuid2",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "newsletter_subscribers",
+            "field": "id",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "plainDateTimeNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "plainDateTimeNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "newsletter_subscribers",
             "field": "updated_at",
             "namespace": "public"
           }

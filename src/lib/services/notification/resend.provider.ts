@@ -66,6 +66,8 @@ export class ResendEmailProvider implements EmailProvider {
           subject: options.subject,
           html: options.html,
           text: options.text,
+          ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+          ...(options.headers ? { headers: options.headers } : {}),
         }),
         signal: controller.signal,
       })

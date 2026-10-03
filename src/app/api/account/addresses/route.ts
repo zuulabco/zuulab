@@ -4,6 +4,7 @@ import { getUserAddresses, createAddress } from '@/lib/services/address.service'
 import { addressSchema } from '@/lib/validations/checkout.schema'
 import { z } from 'zod'
 import { trMobilePhone } from '@/lib/validations/phone'
+import { trProvince } from '@/lib/validations/province'
 
 const createAddressSchema = z.object({
   title: z.string().min(1, 'Adres başlığı zorunludur.').max(50),
@@ -12,7 +13,7 @@ const createAddressSchema = z.object({
   phone: trMobilePhone(),
   addressLine1: z.string().min(10, 'Açık adres en az 10 karakter olmalıdır.').max(250),
   addressLine2: z.string().max(100).optional().nullable(),
-  city: z.string().min(2, 'İl seçilmelidir.').max(50),
+  city: trProvince(),
   district: z.string().min(2, 'İlçe girilmelidir.').max(50),
   postalCode: z.string().min(3).max(10),
   country: z.string().default('TR'),

@@ -20,6 +20,7 @@ export const RATE_LIMITS = {
   paymentStatus: { limit: 300, windowSeconds: 600 },
   supportTicket: { limit: 10, windowSeconds: 3600 },
   review: { limit: 10, windowSeconds: 3600 },
+  newsletter: { limit: 6, windowSeconds: 600 },
 } as const
 
 export type RateLimitName = keyof typeof RATE_LIMITS

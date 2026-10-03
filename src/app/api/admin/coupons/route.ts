@@ -5,7 +5,8 @@ import { adminGetCouponsWithStats, adminCreateCoupon } from '@/lib/services/coup
 export async function GET(request: Request) {
   try {
     await requirePermission(request, 'COUPON_MANAGE')
-    const coupons = await adminGetCouponsWithStats()
+    const source = new URL(request.url).searchParams.get('source') === 'NEWSLETTER' ? 'NEWSLETTER' : 'MANUAL'
+    const coupons = await adminGetCouponsWithStats(source)
 
     return NextResponse.json({
       success: true,

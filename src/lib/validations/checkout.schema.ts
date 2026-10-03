@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { trMobilePhone } from '@/lib/validations/phone'
+import { trProvince } from '@/lib/validations/province'
 
 export const addressSchema = z.object({
   fullName: z
@@ -7,7 +8,7 @@ export const addressSchema = z.object({
     .min(3, 'Ad ve soyad en az 3 karakter olmalıdır.')
     .max(80, 'Ad ve soyad çok uzun.'),
   phone: trMobilePhone(),
-  city: z.string().min(2, 'İl seçilmelidir.').max(50),
+  city: trProvince(),
   district: z.string().min(2, 'İlçe girilmelidir.').max(50),
   neighborhood: z.string().max(80).optional(),
   postalCode: z
