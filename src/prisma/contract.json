@@ -7223,6 +7223,13 @@
                   }
                 }
               },
+              "variantOptions": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
               "videoUrl": {
                 "nullable": true,
                 "type": {
@@ -7624,6 +7631,9 @@
                 "updatedAt": {
                   "column": "updated_at"
                 },
+                "variantOptions": {
+                  "column": "variant_options"
+                },
                 "videoUrl": {
                   "column": "video_url"
                 },
@@ -7854,6 +7864,13 @@
           },
           "ProductMaterial": {
             "fields": {
+              "care": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -7896,6 +7913,9 @@
             "relations": {},
             "storage": {
               "fields": {
+                "care": {
+                  "column": "care"
+                },
                 "createdAt": {
                   "column": "created_at"
                 },
@@ -8003,6 +8023,13 @@
                   "kind": "scalar"
                 }
               },
+              "imageUrl": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "isActive": {
                 "nullable": false,
                 "type": {
@@ -8014,6 +8041,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "options": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
                   "kind": "scalar"
                 }
               },
@@ -8132,11 +8166,17 @@
                 "id": {
                   "column": "id"
                 },
+                "imageUrl": {
+                  "column": "image_url"
+                },
                 "isActive": {
                   "column": "is_active"
                 },
                 "name": {
                   "column": "name"
+                },
+                "options": {
+                  "column": "options"
                 },
                 "price": {
                   "column": "price"
@@ -22009,6 +22049,11 @@
             },
             "product_materials": {
               "columns": {
+                "care": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "created_at": {
                   "codecId": "pg/timestamp-temporal@1",
                   "default": {
@@ -22130,6 +22175,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "image_url": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "is_active": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -22143,6 +22193,11 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "options": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
                 },
                 "price": {
                   "codecId": "pg/numeric@1",
@@ -22789,6 +22844,11 @@
                   "typeParams": {
                     "precision": 3
                   }
+                },
+                "variant_options": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
                 },
                 "video_url": {
                   "codecId": "pg/text@1",
@@ -29597,7 +29657,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "3dd20eb6730fbda10e7b47ef4221456ab340849514681eb099abe1c4c99fb2f2"
+    "storageHash": "e40f6c721605fb07dad5c2d6a59b8a38140a7aaf96085b7e19a8f20269a89ac9"
   },
   "execution": {
     "executionHash": "f900834b4f4cd376de5dbef740e53715dff4ce5112b97fa32b9dce0a517b8c47",

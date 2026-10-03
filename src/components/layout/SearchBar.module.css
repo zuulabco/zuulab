@@ -492,3 +492,11 @@
   color: var(--text-inv);
   border-color: var(--surface-inv);
 }
+
+/* Our own clear button is enough; hide the browser's second one */
+.input::-webkit-search-cancel-button,
+.input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}

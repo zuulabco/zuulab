@@ -1,0 +1,170 @@
+[
+  {
+    "id": "column.public.product_materials.care",
+    "label": "Add column \"care\" to \"product_materials\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "care",
+        "table": "product_materials"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"care\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_materials",
+          "care"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"care\"",
+        "sql": "ALTER TABLE \"public\".\"product_materials\" ADD COLUMN \"care\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"care\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_materials",
+          "care"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.product_variants.image_url",
+    "label": "Add column \"image_url\" to \"product_variants\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "image_url",
+        "table": "product_variants"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"image_url\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "image_url"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"image_url\"",
+        "sql": "ALTER TABLE \"public\".\"product_variants\" ADD COLUMN \"image_url\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"image_url\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "image_url"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.product_variants.options",
+    "label": "Add column \"options\" to \"product_variants\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "options",
+        "table": "product_variants"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"options\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "options"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"options\"",
+        "sql": "ALTER TABLE \"public\".\"product_variants\" ADD COLUMN \"options\" jsonb"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"options\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "options"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.products.variant_options",
+    "label": "Add column \"variant_options\" to \"products\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "variant_options",
+        "table": "products"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"variant_options\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "variant_options"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"variant_options\"",
+        "sql": "ALTER TABLE \"public\".\"products\" ADD COLUMN \"variant_options\" jsonb"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"variant_options\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "products",
+          "variant_options"
+        ]
+      }
+    ]
+  }
+]

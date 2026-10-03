@@ -60,7 +60,7 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
       },
       {
         title: 'sıfır keskin kenar',
-        description: 'her model çocuk ergonomisine ve güvenliğine göre özel yumuşatılmış radiuslarla 0.12mm hassasiyette basılır.',
+        description: 'her model çocuk ergonomisine ve güvenliğine göre özel yumuşatılmış kenarlarla basılır.',
       },
       {
         title: 'dokunarak öğrenme',
@@ -94,7 +94,7 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     featuredProductSlug: 'vortex-geometrik-kulaklik-standi',
     pillars: [
       {
-        title: '0.12mm katman hassasiyeti',
+        title: 'katman katman üretim',
         description: 'endüstriyel fdm yazıcılarımızda katman çizgileri pürüzsüzleştirilmiş mimari yüzeyler.',
       },
       {

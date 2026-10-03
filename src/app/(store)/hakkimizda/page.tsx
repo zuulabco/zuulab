@@ -93,8 +93,8 @@ export default function HakkimizdaPage() {
                   PETG filamentler kullanıyoruz.
                 </li>
                 <li>
-                  <strong>Yüksek hassasiyet:</strong> 0.12mm ila 0.20mm katman
-                  çözünürlüğünde endüstriyel sınıf yazıcılarla üretim yapıyoruz.
+                  <strong>Kendi atölyemizde:</strong> her ürünü 3d yazıcılarımızda katman
+                  katman basıyor, elden geçirip paketliyoruz.
                 </li>
               </ul>
             </article>
@@ -103,8 +103,8 @@ export default function HakkimizdaPage() {
           {/* Metrikler */}
           <div className={styles.metricsRow}>
             <div className={styles.metric}>
-              <span className={styles.metricValue}>0.12mm</span>
-              <span className={styles.metricLabel}>katman çözünürlüğü</span>
+              <span className={styles.metricValue}>3d</span>
+              <span className={styles.metricLabel}>katman katman baskı</span>
             </div>
             <div className={styles.metric}>
               <span className={styles.metricValue}>%100</span>

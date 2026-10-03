@@ -25,6 +25,12 @@ export interface CatalogProduct {
   taxRate: number
   weight: number
   material: string
+  /** Texts from Stok ve üretim → Malzemeler for this product's material */
+  materialInfo?: { description: string | null; care: string | null }
+  /** Outer size in millimetres, from the product form */
+  dimensions?: { lengthMm: number | null; widthMm: number | null; heightMm: number | null }
+  /** Option definitions, e.g. [{ name: 'Renk', values: ['Kırmızı', 'Mavi'] }] */
+  variantOptions?: Array<{ name: string; values: string[] }>
   productionTime: string
   colors?: string[]
   isFeatured: boolean
@@ -44,6 +50,10 @@ export interface CatalogProduct {
     price?: number
     stock: number
     sku: string
+    /** This combination, e.g. { Renk: 'Kırmızı', Boyut: 'M' } */
+    options?: Record<string, string>
+    /** Photo to show when this combination is chosen */
+    imageUrl?: string
   }>
   specifications: Array<{ name: string; value: string }>
   sortOrder?: number

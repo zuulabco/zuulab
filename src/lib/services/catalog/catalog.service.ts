@@ -31,7 +31,7 @@ interface CatalogSnapshot {
 
 /** Uncached loader; exported for tests and scripts. */
 export async function loadSnapshot(): Promise<CatalogSnapshot> {
-  const [products, images, variants, specs, categories, collections, links, ratings, sold, favorites] = await Promise.all([
+  const [products, images, variants, specs, categories, collections, links, ratings, sold, favorites, materials] = await Promise.all([
     db.orm.public.Product.where({ isActive: true }).all(),
     db.orm.public.ProductImage.orderBy([(i) => i.sortOrder.asc(), (i) => i.createdAt.asc()]).all(),
     db.orm.public.ProductVariant.where({ isActive: true }).orderBy((v) => v.sortOrder.asc()).all(),
@@ -52,7 +52,9 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
         .build()
     ) as unknown as Promise<Array<{ product_id: string; qty: number }>>,
     db.orm.public.Favorite.groupBy('productId').aggregate((a) => ({ count: a.count() })),
+    db.orm.public.ProductMaterial.select('name', 'description', 'care').all(),
   ])
+  const materialByName = new Map(materials.map((m) => [m.name.toLocaleLowerCase('tr-TR'), m]))
 
   const group = <T, K>(rows: T[], key: (r: T) => K) => {
     const map = new Map<K, T[]>()
@@ -123,12 +125,24 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
       taxRate: Number(p.taxRate ?? 20),
       weight: p.weightGrams ?? (p.weight !== null ? Number(p.weight) : 0),
       material: p.material || '',
+      materialInfo: (() => {
+        const m = p.material ? materialByName.get(p.material.toLocaleLowerCase('tr-TR')) : undefined
+        return m ? { description: m.description ?? null, care: m.care ?? null } : undefined
+      })(),
+      dimensions:
+        p.lengthMm || p.widthMm || p.heightMm
+          ? { lengthMm: p.lengthMm ?? null, widthMm: p.widthMm ?? null, heightMm: p.heightMm ?? null }
+          : undefined,
       productionTime: p.productionTime || '',
       isFeatured: Boolean(p.isFeatured || p.featured),
       isBestSeller: Boolean(p.isBestSeller || p.bestSeller),
       isNew: Boolean(p.isNew),
       isActive: true,
-      stock: p.stock,
+      // With variants, the product is in stock when any active combination is
+      stock: (variantsByProduct.get(p.id) ?? []).length
+        ? (variantsByProduct.get(p.id) ?? []).reduce((sum, v) => sum + Math.max(0, v.stock), 0)
+        : p.stock,
+      variantOptions: Array.isArray(p.variantOptions) ? (p.variantOptions as Array<{ name: string; values: string[] }>) : undefined,
       rating: rating?.avg ? Math.round(Number(rating.avg) * 10) / 10 : 0,
       reviewCount: rating?.count ?? 0,
       images: productImages,
@@ -139,6 +153,8 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
         price: v.price !== null ? Number(v.price) : undefined,
         stock: v.stock,
         sku: v.sku || p.sku,
+        options: (v.options as Record<string, string> | null) ?? undefined,
+        imageUrl: v.imageUrl ?? undefined,
       })),
       specifications: (specsByProduct.get(p.id) ?? []).map((s) => ({ name: s.name, value: s.value })),
       sortOrder: p.sortOrder,

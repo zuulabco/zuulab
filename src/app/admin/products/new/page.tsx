@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
+import { EMPTY_SIZE, EMPTY_VARIANTS, SizeEditor, VariantsEditor, saveSize, saveVariants, type SizeValue, type VariantsValue } from '../ProductVariantsEditor'
 import styles from '../../admin.module.css'
 import form from './NewProduct.module.css'
 
@@ -64,6 +65,11 @@ export default function AdminNewProductPage() {
 
   // Media
   const [imageUrl, setImageUrl] = useState('')
+
+  // Options (renk, boyut…) and measurements
+  const [variants, setVariants] = useState<VariantsValue>(EMPTY_VARIANTS)
+  const [size, setSize] = useState<SizeValue>(EMPTY_SIZE)
+  const hasOptions = variants.variants.length > 0
 
   // The SKU the product gets if the field stays empty (shown as the placeholder)
   useEffect(() => {
@@ -154,6 +160,20 @@ export default function AdminNewProductPage() {
 
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || 'Ürün oluşturulamadı.')
+
+      // Options and sizes are saved against the new product
+      const productId = data.product?.id as string | undefined
+      if (productId) {
+        try {
+          if (hasOptions) await saveVariants(productId, variants, token)
+          const hasSize = size.lengthMm || size.widthMm || size.heightMm || size.weightGrams || size.specifications.length
+          if (hasSize) await saveSize(productId, size, token)
+        } catch (err) {
+          toast.error(`Ürün eklendi ama ${(err as Error).message.toLocaleLowerCase('tr-TR')} Düzenleme sayfasından tekrar deneyin.`)
+          router.push(`/admin/products/${productId}`)
+          return
+        }
+      }
 
       toast.success(`'${name}' kataloğa eklendi.`)
       router.push('/admin/products')
@@ -295,6 +315,16 @@ export default function AdminNewProductPage() {
           </section>
 
           <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Seçenekler (renk, boyut…)</h2>
+            <VariantsEditor value={variants} onChange={setVariants} productSku={sku || nextSku} />
+          </section>
+
+          <section className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Ölçüler ve detaylar</h2>
+            <SizeEditor value={size} onChange={setSize} />
+          </section>
+
+          <section className={styles.formCard}>
             <h2 className={styles.formCardTitle}>Fiyat</h2>
             <div className={form.row3}>
               <div className={styles.formGroup}>
@@ -377,8 +407,13 @@ export default function AdminNewProductPage() {
 
           <section className={styles.formCard}>
             <h2 className={styles.formCardTitle}>Stok</h2>
+            {hasOptions && (
+              <p className={styles.formHelp} style={{ margin: '0 0 10px' }}>
+                Bu ürünün seçenekleri var; stok her kombinasyon için ayrı girilir ve toplamı ürün stoğu olur.
+              </p>
+            )}
             <div className={form.row2}>
-              <div className={styles.formGroup}>
+              <div className={styles.formGroup} hidden={hasOptions}>
                 <label className={styles.formLabel} htmlFor="new-stock">Başlangıç stoğu</label>
                 <input
                   id="new-stock"

@@ -6,7 +6,7 @@ import styles from '../ContentPage.module.css'
 export const metadata: Metadata = {
   title: 'Üretim Süreci — Zuulab',
   description:
-    'Dijital tasarımdan kalite kontrolüne kadar Zuulab\'ın 5 aşamalı üretim süreci. 0.12mm hassasiyetle, talep üzerine üretim.',
+    'Dijital tasarımdan kalite kontrolüne kadar Zuulab\'ın 5 aşamalı üretim süreci. Kendi atölyemizde, talep üzerine üretim.',
 }
 
 const STEPS = [
@@ -70,8 +70,8 @@ export default function UretimSureciPage() {
       {/* ── Teknik metrikler ───────────────────────────────── */}
       <div className={styles.metricsRow}>
         <div className={styles.metric}>
-          <span className={styles.metricValue}>0.12mm</span>
-          <span className={styles.metricLabel}>katman çözünürlüğü</span>
+          <span className={styles.metricValue}>3d</span>
+          <span className={styles.metricLabel}>katman katman baskı</span>
         </div>
         <div className={styles.metric}>
           <span className={styles.metricValue}>4–36 saat</span>

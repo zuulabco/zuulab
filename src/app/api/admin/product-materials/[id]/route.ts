@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const user = await requirePermission(request, 'PRODUCT_UPDATE')
     const { id } = await params
     const body = await request.json().catch(() => ({}))
-    await updateProductMaterial(id, { name: body.name, description: body.description }, user.email)
+    await updateProductMaterial(id, { name: body.name, description: body.description, care: body.care }, user.email)
     return NextResponse.json({ success: true })
   } catch (error) {
     return failure(error)

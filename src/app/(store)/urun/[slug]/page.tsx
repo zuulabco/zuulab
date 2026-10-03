@@ -140,7 +140,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <div className={styles.mainGrid}>
           {/* Gallery */}
           <ProductGallery
-            images={product.images}
+            images={[
+              ...product.images,
+              // Variant photos join the gallery; choosing that colour selects its photo
+              ...(product.variants ?? [])
+                .filter((v, i, all) => v.imageUrl && !product.images.some((im) => im.url === v.imageUrl) && all.findIndex((x) => x.imageUrl === v.imageUrl) === i)
+                .map((v) => ({ url: v.imageUrl!, alt: `${product.name} — ${v.value}`, isPrimary: false })),
+            ]}
             productName={product.name}
           />
 

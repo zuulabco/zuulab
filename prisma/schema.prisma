@@ -448,6 +448,8 @@ model Product {
   taxRate           Decimal                @default(20) @db.Decimal(5, 2) @map("tax_rate")
   weight            Decimal?               @db.Decimal(8, 2) // grams
   dimensions        Json?
+  // Option definitions for variants: [{ name: "Renk", values: ["Kırmızı", "Mavi"] }, …]
+  variantOptions    Json?                  @map("variant_options")
   lengthMm          Int?                   @map("length_mm")
   widthMm           Int?                   @map("width_mm")
   heightMm          Int?                   @map("height_mm")
@@ -535,6 +537,10 @@ model ProductVariant {
   productId  String      @map("product_id")
   name       String // e.g. "Renk", "Boyut"
   value      String // e.g. "Kırmızı", "A4"
+  // This combination, e.g. { "Renk": "Kırmızı", "Boyut": "M" }
+  options    Json?
+  // Photo shown when the shopper picks this combination
+  imageUrl   String?     @map("image_url")
   sku        String?
   price      Decimal?    @db.Decimal(10, 2)
   stock      Int         @default(0)
@@ -2576,6 +2582,8 @@ model ProductMaterial {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
+  // Use and care line on product pages, e.g. heat resistance
+  care        String?
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
 

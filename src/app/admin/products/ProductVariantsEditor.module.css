@@ -1,0 +1,259 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface-1);
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
+
+.empty p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.optionHead {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.optionName {
+  max-width: 220px;
+  font-weight: 600;
+}
+
+.values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px;
+  min-height: 42px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.values:focus-within {
+  border-color: var(--zuu-blue);
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  font-size: 13px;
+  animation: chipIn var(--dur-base) var(--ease-out);
+}
+
+.chip button {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.chip button:hover {
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
+.valueInput {
+  flex: 1;
+  min-width: 160px;
+  height: 28px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+
+.bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.bulkRight {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.bulkInput {
+  width: 90px !important;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rowOff td {
+  opacity: 0.5;
+}
+
+.comboCell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.linkBtn {
+  display: block;
+  padding: 0;
+  margin-top: 2px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  color: var(--error);
+}
+
+.stockInput {
+  width: 90px !important;
+}
+
+.skuInput {
+  width: 160px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowImage {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rowImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sizeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.specs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.specRow {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr auto;
+  gap: 8px;
+}
+
+@keyframes chipIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@media (max-width: 700px) {
+  .sizeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .specRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    animation: none;
+  }
+}

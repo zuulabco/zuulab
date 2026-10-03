@@ -11,7 +11,7 @@ export default function HomeFinalDiscovery() {
           mekana karakter katan formları <span className={styles.titleAccent}>keşfedin.</span>
         </h2>
         <p className={styles.desc}>
-          atölyemizde özenle dilimlenen ve 0.12mm fdm hassasiyetiyle üretilen tüm fonksiyonel masa aksesuarları, aydınlatmalar ve çocuk serisi.
+          atölyemizde katman katman basılan tüm masa aksesuarları, aydınlatmalar ve çocuk serisi.
         </p>
 
         <Link href="/urunler" className={styles.ctaBtn}>

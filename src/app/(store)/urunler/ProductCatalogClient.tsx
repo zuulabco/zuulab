@@ -6,6 +6,7 @@ import { toProductListItem, type CatalogProduct, type CatalogCategory } from '@/
 import { CATALOG_COLORS, CATALOG_MATERIALS, getColorDef, extractMaterialSlug } from '@/config/catalog-filters'
 import ProductCard from '@/components/home/ProductCard'
 import Dropdown from '@/components/common/Dropdown'
+import GridDensity, { useGridColumns } from './GridDensity'
 import styles from './ProductCatalog.module.css'
 
 interface Props {
@@ -88,6 +89,8 @@ export default function ProductCatalogClient({
   }, [searchParams])
 
   const maxPrice = useMemo(() => parsePriceBound(searchParams.get('maxPrice')), [searchParams])
+
+  const gridColumns = useGridColumns()
 
   const sortBy = useMemo(() => {
     const s = searchParams.get('sort') as SortOption
@@ -834,6 +837,8 @@ export default function ProductCatalogClient({
               {filteredProducts.length} ürün
             </span>
 
+            <GridDensity />
+
             {/* Desktop Sort Dropdown */}
             <div className={styles.sortWrap}>
               <Dropdown
@@ -908,13 +913,12 @@ export default function ProductCatalogClient({
         {/* Product Grid Area */}
         <div className={`${styles.gridArea} ${isPending ? styles.isPending : ''}`}>
           {filteredProducts.length > 0 ? (
-            <div className={styles.grid}>
+            <div className={styles.grid} style={{ ['--cols' as string]: gridColumns }}>
               {filteredProducts.map((p, index) => (
-                <ProductCard
-                  key={p.id}
-                  product={toProductListItem(p)}
-                  priority={index < 4}
-                />
+                // Each card is named so a column change can animate it to its new place
+                <div key={p.id} className={styles.gridCell} style={{ viewTransitionName: `pc-${p.id.replace(/[^a-zA-Z0-9_-]/g, '-')}` }}>
+                  <ProductCard product={toProductListItem(p)} priority={index < 4} />
+                </div>
               ))}
             </div>
           ) : searchQuery ? (

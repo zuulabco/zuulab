@@ -11,7 +11,10 @@ import { logAuditEvent } from './admin.service'
 export interface ProductMaterialItem {
   id: string
   name: string
+  /** Shown on product pages after "malzeme:" */
   description: string | null
+  /** Use and care line on product pages (heat resistance, cleaning…) */
+  care: string | null
   sortOrder: number
   productCount: number
 }
@@ -39,6 +42,7 @@ export async function listProductMaterials(): Promise<ProductMaterialItem[]> {
     id: m.id,
     name: m.name,
     description: m.description ?? null,
+    care: m.care ?? null,
     sortOrder: m.sortOrder,
     productCount: counts.get(m.name.toLocaleLowerCase('tr-TR')) ?? 0,
   }))
@@ -50,7 +54,7 @@ async function findByName(name: string) {
 }
 
 export async function createProductMaterial(
-  input: { name: string; description?: string | null },
+  input: { name: string; description?: string | null; care?: string | null },
   adminEmail = 'system'
 ): Promise<ProductMaterialItem> {
   const name = cleanName(input.name)
@@ -59,15 +63,16 @@ export async function createProductMaterial(
   const created = await db.orm.public.ProductMaterial.create({
     name,
     description: input.description?.trim() || null,
+    care: input.care?.trim() || null,
     sortOrder: (last?.sortOrder ?? 0) + 1,
   })
   await logAuditEvent({ action: 'MATERIAL_CREATED', entity: 'ProductMaterial', entityId: created.id, metadata: { name, adminEmail } })
-  return { id: created.id, name, description: created.description ?? null, sortOrder: created.sortOrder, productCount: 0 }
+  return { id: created.id, name, description: created.description ?? null, care: created.care ?? null, sortOrder: created.sortOrder, productCount: 0 }
 }
 
 export async function updateProductMaterial(
   id: string,
-  input: { name?: string; description?: string | null },
+  input: { name?: string; description?: string | null; care?: string | null },
   adminEmail = 'system'
 ): Promise<void> {
   const existing = await db.orm.public.ProductMaterial.where({ id }).first()
@@ -75,6 +80,7 @@ export async function updateProductMaterial(
 
   const fields: Record<string, unknown> = {}
   if (input.description !== undefined) fields.description = input.description?.trim() || null
+  if (input.care !== undefined) fields.care = input.care?.trim() || null
   let renamedTo: string | null = null
   if (input.name !== undefined) {
     const name = cleanName(input.name)
@@ -96,7 +102,8 @@ export async function updateProductMaterial(
       )
     }
   })
-  if (renamedTo) invalidateCatalog()
+  // Product pages show the material texts, so any change refreshes the catalog
+  invalidateCatalog()
   await logAuditEvent({ action: 'MATERIAL_UPDATED', entity: 'ProductMaterial', entityId: id, metadata: { ...input, adminEmail } })
 }
 

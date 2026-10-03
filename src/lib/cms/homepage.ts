@@ -415,7 +415,7 @@ export const DEFAULT_SECTIONS: HomeSection[] = [
 export const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
   { id: 'ann-1', text: 'zuukids yeni serisi yayında — çocuk güvenli pla objeleri', ctaLabel: 'incele', ctaHref: '/koleksiyon/zuukids', active: true, sortOrder: 1 },
   { id: 'ann-2', text: '750 ₺ ve üzeri tüm siparişlerde ücretsiz kargo', active: true, sortOrder: 2 },
-  { id: 'ann-3', text: 'sipariş üzerine 0.12mm hassasiyetle 3d üretim', active: true, sortOrder: 3 },
+  { id: 'ann-3', text: 'kendi atölyemizde 3d üretim', active: true, sortOrder: 3 },
   { id: 'ann-4', text: 'zuulight parametrik masa lambaları', ctaLabel: 'keşfet', ctaHref: '/koleksiyon/zuulight', active: true, sortOrder: 4 },
 ]
 

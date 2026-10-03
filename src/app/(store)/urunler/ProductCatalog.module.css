@@ -515,16 +515,74 @@
 }
 
 /* ── Product Grid ───────────────────────────────────────── */
+/* Columns follow the shopper's 3 / 4 / 5 choice on wide screens (GridDensity) */
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
   gap: var(--sp-8) var(--sp-5);
   margin-bottom: var(--sp-16);
 }
 
-@media (max-width: 1400px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
+.gridCell {
+  min-width: 0;
+}
+
+/* Gentler, slower glide than the browser default when the column count changes */
+::view-transition-group(*) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.densityGroup {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.densityBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-base) var(--ease-default), color var(--dur-base) var(--ease-default);
+}
+
+.densityBtn:hover {
+  color: var(--text-primary);
+}
+
+.densityBtn[aria-checked='true'] {
+  background: var(--surface-0);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(17, 17, 16, 0.08);
+}
+
+.densityBtn:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 1px;
+}
+
+/* The shop's own clear button is enough; hide the browser's second one */
+.catalogSearchInput::-webkit-search-cancel-button,
+.catalogSearchInput::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*) {
+    animation: none;
   }
 }
 
@@ -703,12 +761,13 @@
     display: flex;
   }
 
-  .headerRight .sortWrap {
+  .headerRight .sortWrap,
+  .densityGroup {
     display: none;
   }
 
   .grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--sp-6) var(--sp-4);
   }
 }
@@ -716,7 +775,7 @@
 /* 768px */
 @media (max-width: 768px) {
   .grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--sp-5) var(--sp-3);
   }
 

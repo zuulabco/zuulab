@@ -102,7 +102,7 @@ export default async function EditorialCollectionGrid() {
                       style={{ backgroundColor: life.accentColor }}
                       aria-hidden
                     />
-                    <span className={styles.tagText}>yaşam & masaüstü · 0.12mm fdm</span>
+                    <span className={styles.tagText}>yaşam & masaüstü</span>
                   </div>
                   <h3 className={styles.cardTitle}>{life.name}</h3>
                   <p className={styles.cardTagline}>{life.tagline}</p>

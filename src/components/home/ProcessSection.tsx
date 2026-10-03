@@ -12,7 +12,7 @@ const STEPS = [
   },
   {
     title: 'endüstriyel üretim',
-    desc: 'kalibre edilmiş atölye parkurumuzda, 0.12mm katman çözünürlüğünde sertifikalı biyo-pla ile basılır.',
+    desc: 'atölyemizdeki 3d yazıcılarda, seçilen malzemeyle katman katman basılır.',
   },
   {
     title: 'özenli ambalaj',
@@ -50,8 +50,8 @@ export default function ProcessSection() {
             {/* Footer metrics */}
             <div className={styles.metricsRow} aria-label="teknik özellikler">
               <div className={styles.metric}>
-                <span className={styles.metricVal}>0.12mm</span>
-                <span className={styles.metricLbl}>katman çözünürlüğü</span>
+                <span className={styles.metricVal}>3d</span>
+                <span className={styles.metricLbl}>katman katman baskı</span>
               </div>
               <div className={styles.metricDivider} aria-hidden />
               <div className={styles.metric}>

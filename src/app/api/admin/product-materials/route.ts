@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   try {
     const user = await requirePermission(request, 'PRODUCT_UPDATE')
     const body = await request.json().catch(() => ({}))
-    const material = await createProductMaterial({ name: body.name, description: body.description }, user.email)
+    const material = await createProductMaterial({ name: body.name, description: body.description, care: body.care }, user.email)
     return NextResponse.json({ success: true, material })
   } catch (error) {
     return failure(error)

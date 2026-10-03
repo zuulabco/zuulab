@@ -41,6 +41,15 @@ function sorted(lines: StockLine[]): StockLine[] {
   )
 }
 
+/** A product with variants shows the sum of its active variants as its own stock. */
+async function syncVariantTotal(tx: Tx, productId: string): Promise<void> {
+  await tx.execute(
+    db.raw.sql`UPDATE products SET stock = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = ${productId} AND is_active) WHERE id = ${productId}`
+      .affectedCount()
+      .build()
+  )
+}
+
 async function decrement(tx: Tx, line: StockLine, allowNegative: boolean): Promise<boolean> {
   const plan = line.variantId
     ? allowNegative
@@ -50,6 +59,7 @@ async function decrement(tx: Tx, line: StockLine, allowNegative: boolean): Promi
       ? db.raw.sql`UPDATE products SET stock = stock - ${line.quantity} WHERE id = ${line.productId}`.affectedCount().build()
       : db.raw.sql`UPDATE products SET stock = stock - ${line.quantity} WHERE id = ${line.productId} AND stock >= ${line.quantity}`.affectedCount().build()
   const { affectedRows } = await tx.execute(plan)
+  if (affectedRows === 1 && line.variantId) await syncVariantTotal(tx, line.productId)
   return affectedRows === 1
 }
 
@@ -58,6 +68,7 @@ async function increment(tx: Tx, line: StockLine): Promise<void> {
     ? db.raw.sql`UPDATE product_variants SET stock = stock + ${line.quantity} WHERE id = ${line.variantId}`.affectedCount().build()
     : db.raw.sql`UPDATE products SET stock = stock + ${line.quantity} WHERE id = ${line.productId}`.affectedCount().build()
   await tx.execute(plan)
+  if (line.variantId) await syncVariantTotal(tx, line.productId)
 }
 
 /** Moves the order's stock_state from one of `from` to `to`; true only for the caller that won. */

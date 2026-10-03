@@ -145,7 +145,7 @@ export default function CartPageClient({
           <span className={styles.eyebrow}>sepetim</span>
           <h1 className={styles.emptyTitle}>sepetinizde henüz ürün bulunmuyor</h1>
           <p className={styles.emptyDesc}>
-            0.12mm katman hassasiyetiyle üretilen masaüstü organizerleri, eğitici çocuk setleri ve parametrik masa lambalarını keşfedin.
+            atölyemizde üretilen masaüstü organizerleri, eğitici çocuk setleri ve parametrik masa lambalarını keşfedin.
           </p>
           <div className={styles.emptyActionRow}>
             <Link href="/urunler" className={styles.startShoppingBtn}>
@@ -472,7 +472,7 @@ export default function CartPageClient({
           {/* Guarantees */}
           <div className={styles.sidebarGuarantees}>
             <span>256-bit ssl güvenli ödeme</span>
-            <span>0.12mm hassas 3d atölye üretimi</span>
+            <span>kendi atölyemizde 3d üretim</span>
             <span>14 gün koşulsuz iade güvencesi</span>
           </div>
         </aside>

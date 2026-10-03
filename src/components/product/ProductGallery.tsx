@@ -25,6 +25,17 @@ export default function ProductGallery({ images, productName }: Props) {
     setSelectedIndex(0)
   }, [images])
 
+  // The details panel asks for a photo when the shopper picks a colour / variant
+  useEffect(() => {
+    const onShow = (e: Event) => {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url
+      const index = images.findIndex((img) => img.url === url)
+      if (index >= 0) setSelectedIndex(index)
+    }
+    window.addEventListener('zuu:show-product-image', onShow)
+    return () => window.removeEventListener('zuu:show-product-image', onShow)
+  }, [images])
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!images || images.length <= 1) return

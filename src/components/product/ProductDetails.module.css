@@ -741,3 +741,17 @@
     transform: none !important;
   }
 }
+
+/* Small photo inside an option button when that combination has its own image */
+.variantThumb {
+  width: 22px;
+  height: 22px;
+  margin: -4px 2px -4px -6px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.specHint {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}

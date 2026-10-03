@@ -10,6 +10,7 @@ import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
+import { VariantsAndSizeCards } from '../ProductVariantsEditor'
 import styles from '../../admin.module.css'
 
 export default function AdminEditProductPage() {
@@ -768,6 +769,7 @@ export default function AdminEditProductPage() {
               </div>
             </div>
           </div>
+          <VariantsAndSizeCards productId={id} productSku={sku} />
         </form>
 
         {/* Right Column: Inventory, Media, 3D Print Status, Danger Zone */}

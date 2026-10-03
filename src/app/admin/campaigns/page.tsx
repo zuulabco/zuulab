@@ -358,7 +358,12 @@ export default function AdminCampaignsPage() {
                 <legend className={styles.formLabel}>Sitede nasıl duyurulsun?</legend>
                 <div className={c.segment}>
                   {(['NONE', 'RIBBON', 'MODAL'] as Display[]).map((dv) => (
-                    <button key={dv} type="button" aria-pressed={draft.display === dv} onClick={() => set('display', dv)}>
+                    <button
+                      key={dv}
+                      type="button"
+                      aria-pressed={draft.display === dv}
+                      onClick={() => setDraft((d) => (d ? { ...d, display: dv, headline: d.headline || (dv !== 'NONE' ? d.name : d.headline) } : d))}
+                    >
                       {DISPLAY_LABEL[dv]}
                     </button>
                   ))}
@@ -409,29 +414,57 @@ export default function AdminCampaignsPage() {
               </div>
             </div>
 
-            {/* Live preview of what visitors see */}
+            {/* Live preview: a small mock of the site showing where the campaign appears */}
             <aside className={c.preview} aria-label="Önizleme">
-              <span className={c.previewLabel}>Önizleme</span>
+              <span className={c.previewLabel}>Sitede görünüşü</span>
+              <div className={c.mock}>
+                {draft.display === 'RIBBON' && (
+                  <div className={c.mockRibbon}>
+                    <span>{draft.headline || draft.name || 'Başlık'}</span>
+                    {draft.ctaLabel && <u>{draft.ctaLabel} →</u>}
+                  </div>
+                )}
+                <div className={c.mockHeader}>
+                  <b>zuulab.</b>
+                  <i />
+                  <i />
+                  <i />
+                </div>
+                <div className={c.mockPage}>
+                  <i className={c.mockHero} />
+                  <div className={c.mockRow}>
+                    <i />
+                    <i />
+                    <i />
+                  </div>
+                </div>
+                {draft.display === 'MODAL' && (
+                  <div className={c.mockOverlay}>
+                    <div className={c.mockModal}>
+                      {draft.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={draft.imageUrl} alt="" />
+                      )}
+                      {draft.kind === 'DISCOUNT' && <span className={c.mockLabel}>{summary(draft).split(' · ')[0]}</span>}
+                      <strong>{draft.headline || draft.name || 'Başlık'}</strong>
+                      {draft.message && <p>{draft.message}</p>}
+                      {draft.couponCode && <code>{draft.couponCode}</code>}
+                      <div className={c.mockActions}>
+                        {draft.ctaLabel && <span className={c.previewBtn}>{draft.ctaLabel}</span>}
+                        <span className={c.mockGhost}>Kapat</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className={c.previewNote}>
+                {draft.display === 'NONE'
+                  ? 'Sitede ayrıca duyurulmaz. İndirim yine sepette kendiliğinden uygulanır.'
+                  : draft.display === 'RIBBON'
+                    ? 'Sayfanın en üstündeki kayan duyuru bandında, diğer duyurulardan önce gösterilir.'
+                    : 'Ziyaretçi siteye girdikten birkaç saniye sonra bir kez açılır. Sepet, ödeme ve hesap sayfalarında açılmaz.'}
+              </p>
               <p className={c.previewSummary}>{summary(draft)}</p>
-              {draft.display === 'RIBBON' && (
-                <div className={c.ribbonPreview}>
-                  <span>{draft.headline || 'Başlık'}</span>
-                  {draft.ctaLabel && <u>{draft.ctaLabel}</u>}
-                </div>
-              )}
-              {draft.display === 'MODAL' && (
-                <div className={c.modalPreview}>
-                  {draft.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={draft.imageUrl} alt="" />
-                  )}
-                  <strong>{draft.headline || 'Başlık'}</strong>
-                  {draft.message && <p>{draft.message}</p>}
-                  {draft.couponCode && <code>{draft.couponCode}</code>}
-                  {draft.ctaLabel && <span className={c.previewBtn}>{draft.ctaLabel}</span>}
-                </div>
-              )}
-              {draft.display === 'NONE' && <p className={c.previewNote}>Sitede ayrıca gösterilmez; indirim yine sepette uygulanır.</p>}
             </aside>
           </div>
         )}

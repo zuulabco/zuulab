@@ -19,7 +19,7 @@ const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
     cta: { label: 'incele', href: '/koleksiyon/zuukids' },
   },
   { text: '750 ₺ ve üzeri tüm siparişlerde ücretsiz kargo' },
-  { text: 'sipariş üzerine 0.12mm hassasiyetle 3d üretim' },
+  { text: 'kendi atölyemizde 3d üretim' },
   {
     text: 'zuulight parametrik masa lambaları',
     cta: { label: 'keşfet', href: '/koleksiyon/zuulight' },

@@ -25,8 +25,8 @@ const BANNERS: BannerItem[] = [
   {
     id: 'zuulife',
     title: 'zuulife',
-    tag: 'yaşam alanı · 0.12mm fdm',
-    desc: '0.12mm hassasiyetle üretilen modüler masa düzenleyiciler ve heykelsi formlar.',
+    tag: 'yaşam alanı',
+    desc: 'masaüstü ve takı organizerleri, günlük düzeni sadeleştiren ev objeleri.',
     href: '/koleksiyon/zuulife',
     image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1200&q=85',
     alt: 'zuulife parametrik masa objeleri ve iç mekan tasarımları',

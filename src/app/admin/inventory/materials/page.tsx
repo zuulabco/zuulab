@@ -11,6 +11,7 @@ interface MaterialRow {
   id: string
   name: string
   description: string | null
+  care: string | null
   productCount: number
 }
 
@@ -20,6 +21,7 @@ export default function AdminProductMaterialsPage() {
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [care, setCare] = useState('')
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState<MaterialRow | null>(null)
   const [deleting, setDeleting] = useState<MaterialRow | null>(null)
@@ -46,13 +48,14 @@ export default function AdminProductMaterialsPage() {
     e.preventDefault()
     if (name.trim().length < 2) return
     setSaving(true)
-    const res = await fetch('/api/admin/product-materials', { method: 'POST', headers, body: JSON.stringify({ name, description }) })
+    const res = await fetch('/api/admin/product-materials', { method: 'POST', headers, body: JSON.stringify({ name, description, care }) })
     const d = await res.json().catch(() => ({}))
     setSaving(false)
     if (!d.success) return toast.error(d.error || 'Malzeme eklenemedi.')
     toast.success(`'${d.material.name}' eklendi.`)
     setName('')
     setDescription('')
+    setCare('')
     load()
   }
 
@@ -62,7 +65,7 @@ export default function AdminProductMaterialsPage() {
     const res = await fetch(`/api/admin/product-materials/${editing.id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ name: editing.name, description: editing.description }),
+      body: JSON.stringify({ name: editing.name, description: editing.description, care: editing.care }),
     })
     const d = await res.json().catch(() => ({}))
     setSaving(false)
@@ -90,21 +93,25 @@ export default function AdminProductMaterialsPage() {
         <div>
           <h1 className={styles.pageTitle}>Malzemeler</h1>
           <p className={styles.pageSubtitle}>
-            Ürün formundaki malzeme listesi. Bir malzemenin adını değiştirirseniz onu kullanan tüm ürünlerde de değişir.
+            Ürün formundaki malzeme listesi ve ürün sayfasındaki &ldquo;malzeme ve üretim&rdquo; metinleri. Bir malzemenin adını değiştirirseniz onu kullanan tüm ürünlerde de değişir.
           </p>
         </div>
       </div>
 
       <form onSubmit={create} className={styles.formCard} style={{ marginBottom: 20 }}>
         <h2 className={styles.formCardTitle}>Yeni malzeme</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 12, alignItems: 'end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr auto', gap: 12, alignItems: 'end' }}>
           <div className={styles.formGroup}>
             <label className={styles.formLabel} htmlFor="mat-name">Ad</label>
             <input id="mat-name" className={styles.formInput} placeholder="Örn: PETG" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className={styles.formGroup}>
-            <label className={styles.formLabel} htmlFor="mat-desc">Açıklama (isteğe bağlı)</label>
-            <input id="mat-desc" className={styles.formInput} placeholder="Örn: Isıya dayanıklı, mat yüzey" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <label className={styles.formLabel} htmlFor="mat-desc">Malzeme açıklaması</label>
+            <input id="mat-desc" className={styles.formInput} placeholder="Örn: ısıya dayanıklı, darbeye dirençli filament" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor="mat-care">Kullanım / ısı dayanımı</label>
+            <input id="mat-care" className={styles.formInput} placeholder="Örn: 80°C’ye kadar dayanır." value={care} onChange={(e) => setCare(e.target.value)} />
           </div>
           <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={saving || name.trim().length < 2}>
             Ekle
@@ -124,7 +131,7 @@ export default function AdminProductMaterialsPage() {
             <thead>
               <tr>
                 <th>Malzeme</th>
-                <th>Açıklama</th>
+                <th>Ürün sayfasında</th>
                 <th style={{ textAlign: 'right' }}>Ürün sayısı</th>
                 <th style={{ textAlign: 'right' }}>İşlem</th>
               </tr>
@@ -133,7 +140,19 @@ export default function AdminProductMaterialsPage() {
               {rows.map((m) => (
                 <tr key={m.id}>
                   <td style={{ fontWeight: 600 }}>{m.name}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>{m.description || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5 }}>
+                    <div>
+                      <strong>malzeme:</strong> {m.name}
+                      {m.description ? ` — ${m.description}` : ''}
+                    </div>
+                    {m.care ? (
+                      <div>
+                        <strong>kullanım:</strong> {m.care}
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)' }}>kullanım bilgisi yok</div>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{m.productCount}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button type="button" className={`${styles.btn} ${styles.btnGhost} ${styles.btnSm}`} onClick={() => setEditing({ ...m })}>
@@ -169,8 +188,14 @@ export default function AdminProductMaterialsPage() {
               )}
             </div>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel} htmlFor="edit-mat-desc">Açıklama</label>
+              <label className={styles.formLabel} htmlFor="edit-mat-desc">Malzeme açıklaması</label>
               <input id="edit-mat-desc" className={styles.formInput} value={editing.description ?? ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
+              <span className={styles.formHelp}>Ürün sayfasında &ldquo;malzeme: {editing.name} — …&rdquo; olarak görünür.</span>
+            </div>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="edit-mat-care">Kullanım / ısı dayanımı</label>
+              <textarea id="edit-mat-care" rows={2} className={styles.formTextarea} value={editing.care ?? ''} onChange={(e) => setEditing({ ...editing, care: e.target.value })} />
+              <span className={styles.formHelp}>Ürün sayfasında &ldquo;kullanım:&rdquo; satırında görünür. Boş bırakılırsa satır gösterilmez.</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => setEditing(null)}>Vazgeç</button>

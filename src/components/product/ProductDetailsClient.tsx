@@ -23,9 +23,34 @@ export default function ProductDetailsClient({ product }: Props) {
   const addItem = useCartStore((s) => s.addItem)
   const { freeShippingThreshold: FREE_SHIPPING_THRESHOLD } = useShippingConfig()
 
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
-    product.variants && product.variants.length > 0 ? product.variants[0].id : null
-  )
+  // Options (Renk, Boyut…). Older products have single-option variants without the
+  // option map; those are read as one option named after the variant.
+  const variants = product.variants ?? []
+  const optionsOf = (v: (typeof variants)[number]): Record<string, string> => v.options ?? { [v.name]: v.value }
+  const variantOptions =
+    product.variantOptions && product.variantOptions.length > 0
+      ? product.variantOptions
+      : variants.length > 0
+        ? [{ name: variants[0].name, values: [...new Set(variants.map((v) => v.value))] }]
+        : []
+  const firstPick = variants.find((v) => v.stock > 0) ?? variants[0]
+  const [selection, setSelection] = useState<Record<string, string>>(firstPick ? optionsOf(firstPick) : {})
+  const matches = (v: (typeof variants)[number], sel: Record<string, string>) =>
+    variantOptions.every((o) => optionsOf(v)[o.name] === sel[o.name])
+  const selectedVariantId = variants.find((v) => matches(v, selection))?.id ?? null
+
+  const choose = (optionName: string, value: string) => {
+    const next = { ...selection, [optionName]: value }
+    // Keep a valid combination: if this pairing does not exist, take the first one that does
+    const exact = variants.find((v) => matches(v, next))
+    const fallback = exact ?? variants.find((v) => optionsOf(v)[optionName] === value)
+    const resolved = fallback ? optionsOf(fallback) : next
+    setSelection(resolved)
+    const picked = variants.find((v) => matches(v, resolved))
+    if (picked?.imageUrl) {
+      window.dispatchEvent(new CustomEvent('zuu:show-product-image', { detail: { url: picked.imageUrl } }))
+    }
+  }
   const [quantity, setQuantity] = useState<number>(1)
   const [addedAnimation, setAddedAnimation] = useState<boolean>(false)
 
@@ -63,9 +88,13 @@ export default function ProductDetailsClient({ product }: Props) {
         productId: product.id,
         variantId: selectedVariantId,
         name: product.name,
-        variantLabel: selectedVariant ? `${selectedVariant.name}: ${selectedVariant.value}` : null,
+        variantLabel: selectedVariant
+          ? Object.entries(optionsOf(selectedVariant))
+              .map(([k, val]) => `${k}: ${val}`)
+              .join(' · ')
+          : null,
+        imageUrl: selectedVariant?.imageUrl || product.images[0]?.url || null,
         price: currentPrice,
-        imageUrl: product.images[0]?.url || null,
         slug: product.slug,
         sku: currentSku,
         maxStock: currentStock,
@@ -152,41 +181,41 @@ export default function ProductDetailsClient({ product }: Props) {
         )}
       </div>
 
-      {/* ── 7. Variants (if any) ─────────────────────────── */}
-      {product.variants && product.variants.length > 0 && (
-        <div className={styles.variantSection}>
-          <label className={styles.variantLabel}>
-            {product.variants[0].name.toLowerCase()} seçimi:
-            <span className={styles.selectedVariantValue}>
-              {selectedVariant?.value}
-            </span>
-          </label>
-          <div className={styles.variantOptions}>
-            {product.variants.map((v) => {
-              const isSelected = v.id === selectedVariantId
+      {/* ── 7. Options: one row of choices per option ─────── */}
+      {variantOptions.map((option) => (
+        <div key={option.name} className={styles.variantSection}>
+          <span className={styles.variantLabel} id={`opt-${option.name}`}>
+            {option.name.toLocaleLowerCase('tr-TR')}:
+            <span className={styles.selectedVariantValue}>{selection[option.name]}</span>
+          </span>
+          <div className={styles.variantOptions} role="radiogroup" aria-labelledby={`opt-${option.name}`}>
+            {option.values.map((value) => {
+              const candidate = variants.find((v) => matches(v, { ...selection, [option.name]: value }))
+              const anyWithValue = variants.filter((v) => optionsOf(v)[option.name] === value)
+              if (anyWithValue.length === 0) return null
+              const soldOut = candidate ? candidate.stock <= 0 : anyWithValue.every((v) => v.stock <= 0)
+              const isSelected = selection[option.name] === value
               return (
                 <button
-                  key={v.id}
+                  key={value}
                   type="button"
-                  className={`${styles.variantBtn} ${isSelected ? styles.variantBtnActive : ''} ${
-                    v.stock <= 0 ? styles.variantBtnDisabled : ''
-                  }`}
-                  onClick={() => setSelectedVariantId(v.id)}
-                  aria-pressed={isSelected}
-                  aria-label={v.stock <= 0 ? `${v.value} (stokta değil)` : undefined}
+                  role="radio"
+                  aria-checked={isSelected}
+                  className={`${styles.variantBtn} ${isSelected ? styles.variantBtnActive : ''} ${soldOut ? styles.variantBtnDisabled : ''}`}
+                  onClick={() => choose(option.name, value)}
+                  aria-label={soldOut ? `${value} (stokta değil)` : value}
                 >
-                  <span>{v.value}</span>
-                  {v.price && v.price !== product.price && (
-                    <span className={styles.variantPriceDiff}>
-                      ({formatPrice(v.price)})
-                    </span>
+                  {candidate?.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={candidate.imageUrl} alt="" className={styles.variantThumb} />
                   )}
+                  <span>{value}</span>
                 </button>
               )
             })}
           </div>
         </div>
-      )}
+      ))}
 
       {/* ── 8. Quantity & Purchase Actions Row ───────────── */}
       {currentStock > 0 ? (
@@ -338,13 +367,22 @@ export default function ProductDetailsClient({ product }: Props) {
           >
             <div className={styles.accordionPanelInner}>
               <div className={styles.accordionBody}>
-                <p className={styles.descParagraph}>
-                  ZUULAB objeleri siparişiniz üzerine atölyemizde 0.12mm hassasiyetli FDM teknolojisiyle katman katman üretilir.
+              <p className={styles.descParagraph}>
+                  zuulab objeleri atölyemizde 3d baskıyla, katman katman üretilir.
                 </p>
                 <ul className={styles.featureList}>
-                  <li><strong>malzeme:</strong> {product.material} (biyo-bozunur çevre dostu PLA / PETG filament)</li>
+                  {product.material && (
+                  <li>
+                    <strong>malzeme:</strong> {product.material}
+                    {product.materialInfo?.description ? ` — ${product.materialInfo.description}` : ''}
+                  </li>
+                )}
                   {product.productionTime && <li><strong>üretim süresi:</strong> {product.productionTime}</li>}
-                  <li><strong>ısı dayanımı:</strong> Maksimum 55°C. Direkt güneş ışığı veya yüksek ısı kaynaklarından korunmalıdır.</li>
+                {product.materialInfo?.care && (
+                  <li>
+                    <strong>kullanım:</strong> {product.materialInfo.care}
+                  </li>
+                )}
                 </ul>
               </div>
             </div>
@@ -375,14 +413,29 @@ export default function ProductDetailsClient({ product }: Props) {
               <div className={styles.accordionBody}>
                 <table className={styles.specsTable}>
                   <tbody>
-                    <tr>
-                      <td>ağırlık</td>
-                      <td>{product.weight} gram</td>
-                    </tr>
-                    <tr>
-                      <td>malzeme</td>
-                      <td>{product.material}</td>
-                    </tr>
+                  {product.dimensions && (
+                      <tr>
+                        <td>boyut</td>
+                        <td>
+                          {[product.dimensions.lengthMm, product.dimensions.widthMm, product.dimensions.heightMm]
+                            .map((n) => (n ? `${n}` : '—'))
+                            .join(' × ')}{' '}
+                          mm <span className={styles.specHint}>(u × g × y)</span>
+                        </td>
+                      </tr>
+                    )}
+                    {product.weight > 0 && (
+                      <tr>
+                        <td>ağırlık</td>
+                        <td>{product.weight} gram</td>
+                      </tr>
+                    )}
+                    {product.material && (
+                      <tr>
+                        <td>malzeme</td>
+                        <td>{product.material}</td>
+                      </tr>
+                    )}
                     {product.specifications.map((s, idx) => (
                       <tr key={idx}>
                         <td>{s.name.toLowerCase()}</td>
