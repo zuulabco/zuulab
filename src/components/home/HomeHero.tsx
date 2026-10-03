@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { isCloudinaryUrl, cloudinaryHeroLoader } from '@/lib/images/cloudinary-loader'
 import styles from './HomeHero.module.css'
 
 /** A slide ready to show: links and labels already resolved on the server */
@@ -137,6 +138,8 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
               <div className={styles.imageWrapper}>
                 <Image
                   src={slide.imageUrl}
+                  loader={isCloudinaryUrl(slide.imageUrl) ? cloudinaryHeroLoader : undefined}
+                  quality={90}
                   alt=""
                   fill
                   priority={index === 0}
@@ -147,6 +150,8 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
                 {slide.mobileImageUrl && (
                   <Image
                     src={slide.mobileImageUrl}
+                    loader={isCloudinaryUrl(slide.mobileImageUrl) ? cloudinaryHeroLoader : undefined}
+                    quality={90}
                     alt=""
                     fill
                     priority={index === 0}

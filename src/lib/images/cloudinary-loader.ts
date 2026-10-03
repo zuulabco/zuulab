@@ -34,3 +34,11 @@ export function cloudinaryLoader({ src, width, quality }: ImageLoaderProps): str
 export function cloudinaryFeatureLoader({ src, width, quality }: ImageLoaderProps): string {
   return withTransformation(src, `e_trim:10/c_fill,g_auto,ar_4:5,w_${width},q_${quality ?? 'auto'},f_auto`)
 }
+
+/**
+ * Full-width banners: served by Cloudinary at its best automatic quality, never
+ * upscaled and never re-encoded a second time by the Next image optimizer.
+ */
+export function cloudinaryHeroLoader({ src, width }: ImageLoaderProps): string {
+  return withTransformation(src, `c_limit,w_${width},q_auto:best,f_auto`)
+}

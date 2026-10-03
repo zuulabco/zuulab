@@ -51,6 +51,9 @@ export async function POST(request: Request) {
         success: true,
         message: 'Dosya başarıyla yüklendi.',
         url: uploadResult.url,
+        width: uploadResult.width ?? null,
+        height: uploadResult.height ?? null,
+        bytes: file.size,
         asset,
         isSimulated: uploadResult.isSimulated,
       })

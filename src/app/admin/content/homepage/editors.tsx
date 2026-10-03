@@ -77,7 +77,22 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
 }
 
 /** Image URL with an upload button and a thumbnail */
-export function ImageField({ id, label, value, onChange, help }: { id: string; label: string; value: string; onChange: (url: string) => void; help?: string }) {
+export function ImageField({
+  id,
+  label,
+  value,
+  onChange,
+  help,
+  minWidth,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (url: string) => void
+  help?: string
+  /** Warn after upload when the image is narrower than this (full-width banners) */
+  minWidth?: number
+}) {
   const { token } = useAuthStore()
   const input = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -91,7 +106,15 @@ export function ImageField({ id, label, value, onChange, help }: { id: string; l
       const d = await res.json()
       if (d.success && d.url) {
         onChange(d.url)
-        toast.success('Görsel yüklendi.')
+        const tooNarrow = minWidth && d.width && d.width < minWidth
+        const tooCompressed = minWidth && d.bytes && d.width && d.bytes / (d.width * (d.height || d.width)) < 0.04
+        if (tooNarrow) {
+          toast.error(`Görsel yüklendi ama ${d.width} px genişliğinde; tam ekran banner için en az ${minWidth} px önerilir, aksi halde bulanık görünür.`)
+        } else if (tooCompressed) {
+          toast.error(`Görsel yüklendi ama çok sıkıştırılmış (${Math.round(d.bytes / 1024)} KB). Daha yüksek kalitede (JPG %90) dışa aktarıp tekrar yükleyin.`)
+        } else {
+          toast.success('Görsel yüklendi.')
+        }
       } else toast.error(d.error || 'Görsel yüklenemedi.')
     } catch {
       toast.error('Görsel yüklenemedi.')
@@ -182,8 +205,8 @@ export function SlideEditor({ slide, onChange, catalog }: { slide: HeroSlide; on
 
       <section className={h.group}>
         <h4>Görsel</h4>
-        <ImageField id={`img-${slide.id}`} label="Geniş görsel (masaüstü)" value={slide.imageUrl} onChange={(v) => set('imageUrl', v)} help="En az 1920×1080. Metin solda durur; ürün sağda olsun." />
-        <ImageField id={`mimg-${slide.id}`} label="Telefon görseli (isteğe bağlı)" value={slide.mobileImageUrl} onChange={(v) => set('mobileImageUrl', v)} help="Telefonda slaytın tamamını kaplar: dikey, yaklaşık 1200×1800 (2:3). Ürünü üst yarıya koyun, alt kısımda yazılar durur. Boşsa geniş görsel ortadan kırpılır." />
+        <ImageField id={`img-${slide.id}`} label="Geniş görsel (masaüstü)" value={slide.imageUrl} onChange={(v) => set('imageUrl', v)} minWidth={2400} help="2880×1200 px önerilir (en az 2400 px genişlik), JPG kalite %90, 300 KB–2 MB. Metin solda durur; ürün sağda olsun." />
+        <ImageField id={`mimg-${slide.id}`} label="Telefon görseli (isteğe bağlı)" value={slide.mobileImageUrl} onChange={(v) => set('mobileImageUrl', v)} minWidth={1000} help="Telefonda slaytın tamamını kaplar: dikey, yaklaşık 1200×1800 (2:3). Ürünü üst yarıya koyun, alt kısımda yazılar durur. Boşsa geniş görsel ortadan kırpılır." />
         <div className={h.row2}>
           <Field label="Görselin odak noktası">
             <Segmented label="Odak" value={slide.focus} onChange={(v) => set('focus', v)} options={[{ value: 'left', label: 'Sol' }, { value: 'center', label: 'Orta' }, { value: 'right', label: 'Sağ' }]} />
