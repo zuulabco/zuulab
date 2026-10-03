@@ -71,7 +71,9 @@
   /* ── Typography ──────────────────────────────────────── */
   /* Fonts are CSS vars injected by Next.js next/font (see layout.tsx) */
   /* --font-sans and --font-display are set via className on <html> */
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  /* One typeface across the site. JetBrains Mono was never loaded, so "mono" labels
+     fell back to the system Courier/Consolas; they now use the site sans. */
+  --font-mono: var(--font-sans);
 
   /* Type scale — deliberate, not arbitrary */
   --text-2xs: 0.625rem;   /* 10px — label only */
@@ -109,8 +111,11 @@
 
   /* ── Spacing — 8px base grid ─────────────────────────── */
   --sp-1:  0.25rem;   /* 4px */
+  --sp-1-5: 0.375rem; /* 6px  — half steps, used by cart and product detail */
   --sp-2:  0.5rem;    /* 8px */
+  --sp-2-5: 0.625rem; /* 10px */
   --sp-3:  0.75rem;   /* 12px */
+  --sp-3-5: 0.875rem; /* 14px */
   --sp-4:  1rem;      /* 16px */
   --sp-5:  1.25rem;   /* 20px */
   --sp-6:  1.5rem;    /* 24px */
@@ -149,6 +154,7 @@
   --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast:   120ms;
   --dur-base:   200ms;
+  --dur-normal: 200ms;
   --dur-slow:   300ms;
   --dur-slower: 450ms;
   /* Image hover zoom: one gentle value everywhere (MASTER.md → Motion) */

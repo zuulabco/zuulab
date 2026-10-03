@@ -56,6 +56,13 @@
 
 /* Subtle image scale on desktop hover */
 @media (hover: hover) {
+  /* Own GPU layer: the zoom and photo swap stay smooth while the main thread is
+     busy (production prefetches linked pages as cards scroll into view). */
+  .image,
+  .secondaryImage {
+    will-change: transform, opacity;
+  }
+
   .card:hover .image {
     transform: scale(var(--hover-zoom));
   }
@@ -377,31 +384,9 @@
   height: 24px;
   overflow: hidden;
   transform: rotate(-45deg);
-  background: linear-gradient(180deg, #1a96d6 0%, var(--zuu-blue) 55%, #006aa3 100%);
-  box-shadow:
-    0 6px 14px -6px rgba(0, 64, 102, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-}
-
-/* Thin yellow rules along both edges */
-.saleBand::before,
-.saleBand::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(254, 200, 15, 0.7);
-  z-index: 1;
-}
-
-.saleBand::before {
-  top: 2px;
-}
-
-.saleBand::after {
-  bottom: 2px;
+  /* Ink band like the buy buttons; brand yellow only in the dots between words */
+  background: var(--text-primary);
+  box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.35);
 }
 
 .saleTrack {
@@ -427,9 +412,9 @@
   padding-inline: 7px;
   white-space: nowrap;
   font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  color: var(--zuu-yellow);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #ffffff;
 }
 
 .saleItem::after {
@@ -438,7 +423,7 @@
   height: 3px;
   margin-left: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--zuu-yellow);
 }
 
 @keyframes saleScroll {

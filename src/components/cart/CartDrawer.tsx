@@ -8,6 +8,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
+import { isCloudinaryUrl, cloudinaryCardLoader } from '@/lib/images/cloudinary-loader'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import styles from './CartDrawer.module.css'
 
@@ -130,7 +131,10 @@ export default function CartDrawer() {
         {/* ── 1. Mini Cart Header ───────────────────────────── */}
         <div className={styles.header}>
           <div className={styles.headerTopRow}>
-            <span className={styles.title}>sepet</span>
+            <h2 className={styles.title}>
+              sepetim
+              {count > 0 && <span className={styles.itemCountText}>{count} ürün</span>}
+            </h2>
             <button
               ref={closeBtnRef}
               type="button"
@@ -138,13 +142,8 @@ export default function CartDrawer() {
               onClick={closeDrawer}
               aria-label="Sepeti kapat"
             >
-              ✕
+              <CloseIcon size={20} />
             </button>
-          </div>
-          <div className={styles.headerMetaRow}>
-            <span className={styles.itemCountText}>
-              {count} {count === 1 ? 'ürün' : 'ürün'}
-            </span>
           </div>
         </div>
 
@@ -154,7 +153,8 @@ export default function CartDrawer() {
             <div className={styles.shippingBarText}>
               {freeShippingRemainder === 0 ? (
                 <span className={styles.freeShipSuccess}>
-                  ✓ <strong>ücretsiz kargo hakkı kazandınız.</strong>
+                  <CheckIcon />
+                  kargonuz ücretsiz.
                 </span>
               ) : (
                 <span>
@@ -212,8 +212,10 @@ export default function CartDrawer() {
                         <Image
                           src={item.imageUrl}
                           alt={item.name}
-                          width={64}
-                          height={64}
+                          width={160}
+                          height={200}
+                          sizes="80px"
+                          loader={isCloudinaryUrl(item.imageUrl) ? cloudinaryCardLoader : undefined}
                           className={styles.itemImage}
                         />
                       ) : (
@@ -239,7 +241,7 @@ export default function CartDrawer() {
                           onClick={() => handleRemove(item.productId, item.variantId)}
                           aria-label={`${item.name} ürününü sepetten çıkar`}
                         >
-                          ✕
+                          <CloseIcon size={16} />
                         </button>
                       </div>
 
@@ -334,7 +336,7 @@ export default function CartDrawer() {
             <div className={styles.footerActions}>
               <button
                 type="button"
-                className={styles.checkoutBtn}
+                className={`btn btn-buy btn-lg ${styles.checkoutBtn}`}
                 onClick={handleCheckout}
               >
                 <span>ödemeye geç</span>
@@ -342,7 +344,7 @@ export default function CartDrawer() {
               </button>
               <button
                 type="button"
-                className={styles.viewCartBtn}
+                className={`btn btn-secondary ${styles.viewCartBtn}`}
                 onClick={handleViewCart}
               >
                 sepete git
@@ -365,6 +367,22 @@ function ZuuMascotIcon() {
       <circle cx="28" cy="24" r="1.5" fill="currentColor" />
       <path d="M22 28.5c1 .8 3 .8 4 0" />
       <path d="M24 26v1.5" />
+    </svg>
+  )
+}
+
+function CloseIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }

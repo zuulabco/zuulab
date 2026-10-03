@@ -39,6 +39,14 @@
   transform: scale(var(--hover-zoom));
 }
 
+/* Keep the photo on its own GPU layer so the zoom stays smooth even while the
+   page is busy (in production, links prefetch the next pages in the background). */
+@media (hover: hover) {
+  .photo {
+    will-change: transform;
+  }
+}
+
 .inset {
   position: absolute;
   right: var(--sp-4);
@@ -58,8 +66,8 @@
   left: var(--sp-4);
   padding: 6px 12px;
   border-radius: 999px;
-  background: var(--zuu-blue);
-  color: var(--zuu-yellow);
+  background: var(--text-primary);
+  color: #ffffff;
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   text-transform: lowercase;
