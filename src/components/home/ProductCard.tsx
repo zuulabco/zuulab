@@ -87,13 +87,31 @@ export default function ProductCard({ product, priority = false }: Props) {
           )}
         </Link>
 
+        {/* Discount sash across the top-left corner, "İNDİRİM" sliding along it */}
+        {discount > 0 && product.inStock && (
+          <div className={styles.saleSash}>
+            <span className="sr-only">%{discount} indirimli</span>
+            <div className={styles.saleBand} aria-hidden="true">
+              <div className={styles.saleTrack}>
+                {Array.from({ length: 2 }).map((_, half) => (
+                  <span key={half} className={styles.saleHalf}>
+                    {Array.from({ length: 4 }).map((__, i) => (
+                      <span key={i} className={styles.saleItem}>
+                        İNDİRİM
+                      </span>
+                    ))}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Minimal Editorial Badge */}
         <div className={styles.tagWrap}>
           {!product.inStock ? (
             <span className={`${styles.badge} ${styles.badgeStock}`}>tükendi</span>
-          ) : discount > 0 ? (
-            <span className={`${styles.badge} ${styles.badgeDiscount}`}>-%{discount}</span>
-          ) : product.isNew ? (
+          ) : discount > 0 ? null /* the corner sash shows the discount */ : product.isNew ? (
             <span className={`${styles.badge} ${styles.badgeNew}`}>yeni</span>
           ) : product.categorySlug === 'zuukids' ? (
             <span className={`${styles.badge} ${styles.badgeWorld}`}>zuukids</span>
@@ -134,24 +152,6 @@ export default function ProductCard({ product, priority = false }: Props) {
           </div>
         )}
       </div>
-
-      {/* Discount ribbon: a blue strip under the photo with the saving scrolling past */}
-      {discount > 0 && product.inStock && (
-        <div className={styles.saleRibbon}>
-          <span className="sr-only">%{discount} indirimli</span>
-          <div className={styles.saleTrack} aria-hidden="true">
-            {Array.from({ length: 2 }).map((_, half) => (
-              <span key={half} className={styles.saleHalf}>
-                {Array.from({ length: 6 }).map((__, i) => (
-                  <span key={i} className={styles.saleItem}>
-                    İNDİRİM
-                  </span>
-                ))}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Metadata & Details ───────────────────────────── */}
       <div className={styles.info}>

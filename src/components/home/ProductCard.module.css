@@ -354,25 +354,61 @@
   }
 }
 
-/* ── Discount ribbon ──────────────────────────────────── */
-.saleRibbon {
-  position: relative;
+/* ── Discount sash ─────────────────────────────────── */
+/* A band laid diagonally over the photo's top-left corner. The photo frame clips it,
+   so it reads as a ribbon wrapped around the corner; it never reaches the
+   add-to-cart button at the bottom right. */
+.saleSash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 120px;
+  height: 120px;
   overflow: hidden;
-  /* The scrolling track is far wider than the card; never let it size the card or its grid */
-  contain: inline-size;
-  width: 100%;
-  min-width: 0;
-  height: 26px;
-  margin-top: -1px;
-  background: var(--zuu-blue);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  pointer-events: none;
+}
+
+.saleBand {
+  position: absolute;
+  top: 26px;
+  left: -42px;
+  width: 170px;
+  height: 24px;
+  overflow: hidden;
+  transform: rotate(-45deg);
+  background: linear-gradient(180deg, #1a96d6 0%, var(--zuu-blue) 55%, #006aa3 100%);
+  box-shadow:
+    0 6px 14px -6px rgba(0, 64, 102, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* Thin yellow rules along both edges */
+.saleBand::before,
+.saleBand::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(254, 200, 15, 0.7);
+  z-index: 1;
+}
+
+.saleBand::before {
+  top: 2px;
+}
+
+.saleBand::after {
+  bottom: 2px;
 }
 
 .saleTrack {
   display: flex;
   width: max-content;
   height: 100%;
-  animation: saleScroll 14s linear infinite;
+  animation: saleScroll 9s linear infinite;
 }
 
 .card:hover .saleTrack {
@@ -387,29 +423,22 @@
 .saleItem {
   display: inline-flex;
   align-items: center;
-  height: 26px;
-  padding-inline: 8px;
+  height: 24px;
+  padding-inline: 7px;
   white-space: nowrap;
-  font-size: 10.5px;
-  font-weight: var(--weight-bold, 700);
-  letter-spacing: 0.08em;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   color: var(--zuu-yellow);
-  text-transform: none;
 }
 
 .saleItem::after {
   content: '';
-  width: 4px;
-  height: 4px;
-  margin-left: 16px;
+  width: 3px;
+  height: 3px;
+  margin-left: 14px;
   border-radius: 50%;
   background: #ffffff;
-}
-
-.saleItem em {
-  font-style: normal;
-  font-weight: var(--weight-medium);
-  color: #ffffff;
 }
 
 @keyframes saleScroll {
@@ -421,14 +450,25 @@
   }
 }
 
+@media (max-width: 640px) {
+  .saleSash {
+    width: 96px;
+    height: 96px;
+  }
+  .saleBand {
+    top: 20px;
+    left: -40px;
+    width: 150px;
+    height: 21px;
+  }
+  .saleItem {
+    height: 21px;
+    font-size: 8.5px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .saleTrack {
     animation: none;
   }
-}
-
-/* The photo and the ribbon read as one piece */
-.imageWrapper:has(+ .saleRibbon) {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
 }
