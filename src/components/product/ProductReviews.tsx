@@ -58,6 +58,8 @@ export default function ProductReviews({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  // Only members who bought the product may review it (checked again on submit)
+  const [eligibility, setEligibility] = useState<'NOT_SIGNED_IN' | 'ELIGIBLE' | 'NOT_PURCHASED' | 'ALREADY_REVIEWED' | 'LOADING'>('LOADING')
 
   // Escape key and scroll lock for review modal
   useEffect(() => {
@@ -98,11 +100,39 @@ export default function ProductReviews({
     fetchReviews()
   }, [slug])
 
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/products/${slug}/reviews/eligibility`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: 'no-store',
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setEligibility(d.status ?? 'NOT_PURCHASED')
+      })
+      .catch(() => {
+        if (alive) setEligibility(user ? 'NOT_PURCHASED' : 'NOT_SIGNED_IN')
+      })
+    return () => {
+      alive = false
+    }
+  }, [slug, token, user])
+
+  const eligibilityNote =
+    eligibility === 'NOT_SIGNED_IN'
+      ? 'değerlendirme yazmak için bu ürünü satın aldığınız hesapla giriş yapın.'
+      : eligibility === 'NOT_PURCHASED'
+        ? 'yalnızca bu ürünü satın almış üyeler değerlendirme yazabilir.'
+        : eligibility === 'ALREADY_REVIEWED'
+          ? 'bu ürün için değerlendirmeniz alındı, teşekkürler.'
+          : null
+
   const handleOpenModal = () => {
     if (!user) {
       openAuthModal()
       return
     }
+    if (eligibility !== 'ELIGIBLE') return
     setSubmitError(null)
     setSubmitted(false)
     setModalOpen(true)
@@ -139,10 +169,11 @@ export default function ProductReviews({
 
       toast.success('Değerlendirmeniz alındı. Moderasyon sonrası yayına alınacaktır.')
       setModalOpen(false)
+      setEligibility('ALREADY_REVIEWED')
       setTitle('')
       setBody('')
     } catch (err: any) {
-      const msg = err.message || 'Yorum gönderilirken bir hata oluştu.'
+      const msg = (err.message || 'Yorum gönderilirken bir hata oluştu.').replace(/^[A-Z_]+:\s*/, '')
       setSubmitError(msg)
       toast.error(msg)
     } finally {
@@ -162,13 +193,17 @@ export default function ProductReviews({
             zuulab kullanıcılarının gerçek deneyimleri ve doğrulanmış değerlendirmeleri.
           </p>
         </div>
-        <button
-          type="button"
-          className={styles.writeReviewBtn}
-          onClick={handleOpenModal}
-        >
-          değerlendirme yaz
-        </button>
+        {eligibility === 'ELIGIBLE' ? (
+          <button type="button" className={styles.writeReviewBtn} onClick={handleOpenModal}>
+            değerlendirme yaz
+          </button>
+        ) : eligibility === 'NOT_SIGNED_IN' ? (
+          <button type="button" className={styles.reviewNoteBtn} onClick={() => openAuthModal()}>
+            {eligibilityNote}
+          </button>
+        ) : eligibilityNote ? (
+          <p className={styles.reviewNote}>{eligibilityNote}</p>
+        ) : null}
       </div>
 
       {/* ── Rating Breakdown Card (only once there is something to break down) ── */}
@@ -251,15 +286,13 @@ export default function ProductReviews({
             </div>
             <h4 className={styles.emptyTitle}>bu tasarım için henüz bir değerlendirme yazılmadı</h4>
             <p className={styles.emptyDesc}>
-              atölyeden çıkan bu parçayı ilk deneyimleyen siz olun ve izlenimlerinizi paylaşın.
+              bu ürünü satın alan üyelerimizin değerlendirmeleri burada görünecek.
             </p>
-            <button
-              type="button"
-              className={styles.emptyWriteBtn}
-              onClick={handleOpenModal}
-            >
-              ilk değerlendirmeyi yaz
-            </button>
+            {eligibility === 'ELIGIBLE' && (
+              <button type="button" className={styles.emptyWriteBtn} onClick={handleOpenModal}>
+                ilk değerlendirmeyi yaz
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -460,3 +460,38 @@
   font-weight: var(--weight-semibold);
   margin-bottom: var(--sp-4);
 }
+
+/* Why the shopper cannot write a review (not signed in / not bought / done) */
+.reviewNote,
+.reviewNoteBtn {
+  max-width: 300px;
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: right;
+  text-transform: lowercase;
+}
+
+.reviewNoteBtn {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.reviewNoteBtn:hover {
+  color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .reviewNote,
+  .reviewNoteBtn {
+    max-width: none;
+    text-align: left;
+  }
+}

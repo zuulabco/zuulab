@@ -1172,3 +1172,63 @@
     animation: none;
   }
 }
+
+/* ── Phones: tidy toolbar and filter sheet ─────────────── */
+@media (max-width: 768px) {
+  /* Search gets the full row; the count moves to the filter button */
+  .headerRight {
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+  }
+
+  .catalogSearchWrap {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .catalogSearchInput {
+    height: 44px;
+  }
+
+  .headerRight .resultCount {
+    display: none;
+  }
+
+  /* Filter and sort side by side, same size */
+  .mobileToolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-2);
+  }
+
+  .mobileFilterBtn {
+    justify-content: center;
+    height: 44px;
+    padding: 0 var(--sp-3);
+    font-size: var(--text-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  .mobileSortWrap {
+    max-width: none;
+  }
+
+  /* The sheet already says "filtreler" at the top */
+  .drawerBody .filterHeading {
+    display: none;
+  }
+
+  .drawerBody .filterHeader {
+    justify-content: flex-end;
+    margin-bottom: 0;
+  }
+
+  .drawerBody .filterGroupToggle {
+    min-height: 48px;
+    font-size: var(--text-base);
+  }
+
+  .drawerBody .filterRadioLabel {
+    min-height: 44px;
+  }
+}

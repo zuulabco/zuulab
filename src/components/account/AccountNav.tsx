@@ -108,9 +108,6 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
                   </span>
                 )}
               </span>
-              {typeof link.count === 'number' && link.count > 0 && (
-                <span className={styles.badge}>{link.count}</span>
-              )}
             </Link>
           )
         })}

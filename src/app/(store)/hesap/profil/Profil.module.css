@@ -43,7 +43,7 @@
 /* ── Layout Grid ─────────────────────────────────────────── */
 .accountGrid {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: var(--sp-8);
   align-items: start;
 }
@@ -282,7 +282,7 @@
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .accountGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--sp-6);
   }
 

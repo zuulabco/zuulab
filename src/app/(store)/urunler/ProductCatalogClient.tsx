@@ -515,6 +515,7 @@ export default function ProductCatalogClient({
                 )}
                 {categories.map((c) => {
                   const count = products.filter((p) => p.categorySlug === c.slug).length
+                  if (count === 0 && selectedCategory !== c.slug) return null
                   return (
                     <label key={c.id} className={styles.filterRadioLabel}>
                       <input
@@ -587,6 +588,7 @@ export default function ProductCatalogClient({
                         return colls.includes(c.slug)
                       }).length
                       const isChecked = selectedCollection === c.slug
+                      if (count === 0 && !isChecked) return null
                       return (
                         <label
                           key={c.slug}

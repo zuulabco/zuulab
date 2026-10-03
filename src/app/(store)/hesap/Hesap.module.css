@@ -95,7 +95,7 @@
 /* ── Main Layout Grid ────────────────────────────────────── */
 .accountGrid {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: var(--sp-8);
   align-items: start;
 }
@@ -110,7 +110,7 @@
 /* ── Quick Stats Row ─────────────────────────────────────── */
 .overviewStatsRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-4);
 }
 
@@ -371,12 +371,12 @@
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .accountGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--sp-6);
   }
 
   .overviewStatsRow {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--sp-3);
   }
 }

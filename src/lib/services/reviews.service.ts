@@ -240,3 +240,17 @@ export async function moderateReview(
   const row = await reviewQuery().where({ id: reviewId }).first()
   return toReviewItem(row!, { exposeEmail: true })
 }
+
+export type ReviewEligibility = 'ELIGIBLE' | 'NOT_PURCHASED' | 'ALREADY_REVIEWED' | 'NOT_FOUND'
+
+/**
+ * Whether this member may review the product: they need a paid (confirmed or later)
+ * order containing it and no earlier review of it. The same rules are enforced again
+ * when the review is submitted.
+ */
+export async function getReviewEligibility(userId: string, productIdOrSlug: string): Promise<ReviewEligibility> {
+  const prod = await resolveProduct(productIdOrSlug)
+  if (!prod) return 'NOT_FOUND'
+  if (await db.orm.public.Review.where({ userId, productId: prod.id }).first()) return 'ALREADY_REVIEWED'
+  return (await verifyCustomerPurchase(userId, prod.id)).isVerified ? 'ELIGIBLE' : 'NOT_PURCHASED'
+}

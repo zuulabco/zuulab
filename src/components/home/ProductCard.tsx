@@ -144,8 +144,7 @@ export default function ProductCard({ product, priority = false }: Props) {
               <span key={half} className={styles.saleHalf}>
                 {Array.from({ length: 4 }).map((__, i) => (
                   <span key={i} className={styles.saleItem}>
-                    %{discount} indirim
-                    {product.oldPrice ? <em>{formatPrice(product.oldPrice - product.price)} kazanç</em> : null}
+                    indirim
                   </span>
                 ))}
               </span>

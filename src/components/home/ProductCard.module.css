@@ -1,5 +1,6 @@
 /* ProductCard.module.css */
 .card {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -357,6 +358,10 @@
 .saleRibbon {
   position: relative;
   overflow: hidden;
+  /* The scrolling track is far wider than the card; never let it size the card or its grid */
+  contain: inline-size;
+  width: 100%;
+  min-width: 0;
   height: 26px;
   margin-top: -1px;
   background: var(--zuu-blue);

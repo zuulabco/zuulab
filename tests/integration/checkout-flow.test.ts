@@ -321,8 +321,21 @@ describe('admin stock adjustments', () => {
 describe('reviews', () => {
   it('requires a paid purchase, stays hidden until approved, then feeds the rating', async () => {
     const user = { id: userId, email: `${RUN}@example.com`, name: 'Test Müşteri' }
+    // Someone who never bought it is refused, before and on submit
+    const stranger = await db.orm.public.User.create({ email: `${RUN}-x@example.com`, name: 'Yabancı', role: 'CUSTOMER', status: 'ACTIVE' } as never)
+    try {
+      expect(await reviews.getReviewEligibility(stranger.id, productId)).toBe('NOT_PURCHASED')
+      await expect(
+        reviews.createProductReview({ id: stranger.id, email: stranger.email }, { productIdOrSlug: productId, rating: 5, body: 'Hiç almadım ama' })
+      ).rejects.toThrow(/NOT_ELIGIBLE/)
+    } finally {
+      await db.runtime().execute(db.raw.sql`DELETE FROM users WHERE id = ${stranger.id}`.affectedCount().build())
+    }
+
     // The earlier payment tests left this user with confirmed orders for the product.
+    expect(await reviews.getReviewEligibility(userId, productId)).toBe('ELIGIBLE')
     const review = await reviews.createProductReview(user, { productIdOrSlug: productId, rating: 4, body: 'Gayet güzel bir ürün' })
+    expect(await reviews.getReviewEligibility(userId, productId)).toBe('ALREADY_REVIEWED')
     expect(review.status).toBe('PENDING')
     expect((await reviews.getProductReviews(productId)).stats.totalCount).toBe(0)
     await expect(

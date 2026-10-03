@@ -77,35 +77,54 @@
   background-color: var(--error-bg);
 }
 
-/* ── Mobile Horizontal Scrollable Tabs ───────────────────── */
+/* ── Phones: one row of scrollable chips ─────────────────── */
 @media (max-width: 768px) {
   .navContainer {
     flex-direction: row;
+    gap: var(--sp-2);
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 0 var(--sp-5);
+    padding: 2px 0 var(--sp-1);
     overflow-x: auto;
-    white-space: nowrap;
-    padding-bottom: var(--sp-2);
-    margin-bottom: var(--sp-4);
-    border-bottom: 1px solid var(--border-subtle);
-    gap: var(--sp-1);
-    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* soft edge so it is clear the row scrolls */
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
   }
 
   .navContainer::-webkit-scrollbar {
     display: none;
   }
 
-  .navItem {
-    border-left: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    padding: 6px 10px;
+  .navItem,
+  .logoutBtn {
     flex-shrink: 0;
+    width: auto;
+    height: 38px;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-0);
+    white-space: nowrap;
+    scroll-snap-align: start;
   }
 
   .navItemActive {
-    border-bottom-color: var(--zuu-blue);
-    background-color: transparent;
+    border-color: var(--text-primary);
+    background: var(--text-primary);
+    color: var(--text-inv);
+  }
+
+  .navItemActive:hover {
+    background: var(--text-primary);
+    color: var(--text-inv);
+  }
+
+  .navItemActive .newDot {
+    background: var(--zuu-yellow);
   }
 
   .navDivider {
@@ -113,11 +132,7 @@
   }
 
   .logoutBtn {
-    border-radius: 0;
-    padding: 6px 10px;
-    flex-shrink: 0;
-    width: auto;
-    white-space: nowrap;
+    color: var(--text-muted);
   }
 }
 
