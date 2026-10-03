@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
+import AccountIcon, { type AccountIconName } from './AccountIcon'
 import styles from './AccountNav.module.css'
 
 type BadgeSection = 'orders' | 'support'
@@ -62,13 +63,13 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
     }
   }, [token, pathname])
 
-  const navLinks = [
-    { label: 'hesabım', href: '/hesap', exact: true },
-    { label: 'siparişlerim', href: '/hesap/siparisler', count: orderCount, section: 'orders' as BadgeSection },
-    { label: 'adreslerim', href: '/hesap/adresler' },
-    { label: 'favorilerim', href: '/hesap/favoriler', count: favoriteCount },
-    { label: 'destek', href: '/hesap/destek', count: ticketCount, section: 'support' as BadgeSection },
-    { label: 'profilim', href: '/hesap/profil' },
+  const navLinks: Array<{ label: string; href: string; icon: AccountIconName; exact?: boolean; count?: number; section?: BadgeSection }> = [
+    { label: 'genel bakış', href: '/hesap', icon: 'home', exact: true },
+    { label: 'siparişlerim', href: '/hesap/siparisler', icon: 'orders', count: orderCount, section: 'orders' },
+    { label: 'adreslerim', href: '/hesap/adresler', icon: 'address' },
+    { label: 'favorilerim', href: '/hesap/favoriler', icon: 'heart', count: favoriteCount },
+    { label: 'destek taleplerim', href: '/hesap/destek', icon: 'support', count: ticketCount, section: 'support' },
+    { label: 'profil bilgilerim', href: '/hesap/profil', icon: 'profile' },
   ]
 
   const confirmLogout = async () => {
@@ -85,7 +86,7 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
           const isActive = link.exact
             ? pathname === link.href
             : pathname === link.href || pathname?.startsWith(`${link.href}/`)
-          const hasNews = 'section' in link && link.section ? badges[link.section] : false
+          const hasNews = link.section ? badges[link.section] : false
 
           return (
             <Link
@@ -94,12 +95,15 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
               className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
               aria-current={isActive ? 'page' : undefined}
               onClick={() => {
-                if ('section' in link && link.section) {
+                if (link.section) {
                   const section = link.section
                   setBadges((b) => ({ ...b, [section]: false }))
                 }
               }}
             >
+              <span className={styles.navIcon}>
+                <AccountIcon name={link.icon} />
+              </span>
               <span className={styles.navLabel}>
                 {link.label}
                 {hasNews && (
@@ -119,6 +123,9 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
           onClick={() => setLogoutModalOpen(true)}
           className={styles.logoutBtn}
         >
+          <span className={styles.navIcon}>
+            <AccountIcon name="logout" />
+          </span>
           <span>çıkış yap</span>
         </button>
       </nav>

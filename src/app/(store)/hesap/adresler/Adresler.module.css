@@ -63,8 +63,8 @@
 
 .accountGrid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: var(--sp-8);
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--sp-10, 40px);
   align-items: start;
 }
 
@@ -111,7 +111,7 @@
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide);
   color: var(--text-primary);
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 
 .defaultBadge {

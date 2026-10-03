@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
+import { auth, isFirebaseClientConfigured, sendPasswordResetEmail } from '@/lib/firebase'
 import AccountNav from '@/components/account/AccountNav'
+import AccountHeader from '@/components/account/AccountHeader'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Profil.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
@@ -24,16 +26,15 @@ export default function ProfilClient() {
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState('')
+  const [resetState, setResetState] = useState<'idle' | 'sending' | 'sent'>('idle')
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // No token yet: the session is still being restored, keep the skeleton up.
+    if (!token) return
 
     setLoading(true)
     fetch('/api/account/profile', {
@@ -108,17 +109,31 @@ export default function ProfilClient() {
     }
   }
 
-  const roleLabel = profile?.role === 'ADMIN' || profile?.role === 'SUPER_ADMIN' ? 'yönetici' : 'müşteri'
+  // Google-only accounts have no password to reset here.
+  const providers = isFirebaseClientConfigured ? auth.currentUser?.providerData.map((p) => p.providerId) ?? [] : []
+  const googleOnly = providers.length > 0 && !providers.includes('password')
+
+  const sendReset = async () => {
+    const email = profile?.email || user.email
+    setResetState('sending')
+    try {
+      await sendPasswordResetEmail(auth, email)
+      setResetState('sent')
+    } catch {
+      setResetState('idle')
+      toast.error('Bağlantı gönderilemedi. Biraz sonra tekrar deneyin.')
+    }
+  }
+
+  const roleLabel =profile?.role === 'ADMIN' || profile?.role === 'SUPER_ADMIN' ? 'yönetici' : 'müşteri'
   const statusLabel = profile?.status === 'ACTIVE' ? 'aktif' : profile?.status?.toLowerCase() || 'aktif'
 
   return (
     <div className={styles.profilPage}>
-      <header className={styles.pageHeader}>
-        <div>
-          <span className={styles.eyebrow}>zuulab / profil</span>
-          <h1 className={styles.pageTitle}>profil bilgilerim</h1>
-        </div>
-      </header>
+      <AccountHeader
+        title="profil bilgilerim"
+        description="siparişlerde ve faturada kullanılan adın ile giriş e-postan."
+      />
 
       <div className={styles.accountGrid}>
         <aside>
@@ -174,10 +189,30 @@ export default function ProfilClient() {
                 </div>
 
                 <div className={styles.infoBox}>
-                  <h4 className={styles.infoTitle}>hesap güvenliği & veriler</h4>
-                  <p className={styles.infoDesc}>
-                    zuulab hesabınız Firebase ve güvenli JWT altyapısıyla korunmaktadır. Parola değişikliği ve oturum yönetimi için giriş sağlayıcınızı kullanabilirsiniz.
-                  </p>
+                  <h4 className={styles.infoTitle}>şifre ve giriş</h4>
+                  {googleOnly ? (
+                    <p className={styles.infoDesc}>
+                      google hesabınla giriş yapıyorsun; şifren google tarafından yönetilir.
+                    </p>
+                  ) : (
+                    <>
+                      <p className={styles.infoDesc}>
+                        şifreni değiştirmek için e-posta adresine bir yenileme bağlantısı gönderebiliriz.
+                      </p>
+                      <button
+                        type="button"
+                        className={styles.inlineBtn}
+                        onClick={sendReset}
+                        disabled={resetState !== 'idle'}
+                      >
+                        {resetState === 'sent'
+                          ? 'bağlantı gönderildi, e-postanı kontrol et'
+                          : resetState === 'sending'
+                            ? 'gönderiliyor…'
+                            : 'şifre yenileme bağlantısı gönder'}
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div className={styles.formActions}>

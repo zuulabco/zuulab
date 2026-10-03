@@ -1,0 +1,4 @@
+.scope {
+  --font-mono: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}

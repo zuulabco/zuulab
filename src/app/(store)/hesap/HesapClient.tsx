@@ -3,13 +3,15 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { DASHBOARD_URL } from '@/lib/config/urls'
-import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
-import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import AccountNav from '@/components/account/AccountNav'
-import Modal from '@/components/common/Modal'
+import AccountHeader from '@/components/account/AccountHeader'
+import AccountIcon, { type AccountIconName } from '@/components/account/AccountIcon'
+import { OrderStatusBadge, OrderTrack } from '@/components/account/OrderStatus'
+import { customerOrderStatus } from '@/components/account/order-status'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
+import { Skeleton } from '@/components/common/Skeleton'
 import styles from './Hesap.module.css'
 
 // Shape of StoredOrder returned by /api/orders (src/lib/services/orders.service.ts).
@@ -20,16 +22,22 @@ interface OrderSummary {
   createdAt: string
   totalAmount: number
   itemCount?: number
-  items?: Array<{ id: string; quantity: number }>
+  items?: Array<{ id: string; quantity: number; productName?: string }>
 }
 
+interface Counts {
+  orders: number
+  favorites: number
+  addresses: number
+}
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+
 export default function HesapClient() {
-  const router = useRouter()
-  const { user, token, logout, openAuthModal, devLogin } = useAuthStore()
+  const { user, token, openAuthModal, devLogin } = useAuthStore()
   const [orders, setOrders] = useState<OrderSummary[]>([])
-  const [favoriteCount, setFavoriteCount] = useState<number>(0)
-  const [addressCount, setAddressCount] = useState<number>(0)
-  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [counts, setCounts] = useState<Counts | null>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -38,44 +46,21 @@ export default function HesapClient() {
 
   useEffect(() => {
     if (!token) return
+    const auth = { headers: { Authorization: `Bearer ${token}` } }
+    const get = (url: string) =>
+      fetch(url, auth)
+        .then((res) => res.json())
+        .catch(() => ({}))
 
-    // Fetch orders
-    fetch('/api/orders', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.orders)) {
-          setOrders(data.orders)
-        }
+    Promise.all([get('/api/orders'), get('/api/favorites'), get('/api/account/addresses')]).then(([o, f, a]) => {
+      const list: OrderSummary[] = o.success && Array.isArray(o.orders) ? o.orders : []
+      setOrders(list)
+      setCounts({
+        orders: list.length,
+        favorites: Array.isArray(f.favorites) ? f.favorites.length : Array.isArray(f.productIds) ? f.productIds.length : 0,
+        addresses: Array.isArray(a.addresses) ? a.addresses.length : 0,
       })
-      .catch(() => {})
-
-    // Fetch favorites
-    fetch('/api/favorites', {
-      headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.favorites)) {
-          setFavoriteCount(data.favorites.length)
-        } else if (data.success && Array.isArray(data.productIds)) {
-          setFavoriteCount(data.productIds.length)
-        }
-      })
-      .catch(() => {})
-
-    // Fetch addresses
-    fetch('/api/account/addresses', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.addresses)) {
-          setAddressCount(data.addresses.length)
-        }
-      })
-      .catch(() => {})
   }, [token])
 
   if (!mounted) return null
@@ -91,230 +76,180 @@ export default function HesapClient() {
           siparişlerinizi takip etmek, favorilerinizi kaydetmek ve teslimat adreslerinizi yönetmek için lütfen giriş yapın.
         </p>
         <div className={styles.emptyActions}>
-          <button
-            type="button"
-            className={styles.primaryCtaBtn}
-            onClick={() => openAuthModal()}
-          >
+          <button type="button" className={styles.primaryCtaBtn} onClick={() => openAuthModal()}>
             giriş yap / kayıt ol
           </button>
-          <button
-            type="button"
-            className={styles.secondaryActionBtn}
-            onClick={() => devLogin('CUSTOMER')}
-          >
-            örnek müşteri ile dene
-          </button>
+          {/* Sample login only works against a dev server; production rejects the token. */}
+          {process.env.NODE_ENV !== 'production' && (
+            <button type="button" className={styles.secondaryActionBtn} onClick={() => devLogin('CUSTOMER')}>
+              örnek müşteri ile dene
+            </button>
+          )}
         </div>
       </div>
     )
   }
 
   const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
-  const latestOrder = orders.length > 0 ? orders[0] : null
-  const latestOrderItemsCount = latestOrder?.items?.reduce((sum, it) => sum + it.quantity, 0) || latestOrder?.itemCount || 1
+  const firstName = (user.name || user.email.split('@')[0]).split(' ')[0]
+  const latestOrder = orders[0] ?? null
+  const activeOrders = orders.filter((o) => {
+    const step = customerOrderStatus(o.status).step
+    return step !== null && step < 3
+  }).length
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PAYMENT_PENDING':
-        return 'ödeme bekleniyor'
-      case 'CONFIRMED':
-        return 'onaylandı'
-      case 'PREPARING':
-      case 'IN_PRODUCTION':
-        return 'hazırlanıyor'
-      case 'SHIPPED':
-        return 'kargoya verildi'
-      case 'DELIVERED':
-        return 'teslim edildi'
-      case 'CANCELLED':
-        return 'iptal edildi'
-      default:
-        return status.toLowerCase()
-    }
-  }
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'PAYMENT_PENDING':
-        return styles.statusPaymentPending
-      case 'CONFIRMED':
-        return styles.statusConfirmed
-      case 'PREPARING':
-      case 'IN_PRODUCTION':
-      case 'SHIPPED':
-        return styles.statusShipped
-      case 'DELIVERED':
-        return styles.statusDelivered
-      case 'CANCELLED':
-        return styles.statusCancelled
-      default:
-        return styles.statusPaymentPending
-    }
-  }
+  const shortcuts: Array<{ href: string; icon: AccountIconName; title: string; meta: string }> = counts
+    ? [
+        {
+          href: '/hesap/siparisler',
+          icon: 'orders',
+          title: 'siparişlerim',
+          meta:
+            counts.orders === 0
+              ? 'henüz sipariş yok'
+              : activeOrders > 0
+                ? `${activeOrders} sipariş yolda · toplam ${counts.orders}`
+                : `${counts.orders} sipariş`,
+        },
+        {
+          href: '/hesap/favoriler',
+          icon: 'heart',
+          title: 'favorilerim',
+          meta: counts.favorites === 0 ? 'beğendiklerini kalple kaydet' : `${counts.favorites} ürün kayıtlı`,
+        },
+        {
+          href: '/hesap/adresler',
+          icon: 'address',
+          title: 'adreslerim',
+          meta: counts.addresses === 0 ? 'ödemeyi hızlandırmak için adres ekle' : `${counts.addresses} kayıtlı adres`,
+        },
+        { href: '/hesap/destek', icon: 'support', title: 'destek', meta: 'bir sorun mu var? bize yaz' },
+      ]
+    : []
 
   return (
     <div className={styles.hesapPage}>
-      {/* Editorial Header */}
-      <header className={styles.accountHeader}>
-        <div>
-          <span className={styles.eyebrow}>zuulab / hesabım</span>
-          <h1 className={styles.userGreeting}>
-            merhaba, {user.name || user.email.split('@')[0]}
-          </h1>
-          <p className={styles.userEmail}>
-            siparişlerini ve hesap bilgilerini buradan yönetebilirsin.
-          </p>
-        </div>
-
-        <div className={styles.headerActions}>
-          {isAdmin && (
+      <AccountHeader
+        title={`merhaba, ${firstName.toLocaleLowerCase('tr-TR')}`}
+        description="siparişlerini takip et, adreslerini ve favorilerini tek yerden yönet."
+        actions={
+          isAdmin ? (
             <a href={DASHBOARD_URL} className={styles.adminBtn}>
-              yönetim paneli →
+              yönetim paneli
             </a>
-          )}
-          <button
-            type="button"
-            className={styles.secondaryActionBtn}
-            onClick={() => setLogoutModalOpen(true)}
-          >
-            çıkış yap
-          </button>
-        </div>
-      </header>
+          ) : undefined
+        }
+      />
 
-      {/* Main Grid */}
       <div className={styles.accountGrid}>
         <aside>
-          <AccountNav
-            orderCount={orders.length}
-            favoriteCount={favoriteCount}
-          />
+          <AccountNav />
         </aside>
 
         <main className={styles.accountContent}>
-          {/* Quick Metrics */}
-          <div className={styles.overviewStatsRow}>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>toplam sipariş</span>
-              <span className={styles.statValue}>{orders.length}</span>
-            </div>
-
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>kayıtlı favoriler</span>
-              <span className={styles.statValue}>{favoriteCount}</span>
-            </div>
-
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>kayıtlı adresler</span>
-              <span className={styles.statValue}>{addressCount}</span>
-            </div>
-          </div>
-
-          {/* Latest Order Card (if exists) */}
-          {latestOrder ? (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-3)' }}>
-                <h2 className={styles.sectionTitle}>son siparişin</h2>
-                <Link href="/hesap/siparisler" className={styles.viewOrderBtn}>
-                  tüm siparişler ({orders.length}) →
+          {/* Latest order */}
+          <section aria-labelledby="latest-order-title">
+            <div className={styles.sectionHead}>
+              <h2 id="latest-order-title" className={styles.sectionTitle}>
+                son siparişin
+              </h2>
+              {orders.length > 1 && (
+                <Link href="/hesap/siparisler" className={styles.textLink}>
+                  tümünü gör
                 </Link>
-              </div>
+              )}
+            </div>
 
-              <div className={styles.latestOrderCard}>
+            {!counts ? (
+              <div className={styles.latestOrderCard} aria-busy="true" aria-label="Siparişler yükleniyor">
+                <Skeleton width="40%" height={16} />
+                <Skeleton width="100%" height={10} />
+                <Skeleton width="30%" height={14} />
+              </div>
+            ) : latestOrder ? (
+              <Link href={`/hesap/siparisler/${latestOrder.orderNumber}`} className={`${styles.latestOrderCard} ${styles.cardLink}`}>
                 <div className={styles.orderHeaderRow}>
                   <div className={styles.orderNumWrap}>
-                    <span className={styles.orderNumber}>#{latestOrder.orderNumber}</span>
-                    <span className={styles.orderDate}>
-                      {new Date(latestOrder.createdAt).toLocaleDateString('tr-TR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </span>
+                    <span className={styles.orderNumber}>sipariş #{latestOrder.orderNumber}</span>
+                    <span className={styles.orderDate}>{formatDate(latestOrder.createdAt)}</span>
                   </div>
-
-                  <span className={`${styles.orderStatusBadge} ${getStatusClass(latestOrder.status)}`}>
-                    {getStatusLabel(latestOrder.status)}
-                  </span>
+                  <OrderStatusBadge status={latestOrder.status} />
                 </div>
 
+                <OrderTrack status={latestOrder.status} />
+
+                {customerOrderStatus(latestOrder.status).hint && (
+                  <p className={styles.orderHint}>{customerOrderStatus(latestOrder.status).hint}</p>
+                )}
+
                 <div className={styles.orderPreviewRow}>
-                  <span>{latestOrderItemsCount} adet ürün</span>
+                  <span>
+                    {latestOrder.items?.reduce((sum, it) => sum + it.quantity, 0) || latestOrder.itemCount || 1} ürün
+                  </span>
                   <span className={styles.orderPrice}>{formatPrice(latestOrder.totalAmount)}</span>
                 </div>
 
-                <div className={styles.orderFooterRow}>
-                  <Link
-                    href={`/hesap/siparisler/${latestOrder.orderNumber}`}
-                    className={styles.viewOrderBtn}
-                  >
-                    siparişi görüntüle →
+                <span className={styles.cardCta}>
+                  siparişi görüntüle
+                  <AccountIcon name="arrow" size={16} />
+                </span>
+              </Link>
+            ) : (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyMascotWrap}>
+                  <ZuuMascotIcon />
+                </div>
+                <h2 className={styles.emptyStateTitle}>henüz bir sipariş yok.</h2>
+                <p className={styles.emptyStateDesc}>atölyeden sana doğru yola çıkacak ilk parçayı bekliyoruz.</p>
+                <div className={styles.emptyActions}>
+                  <Link href="/urunler" className={styles.primaryCtaBtn}>
+                    ürünleri keşfet
                   </Link>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className={styles.activityCard}>
-              <h2 className={styles.sectionTitle}>hoş geldiniz</h2>
-              <p className={styles.activityText}>
-                zuulab koleksiyonundaki özel 3d tasarım objelerini ve fonksiyonel masa aksesuarlarını keşfederek ilk siparişinizi verebilirsiniz.
-              </p>
-              <div className={styles.activityActions}>
-                <Link href="/urunler" className={styles.primaryCtaBtn}>
-                  ürünleri keşfet
-                </Link>
-              </div>
-            </div>
-          )}
+            )}
+          </section>
 
-          {/* Workshop Guarantee Note */}
-          <div className={styles.activityCard}>
-            <p className={styles.activityText}>
-              tüm siparişleriniz atölyemizde 3d baskıyla hazırlanır ve özenle paketlenerek gönderilir.
-            </p>
-          </div>
+          {/* Shortcuts */}
+          <section aria-labelledby="shortcuts-title">
+            <div className={styles.sectionHead}>
+              <h2 id="shortcuts-title" className={styles.sectionTitle}>
+                hızlı erişim
+              </h2>
+            </div>
+            <div className={styles.shortcutGrid}>
+              {counts
+                ? shortcuts.map((s) => (
+                    <Link key={s.href} href={s.href} className={styles.shortcut}>
+                      <span className={styles.shortcutIcon}>
+                        <AccountIcon name={s.icon} size={20} />
+                      </span>
+                      <span className={styles.shortcutText}>
+                        <span className={styles.shortcutTitle}>{s.title}</span>
+                        <span className={styles.shortcutMeta}>{s.meta}</span>
+                      </span>
+                      <span className={styles.shortcutArrow}>
+                        <AccountIcon name="arrow" size={16} />
+                      </span>
+                    </Link>
+                  ))
+                : Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className={styles.shortcut} aria-hidden="true">
+                      <Skeleton width={40} height={40} />
+                      <span className={styles.shortcutText}>
+                        <Skeleton width="50%" height={13} />
+                        <Skeleton width="70%" height={11} />
+                      </span>
+                    </div>
+                  ))}
+            </div>
+          </section>
+
+          <p className={styles.footNote}>
+            tüm siparişleriniz atölyemizde 3d baskıyla hazırlanır ve özenle paketlenerek gönderilir.
+          </p>
         </main>
       </div>
-
-      {/* Logout Confirmation Modal */}
-      <Modal
-        isOpen={logoutModalOpen}
-        onClose={() => setLogoutModalOpen(false)}
-        maxWidth="420px"
-        ariaLabel="Oturumu Kapatma Onayı"
-      >
-        <div style={{ padding: 'var(--sp-2) 0' }}>
-          <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)', fontWeight: 'var(--weight-medium)', margin: '0 0 var(--sp-2) 0', color: 'var(--text-primary)' }}>
-            oturumu kapat
-          </h3>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', margin: '0 0 var(--sp-6) 0', lineHeight: 1.5 }}>
-            hesabınızdan çıkış yapmak istediğinize emin misiniz?
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--sp-3)' }}>
-            <button
-              type="button"
-              onClick={() => setLogoutModalOpen(false)}
-              className={styles.secondaryActionBtn}
-            >
-              vazgeç
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setLogoutModalOpen(false)
-                await logout()
-                toast.info('Oturum kapatıldı.')
-                router.push('/')
-              }}
-              className={styles.secondaryActionBtn}
-              style={{ background: 'var(--text-primary)', color: 'var(--surface-0)' }}
-            >
-              çıkış yap
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }

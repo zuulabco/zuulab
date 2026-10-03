@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import AccountNav from '@/components/account/AccountNav'
+import AccountHeader from '@/components/account/AccountHeader'
+import { formatTrMobile } from '@/lib/validations/phone'
 import Modal from '@/components/common/Modal'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Adresler.module.css'
@@ -61,10 +63,8 @@ export default function AdreslerClient() {
   }, [])
 
   const fetchAddresses = () => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // No token yet: the session is still being restored, keep the skeleton up.
+    if (!token) return
     setLoading(true)
     fetch('/api/account/addresses', {
       headers: { Authorization: `Bearer ${token}` },
@@ -248,20 +248,15 @@ export default function AdreslerClient() {
 
   return (
     <>
-      <header className={styles.pageHeader}>
-        <div>
-          <span className={styles.eyebrow}>zuulab / adresler</span>
-          <h1 className={styles.pageTitle}>kayıtlı adreslerim</h1>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleOpenAdd}
-          className={styles.addBtn}
-        >
-          <span>+ yeni adres ekle</span>
-        </button>
-      </header>
+      <AccountHeader
+        title="adreslerim"
+        description="varsayılan adresin ödeme sayfasında otomatik seçilir."
+        actions={
+          <button type="button" onClick={handleOpenAdd} className={styles.addBtn}>
+            <span>+ yeni adres ekle</span>
+          </button>
+        }
+      />
 
       <div className={styles.accountGrid}>
         <aside>
@@ -302,7 +297,7 @@ export default function AdreslerClient() {
 
                   <div className={styles.cardBody}>
                     <div className={styles.recipientName}>{addr.firstName} {addr.lastName}</div>
-                    <div>{addr.phone}</div>
+                    <div>{formatTrMobile(addr.phone)}</div>
                     <div style={{ marginTop: 4 }}>{addr.addressLine1}</div>
                     {addr.addressLine2 && <div>{addr.addressLine2}</div>}
                     <div>{addr.district} / {addr.city} {addr.postalCode}</div>
@@ -394,7 +389,7 @@ export default function AdreslerClient() {
             <input
               type="tel"
               required
-              placeholder="05xx xxx xx xx"
+              placeholder="0555 555 55 55"
               className={styles.input}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}

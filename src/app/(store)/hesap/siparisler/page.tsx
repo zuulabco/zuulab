@@ -6,6 +6,9 @@ import Breadcrumbs from '@/components/common/Breadcrumbs'
 import { useAuthStore } from '@/store/authStore'
 import { formatPrice } from '@/lib/utils'
 import AccountNav from '@/components/account/AccountNav'
+import AccountHeader from '@/components/account/AccountHeader'
+import AccountIcon from '@/components/account/AccountIcon'
+import { OrderStatusBadge } from '@/components/account/OrderStatus'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Siparisler.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
@@ -42,10 +45,8 @@ export default function SiparislerPage() {
   }, [])
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // No token yet: the session is still being restored, keep the skeleton up.
+    if (!token) return
 
     fetch('/api/orders', {
       headers: { Authorization: `Bearer ${token}` },
@@ -84,53 +85,15 @@ export default function SiparislerPage() {
     )
   }
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PAYMENT_PENDING':
-        return 'ödeme bekliyor'
-      case 'CONFIRMED':
-        return 'onaylandı'
-      case 'PREPARING':
-      case 'IN_PRODUCTION':
-        return 'hazırlanıyor'
-      case 'SHIPPED':
-        return 'kargoya verildi'
-      case 'DELIVERED':
-        return 'teslim edildi'
-      case 'CANCELLED':
-        return 'iptal edildi'
-      default:
-        return status.toLowerCase()
-    }
-  }
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'PAYMENT_PENDING':
-        return styles.statusPaymentPending
-      case 'CONFIRMED':
-        return styles.statusConfirmed
-      case 'PREPARING':
-      case 'IN_PRODUCTION':
-      case 'SHIPPED':
-        return styles.statusShipped
-      case 'DELIVERED':
-        return styles.statusDelivered
-      case 'CANCELLED':
-        return styles.statusCancelled
-      default:
-        return styles.statusPaymentPending
-    }
-  }
 
   return (
     <div className="container" style={{ paddingTop: 'var(--sp-8, 32px)', paddingBottom: 'var(--sp-20, 80px)' }}>
       <Breadcrumbs items={[{ label: 'Hesabım', href: '/hesap' }, { label: 'Siparişlerim' }]} />
 
-      <header className={styles.pageHeader}>
-        <span className={styles.eyebrow}>zuulab / siparişler</span>
-        <h1 className={styles.pageTitle}>siparişlerim</h1>
-      </header>
+<AccountHeader
+        title="siparişlerim"
+        description="kargo takibi, fatura ve iade için siparişin üzerine tıkla."
+      />
 
       <div className={styles.accountGrid}>
         <aside>
@@ -156,58 +119,57 @@ export default function SiparislerPage() {
               </Link>
             </div>
           ) : (
-            <div className={styles.ordersList}>
+            <ul className={styles.ordersList}>
               {orders.map((order) => {
                 const totalItemsCount = order.items?.reduce((acc, it) => acc + it.quantity, 0) || 1
+                const shown = order.items?.slice(0, 3) ?? []
+                const hidden = (order.items?.length ?? 0) - shown.length
 
                 return (
-                  <article key={order.id} className={styles.orderRow}>
-                    <div className={styles.orderRowHeader}>
-                      <div className={styles.orderNumberGroup}>
-                        <span className={styles.orderNumber}>#{order.orderNumber}</span>
-                        <span className={styles.orderDate}>
-                          {new Date(order.createdAt).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </span>
+                  <li key={order.id}>
+                    <Link href={`/hesap/siparisler/${order.orderNumber}`} className={styles.orderRow}>
+                      <div className={styles.orderRowHeader}>
+                        <div className={styles.orderNumberGroup}>
+                          <span className={styles.orderNumber}>sipariş #{order.orderNumber}</span>
+                          <span className={styles.orderDate}>
+                            {new Date(order.createdAt).toLocaleDateString('tr-TR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        <OrderStatusBadge status={order.status} />
                       </div>
 
-                      <span className={`${styles.statusBadge} ${getStatusClass(order.status)}`}>
-                        {getStatusLabel(order.status)}
-                      </span>
-                    </div>
+                      <ul className={styles.orderItemsPreview}>
+                        {shown.map((item) => (
+                          <li key={item.id} className={styles.previewItemText}>
+                            <span className={styles.previewItemName}>
+                              {item.productName.toLocaleLowerCase('tr-TR')}
+                              <span className={styles.previewItemQty}>× {item.quantity}</span>
+                            </span>
+                            <span className={styles.previewItemPrice}>{formatPrice(item.totalAmount)}</span>
+                          </li>
+                        ))}
+                        {hidden > 0 && <li className={styles.previewItemText}>+ {hidden} ürün daha</li>}
+                      </ul>
 
-                    <div className={styles.orderItemsPreview}>
-                      {order.items?.map((item) => (
-                        <div key={item.id} className={styles.previewItemText}>
-                          <span>
-                            {item.productName.toLowerCase()}
-                            <span className={styles.previewItemQty}>x{item.quantity}</span>
-                          </span>
-                          <span>{formatPrice(item.totalAmount)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className={styles.orderRowFooter}>
-                      <span className={styles.orderTotal}>
-                        {totalItemsCount} ürün · {formatPrice(order.totalAmount)}
-                      </span>
-
-                      <Link
-                        href={`/hesap/siparisler/${order.orderNumber}`}
-                        className={styles.viewDetailsLink}
-                      >
-                        <span>siparişi görüntüle</span>
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </article>
+                      <div className={styles.orderRowFooter}>
+                        <span className={styles.orderTotal}>
+                          {totalItemsCount} ürün, toplam
+                          <strong>{formatPrice(order.totalAmount)}</strong>
+                        </span>
+                        <span className={styles.viewDetailsLink}>
+                          <span>ayrıntılar</span>
+                          <AccountIcon name="arrow" size={16} />
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           )}
         </main>
       </div>

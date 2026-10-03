@@ -3,14 +3,13 @@ import { requireAuth } from '@/lib/services/auth.service'
 import { getUserAddresses, createAddress } from '@/lib/services/address.service'
 import { addressSchema } from '@/lib/validations/checkout.schema'
 import { z } from 'zod'
+import { trMobilePhone } from '@/lib/validations/phone'
 
 const createAddressSchema = z.object({
   title: z.string().min(1, 'Adres başlığı zorunludur.').max(50),
   firstName: z.string().min(2, 'Ad en az 2 karakter olmalıdır.').max(50),
   lastName: z.string().min(2, 'Soyad en az 2 karakter olmalıdır.').max(50),
-  phone: z
-    .string()
-    .regex(/^(?:\+?90|0)?5[0-9]{9}$/, 'Geçerli bir telefon numarası giriniz.'),
+  phone: trMobilePhone(),
   addressLine1: z.string().min(10, 'Açık adres en az 10 karakter olmalıdır.').max(250),
   addressLine2: z.string().max(100).optional().nullable(),
   city: z.string().min(2, 'İl seçilmelidir.').max(50),

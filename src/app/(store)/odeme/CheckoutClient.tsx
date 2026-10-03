@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import { formatPrice } from '@/lib/utils'
+import { formatTrMobile, normalizeTrMobile } from '@/lib/validations/phone'
 import { calculateShipping } from '@/lib/services/shipping.service'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
@@ -331,8 +332,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
     if (!fullName.trim()) {
       errors.fullName = 'Ad soyad alanı zorunludur.'
     }
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) {
-      errors.phone = 'Geçerli bir cep telefonu numarası giriniz (en az 10 hane).'
+    if (!normalizeTrMobile(phone)) {
+      errors.phone = 'Geçerli bir cep telefonu numarası giriniz (0555 555 55 55).'
     }
     if (!district.trim()) {
       errors.district = 'İlçe alanı zorunludur.'
@@ -601,7 +602,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                         </div>
                         <p className={styles.savedAddressRecipient}>{addr.firstName} {addr.lastName}</p>
                         <p className={styles.savedAddressLine}>{addr.addressLine1}, {addr.district} / {addr.city}</p>
-                        <p className={styles.savedAddressPhone}>{addr.phone}</p>
+                        <p className={styles.savedAddressPhone}>{formatTrMobile(addr.phone)}</p>
                       </div>
                     )
                   })}

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import type { ProductListItem } from '@/types/product'
 import ProductCard from '@/components/home/ProductCard'
 import AccountNav from '@/components/account/AccountNav'
+import AccountHeader from '@/components/account/AccountHeader'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Favoriler.module.css'
 import { ProductCardSkeleton } from '@/components/common/Skeleton'
@@ -22,10 +23,8 @@ export default function FavorilerPage() {
   }, [])
 
   const loadFavorites = () => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // No token yet: the session is still being restored, keep the skeleton up.
+    if (!token) return
 
     fetch('/api/favorites', {
       headers: { Authorization: `Bearer ${token}` },
@@ -72,10 +71,10 @@ export default function FavorilerPage() {
     <div className="container" style={{ paddingTop: 'var(--sp-8, 32px)', paddingBottom: 'var(--sp-20, 80px)' }}>
       <Breadcrumbs items={[{ label: 'Hesabım', href: '/hesap' }, { label: 'Favorilerim' }]} />
 
-      <header className={styles.pageHeader}>
-        <span className={styles.eyebrow}>zuulab / favoriler</span>
-        <h1 className={styles.pageTitle}>favorilerim</h1>
-      </header>
+      <AccountHeader
+        title="favorilerim"
+        description="kalp simgesiyle kaydettiğin ürünler. stok ve fiyat bilgisi günceldir."
+      />
 
       <div className={styles.accountGrid}>
         <aside>

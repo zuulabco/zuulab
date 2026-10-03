@@ -1,6 +1,6 @@
 /* ============================================================
-   ZUULAB ACCOUNT BASE & OVERVIEW MODULE (/hesap)
-   Clean, calm, product-first, design system tokens
+   ZUULAB ACCOUNT OVERVIEW (/hesap)
+   Latest order first, then shortcuts to the other sections.
    ============================================================ */
 
 .hesapPage {
@@ -8,56 +8,12 @@
   flex-direction: column;
 }
 
-/* ── Account Header ──────────────────────────────────────── */
-.accountHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--sp-6);
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: var(--sp-5);
-  gap: var(--sp-4);
-  flex-wrap: wrap;
-}
-
-.eyebrow {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-wider);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  margin-bottom: var(--sp-2);
-}
-
-.userGreeting {
-  font-family: var(--font-sans);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-  margin: 0 0 2px 0;
-  letter-spacing: var(--tracking-tight);
-  text-transform: lowercase;
-}
-
-.userEmail {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.headerActions {
-  display: flex;
-  gap: var(--sp-2);
-  align-items: center;
-}
-
 .secondaryActionBtn {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  padding: 6px 12px;
+  height: 36px;
+  padding: 0 var(--sp-4);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
@@ -74,29 +30,30 @@
 }
 
 .adminBtn {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 var(--sp-4);
   background: var(--text-primary);
   color: var(--surface-0);
-  border: 1px solid var(--text-primary);
   border-radius: var(--radius-xs);
-  padding: 6px 12px;
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   text-decoration: none;
-  cursor: pointer;
   text-transform: lowercase;
-  transition: opacity var(--dur-fast) ease;
+  transition: background-color var(--dur-fast) ease;
 }
 
 .adminBtn:hover {
-  opacity: 0.85;
+  background: var(--ink-hover);
 }
 
-/* ── Main Layout Grid ────────────────────────────────────── */
+/* ── Layout ──────────────────────────────────────────────── */
 .accountGrid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: var(--sp-8);
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--sp-10, 40px);
   align-items: start;
 }
 
@@ -104,74 +61,71 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
+  gap: var(--sp-10, 40px);
 }
 
-/* ── Quick Stats Row ─────────────────────────────────────── */
-.overviewStatsRow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-4);
-}
-
-.statItem {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  padding: var(--sp-4);
-  background-color: var(--surface-1);
+.sectionHead {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
 }
 
-.statLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-wide);
-  text-transform: lowercase;
-  color: var(--text-muted);
-}
-
-.statValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  color: var(--text-primary);
-}
-
-.statStatusActive {
-  font-size: var(--text-sm);
-  color: var(--success);
-  font-weight: var(--weight-medium);
-}
-
-/* ── Latest Order Card ───────────────────────────────────── */
 .sectionTitle {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
   color: var(--text-primary);
-  letter-spacing: var(--tracking-snug);
   text-transform: lowercase;
   margin: 0;
 }
 
+.textLink {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+  transition: color var(--dur-fast) ease, text-decoration-color var(--dur-fast) ease;
+}
+
+.textLink:hover {
+  color: var(--text-primary);
+  text-decoration-color: currentColor;
+}
+
+/* ── Latest order ────────────────────────────────────────── */
 .latestOrderCard {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  padding: var(--sp-5);
-  background-color: var(--surface-0);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
+  gap: var(--sp-5);
+  padding: var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  background-color: var(--surface-0);
+  color: inherit;
+  text-decoration: none;
+}
+
+.cardLink {
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-base) var(--ease-default);
+}
+
+.cardLink:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 6px 24px -12px rgba(0, 0, 0, 0.18);
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
 }
 
 .orderHeaderRow {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
   gap: var(--sp-3);
   flex-wrap: wrap;
 }
@@ -179,125 +133,141 @@
 .orderNumWrap {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .orderNumber {
-  font-family: var(--font-mono);
-  font-weight: var(--weight-semibold);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
   color: var(--text-primary);
 }
 
 .orderDate {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-/* ── Order Status Badges (Semantic Tokens) ───────────────── */
-.orderStatusBadge {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-medium);
-  padding: 2px 7px;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--border-subtle);
-  text-transform: lowercase;
-}
-
-.statusPaymentPending {
-  background: var(--warning-bg);
-  color: var(--warning);
-  border-color: rgba(146, 64, 14, 0.2);
-}
-
-.statusConfirmed {
-  background: var(--success-bg);
-  color: var(--success);
-  border-color: rgba(26, 107, 60, 0.2);
-}
-
-.statusShipped {
-  background: var(--info-bg);
-  color: var(--info);
-  border-color: rgba(30, 64, 175, 0.2);
-}
-
-.statusDelivered {
-  background: var(--surface-2);
+.orderHint {
+  margin: calc(var(--sp-2) * -1) 0 0;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
-  border-color: var(--border);
-}
-
-.statusCancelled {
-  background: var(--error-bg);
-  color: var(--error);
-  border-color: rgba(185, 28, 28, 0.2);
 }
 
 .orderPreviewRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: var(--text-xs);
+  align-items: baseline;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
 .orderPrice {
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
 }
 
-.orderFooterRow {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: var(--sp-2);
-}
-
-.viewOrderBtn {
+.cardCta {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
+  align-self: flex-start;
+  font-size: var(--text-sm);
   font-weight: var(--weight-medium);
-  color: var(--zuu-blue);
-  text-decoration: none;
-  text-transform: lowercase;
-  transition: color var(--dur-fast) ease;
+  color: var(--text-primary);
 }
 
-.viewOrderBtn:hover {
-  color: var(--zuu-blue-dark);
+.cardCta svg {
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
-/* ── Activity / Info Note ────────────────────────────────── */
-.activityCard {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  padding: var(--sp-4);
-  background-color: var(--surface-1);
-  display: flex;
-  flex-direction: column;
+.cardLink:hover .cardCta svg {
+  transform: translateX(3px);
+}
+
+/* ── Shortcuts ───────────────────────────────────────────── */
+.shortcutGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-3);
 }
 
-.activityText {
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: 76px;
+  padding: var(--sp-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-0);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+a.shortcut:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+}
+
+a.shortcut:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 2px;
+}
+
+.shortcutIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+a.shortcut:hover .shortcutIcon {
+  background: var(--surface-0);
+}
+
+.shortcutText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shortcutTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.shortcutMeta {
   font-size: var(--text-xs);
   color: var(--text-muted);
-  line-height: var(--leading-normal);
-  margin: 0;
 }
 
-.activityActions {
-  display: flex;
-  gap: var(--sp-3);
-  margin-top: var(--sp-1);
+.shortcutArrow {
+  display: inline-flex;
+  color: var(--text-muted);
+  transition: transform var(--dur-base) var(--ease-out), color var(--dur-fast) ease;
+}
+
+a.shortcut:hover .shortcutArrow {
+  color: var(--text-primary);
+  transform: translateX(3px);
+}
+
+.footNote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .primaryCtaBtn {
@@ -308,12 +278,14 @@
   padding: 0 var(--sp-4);
   background: var(--text-primary);
   color: #ffffff;
+  border: none;
   border-radius: var(--radius-xs);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   text-decoration: none;
   text-transform: lowercase;
+  cursor: pointer;
   transition: background-color var(--dur-fast) ease;
 }
 
@@ -372,11 +344,18 @@
 @media (max-width: 768px) {
   .accountGrid {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--sp-6);
+    gap: 0;
   }
 
-  .overviewStatsRow {
+  .accountContent {
+    gap: var(--sp-8);
+  }
+
+  .latestOrderCard {
+    padding: var(--sp-5);
+  }
+
+  .shortcutGrid {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--sp-3);
   }
 }

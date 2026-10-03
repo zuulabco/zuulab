@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import AccountNav from '@/components/account/AccountNav'
+import AccountHeader from '@/components/account/AccountHeader'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Destek.module.css'
 import hesapStyles from '../Hesap.module.css'
@@ -82,10 +83,8 @@ export default function DestekClient() {
   }, [])
 
   const loadTickets = () => {
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    // No token yet: the session is still being restored, keep the skeleton up.
+    if (!token) return
     setLoading(true)
     fetch('/api/support/tickets', {
       headers: { Authorization: `Bearer ${token}` },
@@ -199,22 +198,22 @@ export default function DestekClient() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Page Header */}
-      <div className={styles.pageHeader}>
-        <div>
-          <span className={styles.eyebrow}>hesap / destek</span>
-          <h1 className={styles.pageTitle}>destek taleplerim</h1>
-        </div>
-        <button
-          className={styles.newTicketBtn}
-          onClick={() => {
-            setError(null)
-            setModalOpen(true)
-          }}
-        >
-          + yeni talep
-        </button>
-      </div>
+      <AccountHeader
+        title="destek taleplerim"
+        description="sorularını buradan ilet; yanıtlarımız bu sayfada ve e-postanda."
+        actions={
+          <button
+            type="button"
+            className={styles.newTicketBtn}
+            onClick={() => {
+              setError(null)
+              setModalOpen(true)
+            }}
+          >
+            + yeni talep
+          </button>
+        }
+      />
 
       {/* Grid: Sidebar Nav + Content */}
       <div className={styles.accountGrid}>

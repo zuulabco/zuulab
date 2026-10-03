@@ -1,16 +1,12 @@
 import { z } from 'zod'
+import { trMobilePhone } from '@/lib/validations/phone'
 
 export const addressSchema = z.object({
   fullName: z
     .string()
     .min(3, 'Ad ve soyad en az 3 karakter olmalıdır.')
     .max(80, 'Ad ve soyad çok uzun.'),
-  phone: z
-    .string()
-    .regex(
-      /^(?:\+?90|0)?5[0-9]{9}$/,
-      'Geçerli bir Türkiye cep telefonu numarası giriniz (05xx xxx xx xx).'
-    ),
+  phone: trMobilePhone(),
   city: z.string().min(2, 'İl seçilmelidir.').max(50),
   district: z.string().min(2, 'İlçe girilmelidir.').max(50),
   neighborhood: z.string().max(80).optional(),
