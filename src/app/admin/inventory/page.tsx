@@ -29,6 +29,8 @@ interface StockRow {
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
   inProduction: number
   channels: Channel[]
+  /** Open "gelince haber ver" requests */
+  waitingAlerts?: number
 }
 
 interface Movement {
@@ -304,6 +306,11 @@ export default function InventoryPage() {
                       <td>
                         <span style={{ fontWeight: 700, fontSize: 15 }}>{r.available}</span>{' '}
                         <span className={`${styles.badge} ${styles[STATUS_LABEL[r.status].cls]}`}>{STATUS_LABEL[r.status].text}</span>
+                        {(r.waitingAlerts ?? 0) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {r.waitingAlerts} kişi gelince haber bekliyor
+                          </div>
+                        )}
                       </td>
                       <td style={{ fontSize: 13 }}>{r.reserved || '—'}</td>
                       <td style={{ fontSize: 13 }}>{r.inProduction || '—'}</td>

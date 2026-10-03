@@ -240,6 +240,10 @@
       "model": "ShippingWebhookEvent",
       "namespace": "public"
     },
+    "stock_alerts": {
+      "model": "StockAlert",
+      "namespace": "public"
+    },
     "stock_channel_configs": {
       "model": "StockChannelConfig",
       "namespace": "public"
@@ -7281,6 +7285,21 @@
                   "namespace": "public"
                 }
               },
+              "stockAlerts": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "productId"
+                  ]
+                },
+                "to": {
+                  "model": "StockAlert",
+                  "namespace": "public"
+                }
+              },
               "variants": {
                 "cardinality": "1:N",
                 "on": {
@@ -10940,6 +10959,110 @@
               "table": "shipping_webhook_events"
             }
           },
+          "StockAlert": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "email": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "notifiedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "productId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "variantId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "product": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "productId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Product",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "notifiedAt": {
+                  "column": "notified_at"
+                },
+                "productId": {
+                  "column": "product_id"
+                },
+                "userId": {
+                  "column": "user_id"
+                },
+                "variantId": {
+                  "column": "variant_id"
+                }
+              },
+              "namespaceId": "public",
+              "table": "stock_alerts"
+            }
+          },
           "StockChannelConfig": {
             "fields": {
               "createdAt": {
@@ -11817,6 +11940,16 @@
                   "kind": "scalar"
                 }
               },
+              "ordersSeenAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
               "phone": {
                 "nullable": true,
                 "type": {
@@ -11839,6 +11972,16 @@
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
+                }
+              },
+              "supportSeenAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
                 }
               },
               "updatedAt": {
@@ -12061,6 +12204,9 @@
                 "name": {
                   "column": "name"
                 },
+                "ordersSeenAt": {
+                  "column": "orders_seen_at"
+                },
                 "phone": {
                   "column": "phone"
                 },
@@ -12069,6 +12215,9 @@
                 },
                 "status": {
                   "column": "status"
+                },
+                "supportSeenAt": {
+                  "column": "support_seen_at"
                 },
                 "updatedAt": {
                   "column": "updated_at"
@@ -24481,6 +24630,90 @@
               },
               "uniques": []
             },
+            "stock_alerts": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "notified_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "product_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "user_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "variant_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "onUpdate": "cascade",
+                  "source": {
+                    "columns": [
+                      "product_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "stock_alerts"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "products"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "product_id"
+                  ],
+                  "name": "stock_alerts_product_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "stock_channel_configs": {
               "columns": {
                 "created_at": {
@@ -25228,6 +25461,14 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "orders_seen_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
                 "phone": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -25259,6 +25500,14 @@
                   },
                   "nativeType": "text",
                   "nullable": false
+                },
+                "support_seen_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 3
+                  }
                 },
                 "updated_at": {
                   "codecId": "pg/timestamp-temporal@1",
@@ -28936,10 +29185,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "5a4e5b15e17b99f0e2fa41e601fc2051fb07a92d0f103d1f967b39585586b4a6"
+    "storageHash": "3f51d9dd72463b1d3fea40d7055267dd1ae51fefef9ac8bc2eef578687637a00"
   },
   "execution": {
-    "executionHash": "6340d282ec657572b17fcb3a67ec4d99b6a7992e828c63df85c2cad1f73b608f",
+    "executionHash": "974a6ed43a552ec291f7c998e8efc070334c049855a24cb8f0369effb6f86cc0",
     "mutations": {
       "defaults": [
         {
@@ -30064,6 +30313,17 @@
           },
           "ref": {
             "entry": "shipping_webhook_events",
+            "field": "id",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "cuid2",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "stock_alerts",
             "field": "id",
             "namespace": "public"
           }

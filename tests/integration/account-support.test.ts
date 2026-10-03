@@ -19,6 +19,8 @@ const addresses = await import('@/lib/services/address.service')
 const support = await import('@/lib/services/support.service')
 const { checkRateLimit } = await import('@/lib/security/rate-limiter')
 const auth = await import('@/lib/services/auth.service')
+const badges = await import('@/lib/services/account-badges.service')
+const stockAlerts = await import('@/lib/services/stock-alerts.service')
 
 const RUN = `itacc${Date.now().toString(36)}`
 let customer: { id: string; email: string; name: string; role: 'CUSTOMER' }
@@ -54,6 +56,7 @@ afterAll(async () => {
   }
   await run(db.raw.sql`DELETE FROM users WHERE email = ${`${RUN}-guest@example.com`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM rate_limits WHERE key LIKE ${`test:${RUN}%`}`.affectedCount().build())
+  await run(db.raw.sql`DELETE FROM stock_alerts WHERE email LIKE ${`${RUN}%`}`.affectedCount().build())
   await db.close()
 }, 60_000)
 
@@ -120,6 +123,68 @@ describe('support tickets', () => {
     const [ticket] = await support.getCustomerTickets(customer.id)
     const stranger = { id: staff.id, email: staff.email, name: 'x', role: 'CUSTOMER' }
     await expect(support.getTicketDetails(ticket.id, stranger as never)).rejects.toThrow(/FORBIDDEN/)
+  }, 60_000)
+})
+
+describe('closed tickets, deletion and account dots', () => {
+  const pause = () => new Promise((r) => setTimeout(r, 60))
+
+  it('lets staff, not the customer, write to a resolved ticket', async () => {
+    const [ticket] = await support.getCustomerTickets(customer.id)
+    expect(ticket.status).toBe('RESOLVED')
+    await expect(support.addMessageToTicket(ticket.id, customer as never, 'Bir şey daha')).rejects.toThrow(/TICKET_CLOSED/)
+    await support.addMessageToTicket(ticket.id, staff as never, 'Kayıt için not', true)
+  }, 60_000)
+
+  it('lights the support dot on a staff reply and clears it when seen', async () => {
+    // First check starts the clock: nothing that happened before counts
+    expect(await badges.getAccountBadges(customer.id)).toEqual({ orders: false, support: false })
+
+    const ticket = await support.createTicket(customer, { subject: 'İkinci soru', category: 'GENERAL', message: 'Merhaba, bir sorum var.' })
+    expect((await badges.getAccountBadges(customer.id)).support).toBe(false)
+
+    await pause()
+    await support.addMessageToTicket(ticket.id, staff as never, 'İç not', true)
+    expect((await badges.getAccountBadges(customer.id)).support).toBe(false)
+
+    await support.addMessageToTicket(ticket.id, staff as never, 'Yanıtımız şöyle.', false)
+    expect(await badges.getAccountBadges(customer.id)).toEqual({ orders: false, support: true })
+
+    await badges.markSectionSeen(customer.id, 'support')
+    expect((await badges.getAccountBadges(customer.id)).support).toBe(false)
+
+    await pause()
+    await support.updateTicketStatus(ticket.id, staff as never, { status: 'CLOSED' })
+    expect((await badges.getAccountBadges(customer.id)).support).toBe(true)
+  }, 60_000)
+
+  it('deletes a ticket together with its messages', async () => {
+    const ticket = await support.createTicket(customer, { subject: 'Silinecek', category: 'GENERAL', message: 'Bu talep silinecek.' })
+    await support.addMessageToTicket(ticket.id, staff as never, 'Yanıt', false)
+    await support.deleteTicket(ticket.id, staff as never)
+
+    await expect(support.getTicketDetails(ticket.id, staff as never)).rejects.toThrow(/NOT_FOUND/)
+    const left = await db.orm.public.SupportMessage.where({ ticketId: ticket.id }).all()
+    expect(left.length).toBe(0)
+    await expect(support.deleteTicket(ticket.id, staff as never)).rejects.toThrow(/NOT_FOUND/)
+  }, 60_000)
+})
+
+describe('back-in-stock requests', () => {
+  it('records one open request per product and email', async () => {
+    const product = await db.orm.public.Product.select('id').where({ isActive: true }).first()
+    expect(product).toBeTruthy()
+    const email = `${RUN}-alert@example.com`
+
+    expect(await stockAlerts.createStockAlert({ productId: product!.id, email })).toEqual({ created: true })
+    expect(await stockAlerts.createStockAlert({ productId: product!.id, email: email.toUpperCase() })).toEqual({ created: false })
+    await expect(stockAlerts.createStockAlert({ productId: 'missing-product', email })).rejects.toThrow(/NOT_FOUND/)
+    await expect(
+      stockAlerts.createStockAlert({ productId: product!.id, variantId: 'missing-variant', email })
+    ).rejects.toThrow(/NOT_FOUND/)
+
+    const rows = await db.orm.public.StockAlert.where({ email }).all()
+    expect(rows.length).toBe(1)
   }, 60_000)
 })
 

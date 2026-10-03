@@ -9,6 +9,7 @@ import { useCartStore } from '@/store/cartStore'
 import { toast } from '@/store/toastStore'
 import { FREE_SHIPPING_THRESHOLD } from '@/lib/services/shipping.service'
 import FavoriteButton from './FavoriteButton'
+import StockAlertForm from './StockAlertForm'
 import styles from './ProductDetails.module.css'
 
 interface Props {
@@ -135,22 +136,17 @@ export default function ProductDetailsClient({ product }: Props) {
         )}
       </div>
 
-      {/* ── 6. Minimal Stock Status ───────────────────────── */}
+      {/* ── 6. Stock status (no counts shown to shoppers) ─── */}
       <div className={styles.stockStatus}>
-        {currentStock > 5 ? (
+        {currentStock > 0 ? (
           <span className={styles.inStock}>
             <span className={styles.statusDot} />
-            stokta hazır ({currentStock} adet)
-          </span>
-        ) : currentStock > 0 ? (
-          <span className={styles.lowStock}>
-            <span className={styles.statusDot} />
-            son {currentStock} ürün (tükenmek üzere)
+            stokta
           </span>
         ) : (
           <span className={styles.outOfStock}>
             <span className={styles.statusDot} />
-            stok tükendi
+            stokta değil
           </span>
         )}
       </div>
@@ -175,8 +171,8 @@ export default function ProductDetailsClient({ product }: Props) {
                     v.stock <= 0 ? styles.variantBtnDisabled : ''
                   }`}
                   onClick={() => setSelectedVariantId(v.id)}
-                  disabled={v.stock <= 0}
                   aria-pressed={isSelected}
+                  aria-label={v.stock <= 0 ? `${v.value} (stokta değil)` : undefined}
                 >
                   <span>{v.value}</span>
                   {v.price && v.price !== product.price && (
@@ -192,6 +188,7 @@ export default function ProductDetailsClient({ product }: Props) {
       )}
 
       {/* ── 8. Quantity & Purchase Actions Row ───────────── */}
+      {currentStock > 0 ? (
       <div className={styles.actionRow}>
         <div className={styles.quantityBox} role="group" aria-label="Adet seçimi">
           <button
@@ -240,6 +237,14 @@ export default function ProductDetailsClient({ product }: Props) {
           <FavoriteButton productId={product.id} />
         </div>
       </div>
+      ) : (
+        <div className={styles.actionRow}>
+          <StockAlertForm productId={product.id} variantId={selectedVariantId} />
+          <div className={styles.favoriteContainer}>
+            <FavoriteButton productId={product.id} />
+          </div>
+        </div>
+      )}
 
       {currentStock > 0 && (
         <button
@@ -251,38 +256,28 @@ export default function ProductDetailsClient({ product }: Props) {
         </button>
       )}
 
-      {/* ── 9. Delivery & Craftsmanship Summary ────────── */}
-      <div className={styles.deliveryCraftSummary} role="region" aria-label="Teslimat ve Üretim Özeti">
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryIcon} aria-hidden="true"><TruckIcon /></span>
-          <div className={styles.summaryText}>
-            <span className={styles.summaryTitle}>hızlı kargo</span>
-            <span className={styles.summaryDesc}>
-              {FREE_SHIPPING_THRESHOLD} ₺ üzeri ücretsiz · 1–3 iş gününde teslimat
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryIcon} aria-hidden="true"><SparkleIcon /></span>
-          <div className={styles.summaryText}>
-            <span className={styles.summaryTitle}>3d hassas üretim</span>
-            <span className={styles.summaryDesc}>
-              0.12mm katman hassasiyeti · ZUULAB atölyesinde üretim{product.productionTime ? ` (${product.productionTime})` : ''}
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryIcon} aria-hidden="true"><ShieldIcon /></span>
-          <div className={styles.summaryText}>
-            <span className={styles.summaryTitle}>14 gün iade</span>
-            <span className={styles.summaryDesc}>
-              koşulsuz iade & değişim güvencesi
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* ── 9. Delivery & craftsmanship ─────────────────── */}
+      <ul className={styles.assurances} aria-label="Teslimat, üretim ve iade">
+        <li className={styles.assurance}>
+          <span className={styles.assuranceIcon} aria-hidden="true"><TruckIcon /></span>
+          <span className={styles.assuranceTitle}>hızlı kargo</span>
+          <span className={styles.assuranceDesc}>
+            {FREE_SHIPPING_THRESHOLD > 0 ? `${FREE_SHIPPING_THRESHOLD} ₺ üzeri ücretsiz` : 'ücretsiz kargo'}
+          </span>
+        </li>
+        <li className={styles.assurance}>
+          <span className={styles.assuranceIcon} aria-hidden="true"><LayersIcon /></span>
+          <span className={styles.assuranceTitle}>3d hassas üretim</span>
+          <span className={styles.assuranceDesc}>
+            {product.productionTime ? `atölyede, ${product.productionTime}` : 'zuulab atölyesinde'}
+          </span>
+        </li>
+        <li className={styles.assurance}>
+          <span className={styles.assuranceIcon} aria-hidden="true"><ReturnIcon /></span>
+          <span className={styles.assuranceTitle}>14 gün iade</span>
+          <span className={styles.assuranceDesc}>kolay iade ve değişim</span>
+        </li>
+      </ul>
 
       {/* ── 10. Editorial Accordion Disclosures ──────────── */}
       <div className={styles.accordionSection} role="region" aria-label="Ürün Detayları ve Özellikleri">
@@ -299,22 +294,25 @@ export default function ProductDetailsClient({ product }: Props) {
             <span>ürün hakkında</span>
             <ChevronIcon open={openAccordions.about} />
           </button>
-          {openAccordions.about && (
-            <div
-              id="acc-body-about"
-              role="region"
-              aria-labelledby="acc-btn-about"
-              className={styles.accordionBody}
-            >
-              <p className={styles.descParagraph}>{product.description}</p>
-              <h4 className={styles.subHeading}>zuulab kalite standartları</h4>
-              <ul className={styles.featureList}>
-                <li>Her model baskı sonrası mekanik yüzey temizleme ve el kontrolünden geçer.</li>
-                <li>Geri dönüştürülebilir koruyucu ambalaj ile darbelere dayanıklı paketleme.</li>
-                <li>Katman katman hassas üretim tekniğiyle üretilir; her parça tekil mikrodokular barındırır.</li>
-              </ul>
+          <div
+            id="acc-body-about"
+            role="region"
+            aria-labelledby="acc-btn-about"
+            className={`${styles.accordionPanel} ${openAccordions.about ? styles.accordionPanelOpen : ''}`}
+            inert={!openAccordions.about}
+          >
+            <div className={styles.accordionPanelInner}>
+              <div className={styles.accordionBody}>
+                <p className={styles.descParagraph}>{product.description}</p>
+                <h4 className={styles.subHeading}>zuulab kalite standartları</h4>
+                <ul className={styles.featureList}>
+                  <li>Her model baskı sonrası mekanik yüzey temizleme ve el kontrolünden geçer.</li>
+                  <li>Geri dönüştürülebilir koruyucu ambalaj ile darbelere dayanıklı paketleme.</li>
+                  <li>Katman katman hassas üretim tekniğiyle üretilir; her parça tekil mikrodokular barındırır.</li>
+                </ul>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Accordion 2: Malzeme ve üretim */}
@@ -330,23 +328,26 @@ export default function ProductDetailsClient({ product }: Props) {
             <span>malzeme ve üretim</span>
             <ChevronIcon open={openAccordions.material} />
           </button>
-          {openAccordions.material && (
-            <div
-              id="acc-body-material"
-              role="region"
-              aria-labelledby="acc-btn-material"
-              className={styles.accordionBody}
-            >
-              <p className={styles.descParagraph}>
-                ZUULAB objeleri siparişiniz üzerine atölyemizde 0.12mm hassasiyetli FDM teknolojisiyle katman katman üretilir.
-              </p>
-              <ul className={styles.featureList}>
-                <li><strong>malzeme:</strong> {product.material} (biyo-bozunur çevre dostu PLA / PETG filament)</li>
-                {product.productionTime && <li><strong>üretim süresi:</strong> {product.productionTime}</li>}
-                <li><strong>ısı dayanımı:</strong> Maksimum 55°C. Direkt güneş ışığı veya yüksek ısı kaynaklarından korunmalıdır.</li>
-              </ul>
+          <div
+            id="acc-body-material"
+            role="region"
+            aria-labelledby="acc-btn-material"
+            className={`${styles.accordionPanel} ${openAccordions.material ? styles.accordionPanelOpen : ''}`}
+            inert={!openAccordions.material}
+          >
+            <div className={styles.accordionPanelInner}>
+              <div className={styles.accordionBody}>
+                <p className={styles.descParagraph}>
+                  ZUULAB objeleri siparişiniz üzerine atölyemizde 0.12mm hassasiyetli FDM teknolojisiyle katman katman üretilir.
+                </p>
+                <ul className={styles.featureList}>
+                  <li><strong>malzeme:</strong> {product.material} (biyo-bozunur çevre dostu PLA / PETG filament)</li>
+                  {product.productionTime && <li><strong>üretim süresi:</strong> {product.productionTime}</li>}
+                  <li><strong>ısı dayanımı:</strong> Maksimum 55°C. Direkt güneş ışığı veya yüksek ısı kaynaklarından korunmalıdır.</li>
+                </ul>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Accordion 3: Ölçüler ve detaylar */}
@@ -362,33 +363,36 @@ export default function ProductDetailsClient({ product }: Props) {
             <span>ölçüler ve detaylar</span>
             <ChevronIcon open={openAccordions.specs} />
           </button>
-          {openAccordions.specs && (
-            <div
-              id="acc-body-specs"
-              role="region"
-              aria-labelledby="acc-btn-specs"
-              className={styles.accordionBody}
-            >
-              <table className={styles.specsTable}>
-                <tbody>
-                  <tr>
-                    <td>ağırlık</td>
-                    <td>{product.weight} gram</td>
-                  </tr>
-                  <tr>
-                    <td>malzeme</td>
-                    <td>{product.material}</td>
-                  </tr>
-                  {product.specifications.map((s, idx) => (
-                    <tr key={idx}>
-                      <td>{s.name.toLowerCase()}</td>
-                      <td>{s.value}</td>
+          <div
+            id="acc-body-specs"
+            role="region"
+            aria-labelledby="acc-btn-specs"
+            className={`${styles.accordionPanel} ${openAccordions.specs ? styles.accordionPanelOpen : ''}`}
+            inert={!openAccordions.specs}
+          >
+            <div className={styles.accordionPanelInner}>
+              <div className={styles.accordionBody}>
+                <table className={styles.specsTable}>
+                  <tbody>
+                    <tr>
+                      <td>ağırlık</td>
+                      <td>{product.weight} gram</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <tr>
+                      <td>malzeme</td>
+                      <td>{product.material}</td>
+                    </tr>
+                    {product.specifications.map((s, idx) => (
+                      <tr key={idx}>
+                        <td>{s.name.toLowerCase()}</td>
+                        <td>{s.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Accordion 4: Kargo ve teslimat */}
@@ -404,23 +408,26 @@ export default function ProductDetailsClient({ product }: Props) {
             <span>kargo ve teslimat</span>
             <ChevronIcon open={openAccordions.shipping} />
           </button>
-          {openAccordions.shipping && (
-            <div
-              id="acc-body-shipping"
-              role="region"
-              aria-labelledby="acc-btn-shipping"
-              className={styles.accordionBody}
-            >
-              <p className={styles.descParagraph}>
-                Siparişiniz atölye üretim kontrolünün ardından özenle paketlenir ve anlaşmalı kargo firmalarına teslim edilir.
-              </p>
-              <ul className={styles.featureList}>
-                <li><strong>teslimat süresi:</strong> Türkiye geneline 1-3 iş günü içinde teslimat.</li>
-                <li><strong>kargo ücreti:</strong> {FREE_SHIPPING_THRESHOLD} ₺ üzeri siparişlerde kargo ücretsizdir.</li>
-                <li><strong>iade & değişim:</strong> Teslim aldığınız tarihten itibaren 14 gün içinde koşulsuz iade ve değişim güvencesi.</li>
-              </ul>
+          <div
+            id="acc-body-shipping"
+            role="region"
+            aria-labelledby="acc-btn-shipping"
+            className={`${styles.accordionPanel} ${openAccordions.shipping ? styles.accordionPanelOpen : ''}`}
+            inert={!openAccordions.shipping}
+          >
+            <div className={styles.accordionPanelInner}>
+              <div className={styles.accordionBody}>
+                <p className={styles.descParagraph}>
+                  Siparişiniz atölye üretim kontrolünün ardından özenle paketlenir ve anlaşmalı kargo firmalarına teslim edilir.
+                </p>
+                <ul className={styles.featureList}>
+                  <li><strong>teslimat süresi:</strong> Türkiye geneline 1-3 iş günü içinde teslimat.</li>
+                  <li><strong>kargo ücreti:</strong> {FREE_SHIPPING_THRESHOLD > 0 ? `${FREE_SHIPPING_THRESHOLD} ₺ üzeri siparişlerde kargo ücretsizdir.` : 'Tüm siparişlerde kargo ücretsizdir.'}</li>
+                  <li><strong>iade & değişim:</strong> Teslim aldığınız tarihten itibaren 14 gün içinde koşulsuz iade ve değişim güvencesi.</li>
+                </ul>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -429,18 +436,23 @@ export default function ProductDetailsClient({ product }: Props) {
         <div className={styles.stickyPriceInfo}>
           <span className={styles.stickyPrice}>{formatPrice(currentPrice)}</span>
           <span className={styles.stickyStock}>
-            {currentStock > 0 ? `stokta (${currentStock})` : 'tükendi'}
+            {currentStock > 0 ? 'stokta' : 'stokta değil'}
           </span>
         </div>
-        <button
-          type="button"
-          className={`${styles.stickyAddBtn} ${addedAnimation ? styles.stickyAddSuccess : ''}`}
-          onClick={handleAddToCart}
-          disabled={currentStock <= 0}
-          aria-label={currentStock > 0 ? `${product.name} sepete ekle` : 'stok tükendi'}
-        >
-          {addedAnimation ? 'eklendi ✓' : currentStock > 0 ? 'sepete ekle' : 'tükendi'}
-        </button>
+        {currentStock > 0 ? (
+          <button
+            type="button"
+            className={`${styles.stickyAddBtn} ${addedAnimation ? styles.stickyAddSuccess : ''}`}
+            onClick={handleAddToCart}
+            aria-label={`${product.name} sepete ekle`}
+          >
+            {addedAnimation ? 'eklendi ✓' : 'sepete ekle'}
+          </button>
+        ) : (
+          <a href="#stock-alert" className={styles.stickyNotifyBtn}>
+            gelince haber ver
+          </a>
+        )}
       </div>
     </div>
   )
@@ -454,13 +466,6 @@ function StarIcon() {
   )
 }
 
-function SparkleIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  )
-}
 
 function BagIcon() {
   return (
@@ -493,7 +498,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       strokeLinejoin="round"
       style={{
         transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform var(--dur-fast) var(--ease-default)',
+        transition: 'transform var(--dur-slow) var(--ease-default)',
       }}
       aria-hidden="true"
     >
@@ -513,28 +518,24 @@ function TruckIcon() {
   )
 }
 
-function ShieldIcon() {
+
+function LayersIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
     </svg>
   )
 }
 
-function LeafIcon() {
+function ReturnIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+      <polyline points="9 14 4 9 9 4" />
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
     </svg>
   )
 }
 
-function LockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  )
-}
+

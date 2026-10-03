@@ -1,35 +1,29 @@
 import Link from 'next/link'
 import styles from './CategoryStrip.module.css'
 
-interface MarqueeItem {
+export interface StripItem {
   id: string
   label: string
   tag?: string
   href: string
 }
 
-const CATEGORY_ITEMS: MarqueeItem[] = [
-  { id: 'zuukids', label: 'zuukids', tag: 'çocuk dünyası', href: '/koleksiyon/zuukids' },
-  { id: 'zuulife', label: 'zuulife', tag: 'yaşam & masa', href: '/koleksiyon/zuulife' },
-  { id: 'zuulight', label: 'zuulight', tag: 'aydınlatma', href: '/koleksiyon/zuulight' },
-  { id: 'zuutoptan', label: 'zuutoptan', tag: 'butik üretim', href: '/koleksiyon/zuutoptan' },
-  { id: 'dinozorlar', label: 'mini dinozorlar', tag: 'eğitici seri', href: '/urun/mini-dinozor-serisi-set' },
-  { id: 'organizer', label: 'modüler organizer', tag: 'masa düzeni', href: '/urun/modular-hex-desk-organizer-seti' },
-  { id: 'ay-lambasi', label: 'litofan ay lambası', tag: '3d ambiyans', href: '/urun/lithoglow-ay-yuzeyi-gece-lambasi' },
-  { id: 'parametrik-vazo', label: 'parametrik vazo', tag: 'altın oran', href: '/urun/aura-parametrik-vazo-spiral' },
-  { id: 'koleksiyonlar', label: 'özel seriler', tag: 'koleksiyon', href: '/koleksiyonlar' },
-]
+interface Props {
+  /** Built from the live catalog on the home page, so every link leads somewhere real. */
+  items: StripItem[]
+}
 
-// Duplicate items twice to ensure a completely seamless, continuous loop
-const DISPLAY_ITEMS = [...CATEGORY_ITEMS, ...CATEGORY_ITEMS]
+export default function CategoryStrip({ items }: Props) {
+  if (!items.length) return null
+  // Rendered twice so the marquee loops without a gap; the copy is hidden from assistive tech.
+  const displayItems = [...items, ...items]
 
-export default function CategoryStrip() {
   return (
     <section className={styles.section} aria-label="koleksiyon ve kategori bandı">
       <div className={styles.marqueeContainer}>
         <div className={styles.marqueeTrack}>
-          {DISPLAY_ITEMS.map((item, index) => {
-            const isDuplicate = index >= CATEGORY_ITEMS.length
+          {displayItems.map((item, index) => {
+            const isDuplicate = index >= items.length
             return (
               <div
                 key={`${item.id}-${index}`}

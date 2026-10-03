@@ -5,6 +5,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import styles from './HomeHero.module.css'
 
+/** Best-selling product of a collection, shown as the slide's second button. */
+export interface HeroPick {
+  name: string
+  slug: string
+}
+
 interface HeroProps {
   hero?: {
     brandWorld?: string
@@ -21,6 +27,8 @@ interface HeroProps {
     secondaryCtaHref?: string
     active?: boolean
   }
+  /** Keyed by collection slug (zuukids, zuulife, zuulight). */
+  picks?: Partial<Record<string, HeroPick>>
 }
 
 interface SlideItem {
@@ -42,39 +50,35 @@ interface SlideItem {
 
 const DEFAULT_SLIDES: SlideItem[] = [
   {
-    id: 'zuulife',
-    chipLabel: 'zuulife',
-    badgeText: 'zuulife · 3d tasarım serisi',
-    accentColor: 'var(--zuu-blue)',
-    headlineMain: 'işlevsel geometri,',
-    headlineAccent: 'yaşayan mekanlar.',
-    description:
-      'çalışma masası ve yaşam alanları için parametrik formlar, modüler düzenleyiciler ve 0.12mm FDM hassasiyeti.',
-    primaryCtaText: 'zuulife koleksiyonu',
-    primaryCtaHref: '/koleksiyon/zuulife',
-    secondaryCtaText: 'tüm tasarımlar',
-    secondaryCtaHref: '/urunler',
-    imageUrl:
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1920&q=85',
-    imageAlt: 'zuulife modern yaşam ve çalışma alanı tasarım objeleri',
-    theme: 'light',
-  },
-  {
     id: 'zuukids',
     chipLabel: 'zuukids',
     badgeText: 'zuukids · çocuk koleksiyonu',
     accentColor: 'var(--zuu-yellow)',
-    headlineMain: 'hayal gücüne dokunan',
-    headlineAccent: 'güvenli formlar.',
+    headlineMain: 'oynarken öğrenen',
+    headlineAccent: 'küçük eller için.',
     description:
-      'çocuklar için özel üretilen yumuşak yüzeyli biyo-polimer figürler, montessori geometri setleri ve renkli dünyalar.',
+      'şekil eşleştirme setleri, kesir yapbozları ve sıralama oyunları; keskin kenarı olmayan, pürüzsüz yüzeyli formlar.',
     primaryCtaText: 'zuukids dünyası',
     primaryCtaHref: '/koleksiyon/zuukids',
-    secondaryCtaText: 'figür setleri',
-    secondaryCtaHref: '/urun/mini-dinozor-serisi-set',
     imageUrl:
       'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1920&q=85',
-    imageAlt: 'zuukids çocuk güvenli renkli 3d baskı figürleri',
+    imageAlt: 'zuukids renkli eğitici oyuncaklar',
+    theme: 'light',
+  },
+  {
+    id: 'zuulife',
+    chipLabel: 'zuulife',
+    badgeText: 'zuulife · yaşam ve masa',
+    accentColor: 'var(--zuu-blue)',
+    headlineMain: 'işlevsel geometri,',
+    headlineAccent: 'düzenli mekanlar.',
+    description:
+      'masaüstü organizerleri, takı ağaçları ve ev objeleri; günlük düzeni sade formlarla bir araya getiren tasarımlar.',
+    primaryCtaText: 'zuulife koleksiyonu',
+    primaryCtaHref: '/koleksiyon/zuulife',
+    imageUrl:
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1920&q=85',
+    imageAlt: 'zuulife yaşam ve çalışma alanı objeleri',
     theme: 'light',
   },
   {
@@ -82,50 +86,66 @@ const DEFAULT_SLIDES: SlideItem[] = [
     chipLabel: 'zuulight',
     badgeText: 'zuulight · aydınlatma serisi',
     accentColor: 'var(--zuu-yellow)',
-    headlineMain: 'ışık ve gölgenin',
-    headlineAccent: 'parametrik heykeli.',
+    headlineMain: 'ışığı katman katman',
+    headlineAccent: 'şekillendiren lambalar.',
     description:
-      'nasa topoğrafik yüzey haritaları ve litofan ışık geçirgenliğiyle tasarlanan küre ay lambaları ve ambiyans aydınlatmaları.',
+      'parametrik desenli masa lambaları; açıkken duvara düşen gölgesiyle, kapalıyken formuyla odaya karakter katar.',
     primaryCtaText: 'zuulight serisi',
     primaryCtaHref: '/koleksiyon/zuulight',
-    secondaryCtaText: 'ay lambasını incele',
-    secondaryCtaHref: '/urun/lithoglow-ay-yuzeyi-gece-lambasi',
     imageUrl:
       'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1920&q=85',
-    imageAlt: 'zuulight litofan ay lambası ve sıcak ambiyans aydınlatması',
+    imageAlt: 'zuulight masa lambası ve sıcak ambiyans ışığı',
     theme: 'dark',
   },
 ]
 
-export default function HomeHero({ hero }: HeroProps) {
-  if (hero && hero.active === false) {
-    return null
-  }
-
-  // Merge CMS hero props if provided
-  const slides: SlideItem[] = DEFAULT_SLIDES.map((slide, idx) => {
-    if (idx === 0 && hero) {
-      return {
-        ...slide,
-        headlineMain: hero.headlineMain || slide.headlineMain,
-        headlineAccent: hero.headlineItalic || slide.headlineAccent,
-        description: hero.leadText || slide.description,
-        imageUrl: hero.heroImage || slide.imageUrl,
-        primaryCtaText: hero.primaryCtaText || slide.primaryCtaText,
-        primaryCtaHref: hero.primaryCtaHref || slide.primaryCtaHref,
-        secondaryCtaText: hero.secondaryCtaText || slide.secondaryCtaText,
-        secondaryCtaHref: hero.secondaryCtaHref || slide.secondaryCtaHref,
-        badgeText: hero.originTag ? `${hero.originTag} · 3d tasarım` : slide.badgeText,
-      }
-    }
-    return slide
+export default function HomeHero({ hero, picks }: HeroProps) {
+  // Each collection slide links to that collection's best seller; the CMS hero, when the
+  // admin has filled it in, becomes its own closing brand slide instead of overwriting one.
+  const slides: SlideItem[] = DEFAULT_SLIDES.map((slide) => {
+    const pick = picks?.[slide.id]
+    return pick
+      ? { ...slide, secondaryCtaText: pick.name.toLowerCase(), secondaryCtaHref: `/urun/${pick.slug}` }
+      : { ...slide, secondaryCtaText: 'tüm ürünler', secondaryCtaHref: '/urunler' }
   })
+  if (hero?.headlineMain) {
+    slides.push({
+      id: 'zuulab',
+      chipLabel: 'zuulab',
+      badgeText: hero.originTag ? `zuulab · ${hero.originTag}` : 'zuulab',
+      accentColor: 'var(--zuu-blue)',
+      headlineMain: hero.headlineMain,
+      headlineAccent: hero.headlineItalic ?? '',
+      description: hero.leadText ?? '',
+      primaryCtaText: hero.primaryCtaText || 'tüm koleksiyonlar',
+      primaryCtaHref: hero.primaryCtaHref || '/koleksiyonlar',
+      secondaryCtaText: hero.secondaryCtaText,
+      secondaryCtaHref: hero.secondaryCtaHref,
+      imageUrl: hero.heroImage || DEFAULT_SLIDES[1].imageUrl,
+      imageAlt: hero.imageCaptionText || 'zuulab tasarım objeleri',
+      theme: 'light',
+    })
+  }
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
+  const [hasFocus, setHasFocus] = useState(false)
+  const [userPaused, setUserPaused] = useState(false)
+  const [pageHidden, setPageHidden] = useState(false)
   const touchStartXRef = useRef<number | null>(null)
   const touchStartYRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const onVisibility = () => setPageHidden(document.hidden)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  // Autoplay is driven by the progress bar: when its 6s fill animation ends, the next
+  // slide shows. Pausing the animation pauses autoplay, and reduced motion (no animation)
+  // turns it off entirely.
+  const isPaused = userPaused || isHovered || hasFocus || pageHidden
 
   const activeSlide = slides[currentIndex] || slides[0]
   const isDark = activeSlide.theme === 'dark'
@@ -142,7 +162,9 @@ export default function HomeHero({ hero }: HeroProps) {
     goToSlide(currentIndex - 1)
   }, [currentIndex, goToSlide])
 
-  // User-controlled navigation (no forced autoplay loop)
+  if (hero?.active === false) {
+    return null
+  }
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -194,6 +216,10 @@ export default function HomeHero({ hero }: HeroProps) {
       onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onFocus={(e) => { if (e.target !== e.currentTarget) setHasFocus(true) }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHasFocus(false)
+      }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -330,7 +356,8 @@ export default function HomeHero({ hero }: HeroProps) {
                 key={currentIndex}
                 className={`${styles.progressBar} ${
                   isDark ? styles.progressBarDark : styles.progressBarLight
-                }`}
+                } ${isPaused ? styles.progressBarPaused : ''}`}
+                onAnimationEnd={nextSlide}
               />
             </div>
 
@@ -365,6 +392,27 @@ export default function HomeHero({ hero }: HeroProps) {
 
           {/* Right: Prev & Next */}
           <div className={styles.controlsRight}>
+            <button
+              type="button"
+              className={`${styles.iconBtn} ${styles.pauseBtn} ${
+                isDark ? styles.iconBtnDark : styles.iconBtnLight
+              }`}
+              onClick={() => setUserPaused((v) => !v)}
+              aria-label={userPaused ? 'Slaytları oynat' : 'Slaytları durdur'}
+              aria-pressed={userPaused}
+              title={userPaused ? 'Oynat' : 'Durdur'}
+            >
+              {userPaused ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <polygon points="7 4 20 12 7 20 7 4" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              )}
+            </button>
             <button
               type="button"
               className={`${styles.iconBtn} ${

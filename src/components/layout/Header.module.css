@@ -599,7 +599,7 @@
 }
 
 .megaMenuColLink:hover .megaMenuColThumb {
-  transform: scale(1.04);
+  transform: scale(var(--hover-zoom));
 }
 
 .megaMenuColBody {
@@ -768,7 +768,7 @@
 }
 
 .collectionCard:hover .collectionCardImg {
-  transform: scale(1.035);
+  transform: scale(var(--hover-zoom));
 }
 
 .collectionCardAccentDot {
@@ -861,7 +861,7 @@
 }
 
 .limitedCard:hover .limitedImg {
-  transform: scale(1.035);
+  transform: scale(var(--hover-zoom));
 }
 
 .limitedBody {

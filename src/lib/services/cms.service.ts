@@ -98,7 +98,7 @@ const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
   },
   {
     id: 'ann-4',
-    text: '%100 biyo-bozunur, çevre dostu sertifikalı pla',
+    text: 'zuulight parametrik masa lambaları',
     active: true,
     sortOrder: 4,
   },

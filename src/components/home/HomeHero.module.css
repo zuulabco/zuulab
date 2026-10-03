@@ -63,6 +63,12 @@
   transform: scale(1);
 }
 
+.imageWrapper .slideImg {
+  transition:
+    opacity var(--dur-slower) var(--ease-out),
+    transform 1400ms var(--ease-zoom);
+}
+
 /* ── Ambient Gradient Scrims ────────────────────────────── */
 /* Directional scrim provides crisp readability without blocking product art */
 .scrimLight {
@@ -591,5 +597,8 @@
   .progressBar {
     animation: none !important;
     width: 100% !important;
+  }
+  .pauseBtn {
+    display: none;
   }
 }

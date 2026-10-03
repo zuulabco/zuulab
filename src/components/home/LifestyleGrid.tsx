@@ -63,7 +63,7 @@ export default function LifestyleGrid() {
               className={styles.img}
               loading="lazy"
             />
-            <span className={styles.imageLabel}>zuulight lithophane</span>
+            <span className={styles.imageLabel}>zuulight masa lambası</span>
           </div>
         </div>
       </div>

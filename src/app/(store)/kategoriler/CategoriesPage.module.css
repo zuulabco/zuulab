@@ -54,7 +54,7 @@
 }
 
 .card:hover .image {
-  transform: scale(1.03);
+  transform: scale(var(--hover-zoom));
 }
 
 .content {

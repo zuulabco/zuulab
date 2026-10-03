@@ -5,7 +5,7 @@
    ============================================================ */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background-color: var(--surface-0);
   border-bottom: 1px solid var(--border);
 }
@@ -103,7 +103,7 @@
 }
 
 .banner:hover .bannerImg {
-  transform: scale(1.03);
+  transform: scale(var(--hover-zoom));
 }
 
 /* ── Editorial Scrim ────────────────────────────────────── */
@@ -190,10 +190,6 @@
 
 /* ── Responsive Behavior ────────────────────────────────── */
 @media (max-width: 1024px) {
-  .section {
-    padding-block: var(--sp-16);
-  }
-
   .grid {
     grid-template-columns: 1fr;
     gap: var(--sp-6);
@@ -205,10 +201,6 @@
 }
 
 @media (max-width: 640px) {
-  .section {
-    padding-block: var(--sp-12);
-  }
-
   .container {
     padding-inline: var(--sp-4);
   }

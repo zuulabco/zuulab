@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
+import FooterColumn from './FooterColumn'
 import styles from './Footer.module.css'
 
 export default function Footer() {
@@ -49,8 +50,7 @@ export default function Footer() {
           </div>
 
           {/* Koleksiyonlar */}
-          <div className={styles.col}>
-            <h3 className={styles.colTitle}>koleksiyonlar</h3>
+          <FooterColumn title="koleksiyonlar">
             <ul className={styles.links}>
               <li><Link href="/koleksiyonlar">tüm koleksiyonlar</Link></li>
               <li><Link href="/koleksiyon/zuukids">zuukids</Link></li>
@@ -58,11 +58,10 @@ export default function Footer() {
               <li><Link href="/koleksiyon/zuulight">zuulight</Link></li>
               <li><Link href="/koleksiyon/zuutoptan">zuutoptan</Link></li>
             </ul>
-          </div>
+          </FooterColumn>
 
           {/* Hesabım */}
-          <div className={styles.col}>
-            <h3 className={styles.colTitle}>hesabım</h3>
+          <FooterColumn title="hesabım">
             <ul className={styles.links}>
               <li><Link href="/hesap">genel bakış</Link></li>
               <li><Link href="/hesap/siparisler">siparişlerim</Link></li>
@@ -71,27 +70,25 @@ export default function Footer() {
               <li><Link href="/hesap/profil">profilim</Link></li>
               <li><Link href="/hesap/destek">destek talepleri</Link></li>
             </ul>
-          </div>
+          </FooterColumn>
 
           {/* Kurumsal */}
-          <div className={styles.col}>
-            <h3 className={styles.colTitle}>kurumsal</h3>
+          <FooterColumn title="kurumsal">
             <ul className={styles.links}>
               <li><Link href="/hakkimizda">hakkımızda</Link></li>
               <li><Link href="/uretim-sureci">üretim süreci</Link></li>
               <li><Link href="/iletisim">iletişim</Link></li>
             </ul>
-          </div>
+          </FooterColumn>
 
           {/* Yasal */}
-          <div className={styles.col}>
-            <h3 className={styles.colTitle}>yasal</h3>
+          <FooterColumn title="yasal">
             <ul className={styles.links}>
               <li><Link href="/gizlilik-politikasi">gizlilik politikası</Link></li>
               <li><Link href="/kullanim-kosullari">kullanım koşulları</Link></li>
               <li><Link href="/iade-politikasi">iade politikası</Link></li>
             </ul>
-          </div>
+          </FooterColumn>
         </div>
 
         {/* Divider */}

@@ -108,7 +108,7 @@
 }
 
 .card:hover .image {
-  transform: scale(1.02);
+  transform: scale(var(--hover-zoom));
 }
 
 .imageScrim {

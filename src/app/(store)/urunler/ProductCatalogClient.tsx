@@ -21,18 +21,28 @@ interface Props {
   catalogDescription?: string
 }
 
-export type SortOption = 'featured' | 'newest' | 'bestseller' | 'price-asc' | 'price-desc'
+export type SortOption = 'featured' | 'newest' | 'bestseller' | 'favorites' | 'price-asc' | 'price-desc'
 
 export const SORT_LABELS: Record<SortOption, string> = {
   featured: 'önerilen',
   newest: 'yeni ürünler',
   bestseller: 'çok satanlar',
+  favorites: 'en çok favorilenenler',
   'price-asc': 'fiyat: düşükten yükseğe',
   'price-desc': 'fiyat: yüksekten düşüğe',
 }
 
 export const MIN_PRICE = 0
-export const MAX_PRICE = 1000
+/** Highest value the price inputs accept. No bound is applied until the shopper types one. */
+export const PRICE_LIMIT = 100000
+
+/** Parses a price bound from the URL or an input: empty or invalid means "no bound". */
+function parsePriceBound(value: string | null): number | null {
+  if (value === null || value.trim() === '') return null
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.min(n, PRICE_LIMIT)
+}
 
 export default function ProductCatalogClient({
   products,
@@ -68,19 +78,13 @@ export default function ProductCatalogClient({
     return s === '1' || s === 'true'
   }, [searchParams])
 
+  // null = no bound: every product is listed until the shopper sets a price.
   const minPrice = useMemo(() => {
-    const val = searchParams.get('minPrice')
-    if (!val) return MIN_PRICE
-    const num = Number(val)
-    return isNaN(num) ? MIN_PRICE : Math.max(MIN_PRICE, Math.min(num, MAX_PRICE))
+    const n = parsePriceBound(searchParams.get('minPrice'))
+    return n !== null && n > MIN_PRICE ? n : null
   }, [searchParams])
 
-  const maxPrice = useMemo(() => {
-    const val = searchParams.get('maxPrice')
-    if (!val) return MAX_PRICE
-    const num = Number(val)
-    return isNaN(num) ? MAX_PRICE : Math.min(MAX_PRICE, Math.max(num, MIN_PRICE))
-  }, [searchParams])
+  const maxPrice = useMemo(() => parsePriceBound(searchParams.get('maxPrice')), [searchParams])
 
   const sortBy = useMemo(() => {
     const s = searchParams.get('sort') as SortOption
@@ -106,8 +110,8 @@ export default function ProductCatalogClient({
 
   // ── Local Input States (for responsive debounce & typing) ──
   const [localSearch, setLocalSearch] = useState(searchQuery)
-  const [localMinPrice, setLocalMinPrice] = useState(minPrice)
-  const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice)
+  const [localMinPrice, setLocalMinPrice] = useState(minPrice?.toString() ?? '')
+  const [localMaxPrice, setLocalMaxPrice] = useState(maxPrice?.toString() ?? '')
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   // Accordion open states
@@ -120,8 +124,8 @@ export default function ProductCatalogClient({
 
   // Keep local inputs in sync when URL changes (e.g. Back/Forward)
   useEffect(() => { setLocalSearch(searchQuery) }, [searchQuery])
-  useEffect(() => { setLocalMinPrice(minPrice) }, [minPrice])
-  useEffect(() => { setLocalMaxPrice(maxPrice) }, [maxPrice])
+  useEffect(() => { setLocalMinPrice(minPrice?.toString() ?? '') }, [minPrice])
+  useEffect(() => { setLocalMaxPrice(maxPrice?.toString() ?? '') }, [maxPrice])
 
   // ── URL Update Helper ──────────────────────────────────────
   const updateUrl = useCallback(
@@ -130,8 +134,8 @@ export default function ProductCatalogClient({
         category?: string
         collection?: string
         stock?: boolean
-        minPrice?: number
-        maxPrice?: number
+        minPrice?: number | null
+        maxPrice?: number | null
         sort?: SortOption
         q?: string
         colors?: string[]
@@ -173,8 +177,8 @@ export default function ProductCatalogClient({
       }
 
       if (nextStock) params.set('stock', '1')
-      if (nextMin > MIN_PRICE) params.set('minPrice', String(nextMin))
-      if (nextMax < MAX_PRICE) params.set('maxPrice', String(nextMax))
+      if (nextMin !== null && nextMin > MIN_PRICE) params.set('minPrice', String(nextMin))
+      if (nextMax !== null) params.set('maxPrice', String(nextMax))
       if (nextSort && nextSort !== 'featured') params.set('sort', nextSort)
       if (nextQ) params.set('q', nextQ)
       if (nextColors.length > 0) params.set('colors', nextColors.join(','))
@@ -232,22 +236,20 @@ export default function ProductCatalogClient({
   // ── Debounced Price Handling ───────────────────────────────
   const priceDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
-  const handleMinPriceChange = (value: number) => {
-    const clamped = Math.max(MIN_PRICE, Math.min(value, localMaxPrice))
-    setLocalMinPrice(clamped)
+  const handleMinPriceChange = (value: string) => {
+    setLocalMinPrice(value)
     if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current)
     priceDebounceRef.current = setTimeout(() => {
-      updateUrl({ minPrice: clamped }, { replace: true })
-    }, 300)
+      updateUrl({ minPrice: parsePriceBound(value) }, { replace: true })
+    }, 400)
   }
 
-  const handleMaxPriceChange = (value: number) => {
-    const clamped = Math.min(MAX_PRICE, Math.max(value, localMinPrice))
-    setLocalMaxPrice(clamped)
+  const handleMaxPriceChange = (value: string) => {
+    setLocalMaxPrice(value)
     if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current)
     priceDebounceRef.current = setTimeout(() => {
-      updateUrl({ maxPrice: clamped }, { replace: true })
-    }, 300)
+      updateUrl({ maxPrice: parsePriceBound(value) }, { replace: true })
+    }, 400)
   }
 
   // Handle escape key and body scroll lock for mobile drawer
@@ -295,7 +297,8 @@ export default function ProductCatalogClient({
         if (inStockOnly && p.stock <= 0) return false
 
         // Price filter
-        if (p.price < minPrice || p.price > maxPrice) return false
+        if (minPrice !== null && p.price < minPrice) return false
+        if (maxPrice !== null && p.price > maxPrice) return false
 
         // Color filter (product must have at least one selected color)
         if (selectedColors.length > 0) {
@@ -314,8 +317,10 @@ export default function ProductCatalogClient({
       .sort((a, b) => {
         if (sortBy === 'price-asc')  return a.price - b.price
         if (sortBy === 'price-desc') return b.price - a.price
-        if (sortBy === 'newest')     return (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)
-        if (sortBy === 'bestseller') return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0)
+        if (sortBy === 'newest')     return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+        // Real sales first; the admin's best-seller flag before any sales exist
+        if (sortBy === 'bestseller') return (b.soldCount ?? 0) - (a.soldCount ?? 0) || Number(Boolean(b.isBestSeller)) - Number(Boolean(a.isBestSeller))
+        if (sortBy === 'favorites')  return (b.favoriteCount ?? 0) - (a.favoriteCount ?? 0) || (b.rating ?? 0) - (a.rating ?? 0)
         return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0)
       })
   }, [
@@ -378,13 +383,18 @@ export default function ProductCatalogClient({
       })
     }
 
-    if (minPrice > MIN_PRICE || maxPrice < MAX_PRICE) {
+    if (minPrice !== null || maxPrice !== null) {
       pills.push({
-        label: `₺${minPrice} — ₺${maxPrice}`,
+        label:
+          minPrice !== null && maxPrice !== null
+            ? `₺${minPrice} — ₺${maxPrice}`
+            : minPrice !== null
+              ? `₺${minPrice} ve üzeri`
+              : `₺${maxPrice} ve altı`,
         onRemove: () => {
-          setLocalMinPrice(MIN_PRICE)
-          setLocalMaxPrice(MAX_PRICE)
-          updateUrl({ minPrice: MIN_PRICE, maxPrice: MAX_PRICE })
+          setLocalMinPrice('')
+          setLocalMaxPrice('')
+          updateUrl({ minPrice: null, maxPrice: null })
         },
       })
     }
@@ -423,8 +433,8 @@ export default function ProductCatalogClient({
 
   const handleResetFilters = useCallback(() => {
     setLocalSearch('')
-    setLocalMinPrice(MIN_PRICE)
-    setLocalMaxPrice(MAX_PRICE)
+    setLocalMinPrice('')
+    setLocalMaxPrice('')
     if (isCategoryPage || isCollectionPage) {
       startTransition(() => router.push(pathname, { scroll: false }))
     } else {
@@ -702,14 +712,15 @@ export default function ProductCatalogClient({
                 <input
                   type="number"
                   className={styles.priceInput}
+                  inputMode="numeric"
                   value={localMinPrice}
                   min={MIN_PRICE}
-                  max={localMaxPrice}
-                  step={25}
-                  onChange={(e) => handleMinPriceChange(Number(e.target.value))}
-                  onBlur={() => updateUrl({ minPrice: localMinPrice })}
+                  max={PRICE_LIMIT}
+                  step={1}
+                  onChange={(e) => handleMinPriceChange(e.target.value)}
+                  onBlur={() => updateUrl({ minPrice: parsePriceBound(localMinPrice) })}
                   aria-label="Minimum fiyat"
-                  placeholder="min"
+                  placeholder="0"
                 />
               </div>
               <span className={styles.priceRangeSep}>—</span>
@@ -718,14 +729,15 @@ export default function ProductCatalogClient({
                 <input
                   type="number"
                   className={styles.priceInput}
+                  inputMode="numeric"
                   value={localMaxPrice}
-                  min={localMinPrice}
-                  max={MAX_PRICE}
-                  step={25}
-                  onChange={(e) => handleMaxPriceChange(Number(e.target.value))}
-                  onBlur={() => updateUrl({ maxPrice: localMaxPrice })}
+                  min={MIN_PRICE}
+                  max={PRICE_LIMIT}
+                  step={1}
+                  onChange={(e) => handleMaxPriceChange(e.target.value)}
+                  onBlur={() => updateUrl({ maxPrice: parsePriceBound(localMaxPrice) })}
                   aria-label="Maksimum fiyat"
-                  placeholder="max"
+                  placeholder="1000"
                 />
               </div>
             </div>

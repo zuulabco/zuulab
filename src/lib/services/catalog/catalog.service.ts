@@ -30,7 +30,7 @@ interface CatalogSnapshot {
 
 /** Uncached loader; exported for tests and scripts. */
 export async function loadSnapshot(): Promise<CatalogSnapshot> {
-  const [products, images, variants, specs, categories, collections, links, ratings] = await Promise.all([
+  const [products, images, variants, specs, categories, collections, links, ratings, sold, favorites] = await Promise.all([
     db.orm.public.Product.where({ isActive: true }).all(),
     db.orm.public.ProductImage.orderBy([(i) => i.sortOrder.asc(), (i) => i.createdAt.asc()]).all(),
     db.orm.public.ProductVariant.where({ isActive: true }).orderBy((v) => v.sortOrder.asc()).all(),
@@ -41,6 +41,16 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
     db.orm.public.Review.where({ status: 'APPROVED' })
       .groupBy('productId')
       .aggregate((a) => ({ count: a.count(), avg: a.avg('rating') })),
+    // Units sold in paid orders (storefront and marketplaces), for "best sellers".
+    db.runtime().query(
+      db.raw.sql`SELECT oi.product_id, SUM(oi.quantity)::int AS qty
+        FROM order_items oi JOIN orders o ON o.id = oi.order_id
+        WHERE o.status IN ('PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED')
+        GROUP BY oi.product_id`
+        .returnsRow({ product_id: 'pg/text@1', qty: 'pg/int4@1' } as never)
+        .build()
+    ) as unknown as Promise<Array<{ product_id: string; qty: number }>>,
+    db.orm.public.Favorite.groupBy('productId').aggregate((a) => ({ count: a.count() })),
   ])
 
   const group = <T, K>(rows: T[], key: (r: T) => K) => {
@@ -60,6 +70,10 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
   const linksByProduct = group(links, (l) => l.productId)
   const categoryById = new Map(categories.map((c) => [c.id, c]))
   const collectionById = new Map(collections.map((c) => [c.id, c]))
+  const soldByProduct = new Map(sold.map((r) => [r.product_id, Number(r.qty)]))
+  const favoritesByProduct = new Map(
+    (favorites as Array<{ productId: string; count: number }>).map((f) => [f.productId, Number(f.count)])
+  )
   const ratingByProduct = new Map(
     (ratings as Array<{ productId: string; count: number; avg: number | null }>).map((r) => [r.productId, r])
   )
@@ -128,6 +142,8 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
       specifications: (specsByProduct.get(p.id) ?? []).map((s) => ({ name: s.name, value: s.value })),
       sortOrder: p.sortOrder,
       createdAt: dbTimestampToIso(p.createdAt) ?? undefined,
+      soldCount: soldByProduct.get(p.id) ?? 0,
+      favoriteCount: favoritesByProduct.get(p.id) ?? 0,
     })
   }
 
@@ -188,7 +204,7 @@ export interface ProductFilterOptions {
   minPrice?: number
   maxPrice?: number
   search?: string
-  sort?: 'featured' | 'newest' | 'bestseller' | 'price-asc' | 'price-desc'
+  sort?: 'featured' | 'newest' | 'bestseller' | 'favorites' | 'price-asc' | 'price-desc'
   limit?: number
   offset?: number
 }
@@ -250,7 +266,11 @@ export async function getProducts(options: ProductFilterOptions = {}) {
       case 'price-asc': return a.price - b.price || byDefault(a, b)
       case 'price-desc': return b.price - a.price || byDefault(a, b)
       case 'newest': return (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
-      case 'bestseller': return Number(b.isBestSeller) - Number(a.isBestSeller) || byDefault(a, b)
+      // Real sales first; the admin's "best seller" flag breaks ties and fills in before any sales exist.
+      case 'bestseller':
+        return (b.soldCount ?? 0) - (a.soldCount ?? 0) || Number(b.isBestSeller) - Number(a.isBestSeller) || byDefault(a, b)
+      case 'favorites':
+        return (b.favoriteCount ?? 0) - (a.favoriteCount ?? 0) || b.rating - a.rating || byDefault(a, b)
       default: return Number(b.isFeatured) - Number(a.isFeatured) || byDefault(a, b)
     }
   })

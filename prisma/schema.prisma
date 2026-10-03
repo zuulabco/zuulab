@@ -303,6 +303,9 @@ model User {
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
   lastLoginAt    DateTime?       @map("last_login_at")
+  // Account tab dots: last time the customer opened their orders / support pages
+  ordersSeenAt   DateTime?       @map("orders_seen_at")
+  supportSeenAt  DateTime?       @map("support_seen_at")
 
   addresses      Address[]
   orders         Order[]
@@ -488,6 +491,7 @@ model Product {
   cartItems         CartItem[]
   orderItems        OrderItem[]
   favorites         Favorite[]
+  stockAlerts       StockAlert[]
   reviews           Review[]
   campaignProducts  CampaignProduct[]
   productionOrders  ProductionOrder[]
@@ -2530,4 +2534,20 @@ model MarketplacePushBatch {
 
   @@index([status, createdAt])
   @@map("marketplace_push_batches")
+}
+
+// "Gelince haber ver": a shopper asked to hear when an out-of-stock product is back.
+model StockAlert {
+  id         String    @id @default(cuid())
+  productId  String    @map("product_id")
+  variantId  String?   @map("variant_id")
+  email      String
+  userId     String?   @map("user_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  notifiedAt DateTime? @map("notified_at")
+
+  product    Product   @relation(fields:[productId], references:[id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("stock_alerts")
 }

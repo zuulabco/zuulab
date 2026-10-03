@@ -60,6 +60,8 @@ export default function AdminSupportPage() {
 
   // Status Change Modal State
   const [statusToChange, setStatusToChange] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const loadTickets = (selectIdAfterLoad?: string) => {
     if (!canFetch) return
@@ -172,6 +174,29 @@ export default function AdminSupportPage() {
       loadTickets(selectedTicket.id)
     } catch (err: any) {
       addToast(err.message || 'Durum güncellenemedi.', 'error')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!canFetch || !selectedTicket) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/support/${selectedTicket.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+
+      addToast('Destek talebi silindi.', 'success')
+      const deletedId = selectedTicket.id
+      setDeleteOpen(false)
+      setSelectedTicket(null)
+      setTickets((list) => list.filter((t) => t.id !== deletedId))
+    } catch (err: any) {
+      addToast(err.message || 'Talep silinemedi.', 'error')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -437,6 +462,14 @@ export default function AdminSupportPage() {
                       <option value="RESOLVED">Çözüldü</option>
                       <option value="CLOSED">Kapatıldı</option>
                     </select>
+                    <button
+                      type="button"
+                      className={`${styles.dangerButton} ${styles.btnSm}`}
+                      style={{ marginTop: 8, width: '100%' }}
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      Talebi sil
+                    </button>
                   </div>
                 </div>
               </div>
@@ -590,7 +623,7 @@ export default function AdminSupportPage() {
               Destek Talebini {statusToChange === 'RESOLVED' ? 'Çözüldü' : 'Kapatıldı'} Olarak İşaretle
             </h3>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
-              Bu talebin durumunu <strong>{statusToChange === 'RESOLVED' ? 'ÇÖZÜLDÜ' : 'KAPATILDI'}</strong> olarak güncellemek üzeresiniz. Müşteri memnuniyet işlemi tamamlanmış kabul edilecektir.
+              Bu talebin durumunu <strong>{statusToChange === 'RESOLVED' ? 'ÇÖZÜLDÜ' : 'KAPATILDI'}</strong> olarak güncellemek üzeresiniz. Müşteri bu talebe artık yazamaz; yeni bir sorusu olursa yeni talep açar.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
               <button
@@ -606,6 +639,28 @@ export default function AdminSupportPage() {
                 onClick={() => handleUpdateStatus(statusToChange)}
               >
                 Onayla ve Güncelle
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {deleteOpen && selectedTicket && (
+        <Modal isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} ariaLabel="Destek talebini sil">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Destek talebini sil
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              <strong>&ldquo;{selectedTicket.subject}&rdquo;</strong> talebi ve tüm mesajları kalıcı olarak silinecek.
+              Müşteri de bu talebi hesabında göremeyecek. Bu işlem geri alınamaz.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button type="button" className={styles.secondaryBtn} onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                Vazgeç
+              </button>
+              <button type="button" className={styles.dangerButton} onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Siliniyor…' : 'Kalıcı olarak sil'}
               </button>
             </div>
           </div>

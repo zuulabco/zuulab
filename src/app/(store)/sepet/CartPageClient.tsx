@@ -154,7 +154,7 @@ export default function CartPageClient({
           <span className={styles.eyebrow}>sepetim</span>
           <h1 className={styles.emptyTitle}>sepetinizde henüz ürün bulunmuyor</h1>
           <p className={styles.emptyDesc}>
-            0.12mm katman hassasiyetiyle üretilen parametrik masa objeleri, eğitici çocuk figürleri ve lithophane aydınlatma serilerini keşfedin.
+            0.12mm katman hassasiyetiyle üretilen masaüstü organizerleri, eğitici çocuk setleri ve parametrik masa lambalarını keşfedin.
           </p>
           <div className={styles.emptyActionRow}>
             <Link href="/urunler" className={styles.startShoppingBtn}>
@@ -171,21 +171,21 @@ export default function CartPageClient({
             <Link href="/koleksiyon/zuukids" className={styles.collectionCard}>
               <span className={styles.cardTag}>çocuk dünyası</span>
               <h3 className={styles.cardTitle}>zuukids</h3>
-              <p className={styles.cardDesc}>çocuklar için güvenli biyo-pla figürler ve montessori serisi.</p>
+              <p className={styles.cardDesc}>şekil eşleştirme setleri, kesir yapbozları ve eğitici oyunlar.</p>
               <span className={styles.cardLinkText}>seriyi keşfet →</span>
             </Link>
 
             <Link href="/koleksiyon/zuulife" className={styles.collectionCard}>
               <span className={styles.cardTag}>yaşam alanı</span>
               <h3 className={styles.cardTitle}>zuulife</h3>
-              <p className={styles.cardDesc}>heykelsi masa formları, düzenleyiciler ve geometrik objeler.</p>
+              <p className={styles.cardDesc}>masaüstü ve takı organizerleri, ev objeleri.</p>
               <span className={styles.cardLinkText}>seriyi keşfet →</span>
             </Link>
 
             <Link href="/koleksiyon/zuulight" className={styles.collectionCard}>
               <span className={styles.cardTag}>aydınlatma</span>
               <h3 className={styles.cardTitle}>zuulight</h3>
-              <p className={styles.cardDesc}>lithophane teknolojili ay lambaları ve ambiyans aydınlatmaları.</p>
+              <p className={styles.cardDesc}>parametrik desenli masa lambaları.</p>
               <span className={styles.cardLinkText}>seriyi keşfet →</span>
             </Link>
           </div>

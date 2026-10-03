@@ -58,7 +58,7 @@
 
 @media (hover: hover) {
   .mainWrapper:hover .mainImage {
-    transform: scale(1.02);
+    transform: scale(var(--hover-zoom));
   }
 }
 

@@ -85,6 +85,11 @@ function toTicketItem(t: TicketRow, orderNumbers: Map<string, string>): SupportT
   }
 }
 
+/** Resolved and closed tickets are read-only for the customer. */
+export function isTicketClosed(status: TicketStatusType): boolean {
+  return status === 'RESOLVED' || status === 'CLOSED'
+}
+
 function validateMessage(text: string | undefined, min = 5): string {
   const body = (text ?? '').trim()
   if (body.length < min) throw new Error(`VALIDATION_ERROR: Mesajınız en az ${min} karakter olmalıdır.`)
@@ -222,7 +227,8 @@ export async function getTicketDetails(ticketId: string, user: AuthUser): Promis
 /**
  * Adds a message to a ticket and moves its status:
  *  - staff public reply -> WAITING_CUSTOMER (customer is emailed)
- *  - customer reply to a waiting/resolved/closed ticket -> IN_PROGRESS
+ *  - customer reply to a waiting ticket -> IN_PROGRESS
+ * Customers cannot write to a resolved or closed ticket; they open a new one.
  */
 export async function addMessageToTicket(
   ticketId: string,
@@ -235,9 +241,13 @@ export async function addMessageToTicket(
   const internal = staff ? Boolean(isInternal) : false
   const text = validateMessage(body, 1)
 
+  if (!staff && isTicketClosed(ticket.status)) {
+    throw new Error('TICKET_CLOSED: Bu talep kapatıldı. Yeni bir sorunuz varsa yeni bir destek talebi oluşturabilirsiniz.')
+  }
+
   let newStatus: TicketStatusType = ticket.status
   if (staff && !internal) newStatus = 'WAITING_CUSTOMER'
-  else if (!staff && ['WAITING_CUSTOMER', 'RESOLVED', 'CLOSED'].includes(ticket.status)) newStatus = 'IN_PROGRESS'
+  else if (!staff && ticket.status === 'WAITING_CUSTOMER') newStatus = 'IN_PROGRESS'
 
   const messageId = await db.transaction(async (tx) => {
     const message = await tx.orm.public.SupportMessage.create({
@@ -330,6 +340,14 @@ export async function updateTicketStatus(
   if (Object.keys(fields).length > 0) {
     await db.orm.public.SupportTicket.where({ id: ticketId }).update(fields as never)
   }
+  // resolved_at is compared with database-clock times (account dots), so stamp it there too
+  if (fields.resolvedAt) {
+    await db.runtime().execute(
+      db.raw.sql`UPDATE support_tickets SET resolved_at = (now() AT TIME ZONE 'UTC') WHERE id = ${ticketId}`
+        .affectedCount()
+        .build()
+    )
+  }
 
   await logAuditEvent({
     userId: adminUser.id,
@@ -340,4 +358,22 @@ export async function updateTicketStatus(
   })
 
   return getTicketDetails(ticketId, adminUser)
+}
+
+/**
+ * Admin: permanently deletes a ticket and its messages (messages cascade in the database).
+ */
+export async function deleteTicket(ticketId: string, adminUser: AuthUser): Promise<void> {
+  const existing = await db.orm.public.SupportTicket.select('id', 'subject', 'userId').where({ id: ticketId }).first()
+  if (!existing) throw new Error('NOT_FOUND: Destek talebi bulunamadı.')
+
+  await db.orm.public.SupportTicket.where({ id: ticketId }).delete()
+
+  await logAuditEvent({
+    userId: adminUser.id,
+    action: 'SUPPORT_TICKET_DELETED',
+    entity: 'SupportTicket',
+    entityId: ticketId,
+    metadata: { subject: existing.subject, customerId: existing.userId },
+  })
 }

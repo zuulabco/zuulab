@@ -4,6 +4,7 @@ import {
   getTicketDetails,
   addMessageToTicket,
   updateTicketStatus,
+  deleteTicket,
   type TicketStatusType,
 } from '@/lib/services/support.service'
 import { z } from 'zod'
@@ -110,6 +111,23 @@ export async function PATCH(request: Request, { params }: RouteProps) {
 
     return NextResponse.json(
       { success: false, error: error.message || 'Güncelleme başarısız.' },
+      { status: isForbidden ? 403 : isNotFound ? 404 : 500 }
+    )
+  }
+}
+
+export async function DELETE(request: Request, { params }: RouteProps) {
+  try {
+    const adminUser = await requireAdmin(request)
+    const { id } = await params
+    await deleteTicket(id, adminUser)
+    return NextResponse.json({ success: true, message: 'Destek talebi silindi.' })
+  } catch (error: any) {
+    const isForbidden = error.message?.includes('FORBIDDEN') || error.message?.includes('UNAUTHORIZED')
+    const isNotFound = error.message?.includes('NOT_FOUND')
+
+    return NextResponse.json(
+      { success: false, error: error.message || 'Talep silinemedi.' },
       { status: isForbidden ? 403 : isNotFound ? 404 : 500 }
     )
   }

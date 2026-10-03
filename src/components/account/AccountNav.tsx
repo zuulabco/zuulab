@@ -1,12 +1,20 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
 import styles from './AccountNav.module.css'
+
+type BadgeSection = 'orders' | 'support'
+
+function sectionFor(pathname: string | null): BadgeSection | null {
+  if (pathname?.startsWith('/hesap/siparisler')) return 'orders'
+  if (pathname?.startsWith('/hesap/destek')) return 'support'
+  return null
+}
 
 interface AccountNavProps {
   orderCount?: number
@@ -17,15 +25,49 @@ interface AccountNavProps {
 export default function AccountNav({ orderCount, favoriteCount, ticketCount }: AccountNavProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { logout } = useAuthStore()
+  const { logout, token } = useAuthStore()
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [badges, setBadges] = useState<Record<BadgeSection, boolean>>({ orders: false, support: false })
+
+  // Opening a section clears its dot; the others come from the server. Checked again
+  // whenever the customer comes back to the browser tab.
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const auth = { Authorization: `Bearer ${token}` }
+    const current = sectionFor(pathname)
+
+    const sync = async () => {
+      if (current) {
+        setBadges((b) => ({ ...b, [current]: false }))
+        await fetch('/api/account/badges', {
+          method: 'POST',
+          headers: { ...auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section: current }),
+        })
+      }
+      const res = await fetch('/api/account/badges', { headers: auth, cache: 'no-store' })
+      const data = await res.json()
+      if (!cancelled && data.success) setBadges(data.badges)
+    }
+    sync().catch(() => {})
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sync().catch(() => {})
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [token, pathname])
 
   const navLinks = [
     { label: 'hesabım', href: '/hesap', exact: true },
-    { label: 'siparişlerim', href: '/hesap/siparisler', count: orderCount },
+    { label: 'siparişlerim', href: '/hesap/siparisler', count: orderCount, section: 'orders' as BadgeSection },
     { label: 'adreslerim', href: '/hesap/adresler' },
     { label: 'favorilerim', href: '/hesap/favoriler', count: favoriteCount },
-    { label: 'destek', href: '/hesap/destek', count: ticketCount },
+    { label: 'destek', href: '/hesap/destek', count: ticketCount, section: 'support' as BadgeSection },
     { label: 'profilim', href: '/hesap/profil' },
   ]
 
@@ -43,6 +85,7 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
           const isActive = link.exact
             ? pathname === link.href
             : pathname === link.href || pathname?.startsWith(`${link.href}/`)
+          const hasNews = 'section' in link && link.section ? badges[link.section] : false
 
           return (
             <Link
@@ -50,8 +93,21 @@ export default function AccountNav({ orderCount, favoriteCount, ticketCount }: A
               href={link.href}
               className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
               aria-current={isActive ? 'page' : undefined}
+              onClick={() => {
+                if ('section' in link && link.section) {
+                  const section = link.section
+                  setBadges((b) => ({ ...b, [section]: false }))
+                }
+              }}
             >
-              <span>{link.label}</span>
+              <span className={styles.navLabel}>
+                {link.label}
+                {hasNews && (
+                  <span className={styles.newDot}>
+                    <span className="sr-only">yeni güncelleme var</span>
+                  </span>
+                )}
+              </span>
               {typeof link.count === 'number' && link.count > 0 && (
                 <span className={styles.badge}>{link.count}</span>
               )}

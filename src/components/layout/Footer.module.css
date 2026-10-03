@@ -103,6 +103,27 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* The title is a button so phones can fold the group; on wider screens it is just a label */
+.colToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+  pointer-events: none;
+}
+
+.colChevron {
+  display: none;
+}
+
 .links {
   display: flex;
   flex-direction: column;
@@ -194,23 +215,90 @@
   .tagline { max-width: 280px; }
 }
 
+/* Phones: brand on top, link groups fold into rows, payment marks wrap */
 @media (max-width: 640px) {
+  .footer {
+    padding-top: var(--sp-10);
+  }
+
   .grid {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-6);
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .brand {
     grid-column: 1 / -1;
     flex-direction: column;
     gap: var(--sp-4);
+    padding-bottom: var(--sp-6);
+    margin-bottom: var(--sp-2);
   }
-}
 
-@media (max-width: 480px) {
-  .grid {
-    grid-template-columns: 1fr;
-    gap: var(--sp-6);
+  .socials a {
+    width: 44px;
+    height: 44px;
+  }
+
+  .col {
+    gap: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .colTitle {
+    font-size: var(--text-xs);
+    color: var(--text-inv);
+  }
+
+  .colToggle {
+    min-height: 52px;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .colToggle:focus-visible {
+    outline: 2px solid var(--zuu-blue);
+    outline-offset: -2px;
+  }
+
+  .colChevron {
+    display: block;
+    color: var(--text-inv-muted);
+    transition: transform var(--dur-slow) var(--ease-default);
+  }
+
+  .colOpen .colChevron {
+    transform: rotate(180deg);
+  }
+
+  /* Height animates through the grid row, so no measuring is needed */
+  .colBody {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows var(--dur-slow) var(--ease-default);
+  }
+
+  .colOpen .colBody {
+    grid-template-rows: 1fr;
+  }
+
+  .colBodyInner {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .colBodyInner .links {
+    gap: 0;
+    padding-bottom: var(--sp-3);
+  }
+
+  .links a {
+    display: block;
+    padding-block: var(--sp-2);
+    font-size: var(--text-sm);
+  }
+
+  .divider {
+    margin-block: var(--sp-8);
   }
 
   .bottom {
@@ -218,12 +306,18 @@
     align-items: flex-start;
     gap: var(--sp-3);
   }
+
+  .paymentBadges {
+    flex-wrap: wrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .socials a,
   .links a,
-  .logo {
+  .logo,
+  .colBody,
+  .colChevron {
     transition: none;
   }
 }

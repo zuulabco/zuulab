@@ -48,6 +48,10 @@ export interface CatalogProduct {
   specifications: Array<{ name: string; value: string }>
   sortOrder?: number
   createdAt?: string
+  /** Units sold in paid orders (all channels) */
+  soldCount?: number
+  /** How many customers have it in their favourites */
+  favoriteCount?: number
 }
 
 export interface CatalogCategory {

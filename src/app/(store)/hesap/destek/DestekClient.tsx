@@ -66,7 +66,11 @@ export default function DestekClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [modalOpen, setModalOpen] = useState(false)
+  // Arriving from a closed ticket's "yeni talep oluşturun" link opens the form directly
+  // (the page renders nothing until mounted, so reading the URL here is safe)
+  const [modalOpen, setModalOpen] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('yeni') === '1'
+  )
   const [subject, setSubject] = useState('')
   const [category, setCategory] = useState('ORDER')
   const [orderId, setOrderId] = useState('')
@@ -110,6 +114,26 @@ export default function DestekClient() {
   useEffect(() => {
     loadTickets()
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  // Keep statuses current: re-check every 30s while visible and on returning to the tab
+  useEffect(() => {
+    if (!token) return
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return
+      fetch('/api/support/tickets', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.tickets)) setTickets(data.tickets)
+        })
+        .catch(() => {})
+    }
+    const timer = setInterval(refresh, 30000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [token])
 
   if (!mounted) return null

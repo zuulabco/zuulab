@@ -52,7 +52,7 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     secondaryImage: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=1200&q=80',
     accentColor: '#eab828',
     theme: 'playful-warm',
-    featuredProductSlug: 'mini-dinozor-serisi-set',
+    featuredProductSlug: 'zuukids-vidali-sekil-eslestirme-ve-siralama-seti',
     pillars: [
       {
         title: '100% biyo-çözünür pla',
@@ -84,9 +84,9 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     tagline: 'modern yaşam alanı ve çalışma masası objeleri',
     editorialTitle: 'masanızdaki fazlalıklardan arınmış mimari denge.',
     editorialStatement:
-      'parametrik dalgalar, neodimyum mıknatıslarla modülerleşen düzenleyiciler ve altın oran spiral vazolar. günlük çalışma ritminizi sakinleştiren fonksiyonel tasarım objeleri.',
+      'masaüstü organizerleri, takı ağaçları ve ev objeleri. günlük düzeninizi sadeleştiren, her gün kullanılan işlevsel tasarımlar.',
     description:
-      'ev, yaşam ve çalışma alanı için tasarlanmış premium 3d baskı objeleri. masa düzenleyiciler, parametrik vazolar ve kulaklık stantları.',
+      'ev, yaşam ve çalışma alanı için tasarlanmış 3d baskı objeleri: masaüstü organizerleri, takı organizerleri ve ev aksesuarları.',
     heroImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=85',
     secondaryImage: 'https://images.unsplash.com/photo-1593062096033-9a26b09da705?auto=format&fit=crop&w=1200&q=80',
     accentColor: '#0080c4',
@@ -123,31 +123,31 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     tagline: 'ışık ve gölgenin parametrik buluşması',
     editorialTitle: 'katmanlardan süzülen sakin ve sıcak ambiyans.',
     editorialStatement:
-      'lithophane teknolojisi ve parametrik gölge oyunlarıyla mekana derinlik katan aydınlatma tasarımları. nasa topoğrafik ay haritalarından esinlenen küreler ve kısıldığında huzur veren 3000k sıcak ışık yayılımı.',
+      'katman katman basılan parametrik gövdeler ışığı süzer, duvara desen düşürür. açıkken ortamı ısıtan, kapalıyken bir obje gibi duran masa lambaları.',
     description:
-      'lithophane ışık tabloları, parametrik petek abajurlar ve dokunmatik kablosuz ambiyans lambaları.',
+      'parametrik desenli masa lambaları; katmanlardan süzülen ışık ve duvara düşen gölge desenleri.',
     heroImage: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1600&q=85',
     secondaryImage: 'https://images.unsplash.com/photo-1532767153582-b1a0e5145009?auto=format&fit=crop&w=1200&q=80',
     accentColor: '#fec80f',
     theme: 'atmospheric-dark',
-    featuredProductSlug: 'lithoglow-ay-yuzeyi-gece-lambasi',
+    featuredProductSlug: 'zuulight-spira-masa-lambasi',
     pillars: [
       {
-        title: 'lithophane katman tekniği',
-        description: '0.08mm ışık geçirgenliği varyasyonları ile ışık açıldığında beliren yüksek çözünürlüklü dokular.',
+        title: 'parametrik katman deseni',
+        description: 'gövdedeki desen ışığı süzer; lamba açıldığında duvara ve masaya yumuşak gölgeler düşer.',
       },
       {
-        title: '3000k sıcak ambiyans',
-        description: 'gözü yormayan, sirkadiyen ritmi destekleyen yumuşak ve homojen ışık difüzyonu.',
+        title: 'sıcak ambiyans ışığı',
+        description: 'göz almayan, dağınık ve yumuşak bir ışıkla akşam saatleri için sakin bir ortam.',
       },
       {
-        title: 'usb-c şarj & dokunmatik',
-        description: 'kablosuz 12 saate varan aydınlatma ve kademesiz dokunmatik parlaklık kontrolü.',
+        title: 'masa ve komodin ölçüsü',
+        description: 'çalışma masası, komodin ya da raf üzerinde yer kaplamadan duran kompakt formlar.',
       },
     ],
     seo: {
-      title: 'zuulight — parametrik aydınlatma ve lithophane lambalar',
-      description: 'zuulight: lithophane ay lambaları, parametrik abajurlar ve huzur veren ambiyans aydınlatmaları.',
+      title: 'zuulight — parametrik masa lambaları',
+      description: 'zuulight: parametrik desenli masa lambaları ve ambiyans aydınlatma.',
     },
   },
 

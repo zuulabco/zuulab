@@ -20,9 +20,8 @@ const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
   },
   { text: '750 ₺ ve üzeri tüm siparişlerde ücretsiz kargo' },
   { text: 'sipariş üzerine 0.12mm hassasiyetle 3d üretim' },
-  { text: '%100 biyo-bozunur, çevre dostu sertifikalı pla' },
   {
-    text: 'lithoglow ay lambaları ve ambiyans aydınlatma serisi',
+    text: 'zuulight parametrik masa lambaları',
     cta: { label: 'keşfet', href: '/koleksiyon/zuulight' },
   },
 ]

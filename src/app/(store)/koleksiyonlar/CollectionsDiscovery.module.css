@@ -81,8 +81,6 @@
 
 .card:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.08);
 }
 
 /* Image container */
@@ -102,7 +100,7 @@
 }
 
 .card:hover .img {
-  transform: scale(1.035);
+  transform: scale(var(--hover-zoom));
 }
 
 .accentDot {
@@ -237,8 +235,6 @@
 
 .wideCard:hover {
   border-color: var(--border-strong);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.08);
 }
 
 .wideImgWrap {
@@ -251,7 +247,7 @@
 }
 
 .wideCard:hover .img {
-  transform: scale(1.035);
+  transform: scale(var(--hover-zoom));
 }
 
 .wideCardBody {

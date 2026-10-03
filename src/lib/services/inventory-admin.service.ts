@@ -74,7 +74,7 @@ async function heldByProduct(): Promise<Map<string, number>> {
  * Retrieves stock breakdown for all products
  */
 export async function adminGetInventoryOverview() {
-  const [products, categories, reserved, openJobs, listings, stores] = await Promise.all([
+  const [products, categories, reserved, openJobs, listings, stores, alerts] = await Promise.all([
     db.orm.public.Product.orderBy((p) => p.name.asc()).all(),
     db.orm.public.Category.select('id', 'name').all(),
     heldByProduct(),
@@ -85,7 +85,12 @@ export async function adminGetInventoryOverview() {
       .select('productId', 'storeId', 'quantity', 'pushedQuantity', 'pushError')
       .all(),
     db.orm.public.MarketplaceStore.select('id', 'name', 'stockSyncEnabled').all(),
+    // Shoppers who asked to hear when the product is back ("gelince haber ver")
+    db.orm.public.StockAlert.where({ notifiedAt: null }).groupBy('productId').aggregate((a) => ({ count: a.count() })),
   ])
+  const waitingByProduct = new Map(
+    (alerts as Array<{ productId: string; count: number }>).map((a) => [a.productId, Number(a.count)])
+  )
   const categoryName = new Map(categories.map((c) => [c.id, c.name]))
   // Pieces on the way: open jobs count their planned quantity, completed ones their good pieces.
   const inProduction = new Map<string, number>()
@@ -128,6 +133,7 @@ export async function adminGetInventoryOverview() {
       status,
       inProduction: inProduction.get(p.id) ?? 0,
       channels: channels.get(p.id) ?? [],
+      waitingAlerts: waitingByProduct.get(p.id) ?? 0,
     }
   })
 }

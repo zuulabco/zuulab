@@ -151,6 +151,10 @@
   --dur-base:   200ms;
   --dur-slow:   300ms;
   --dur-slower: 450ms;
+  /* Image hover zoom: one gentle value everywhere (MASTER.md → Motion) */
+  --hover-zoom: 1.02;
+  --dur-zoom:   900ms;
+  --ease-zoom:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
   /* ── Layout ──────────────────────────────────────────── */
   --container:     1200px;
@@ -533,8 +537,12 @@ ul, ol { list-style: none; }
    <img> with data-loaded once it has loaded (or failed). Without JS nothing is
    hidden. Frames that hold photos show the skeleton tone until the image arrives. */
 html.img-fade img:not([data-loaded]) { opacity: 0; }
+/* This rule outranks component classes, so it must carry the hover-zoom transform
+   too; otherwise image zooms snap instead of easing. */
 html.img-fade img {
-  transition: opacity var(--dur-slower) var(--ease-out);
+  transition:
+    opacity var(--dur-slower) var(--ease-out),
+    transform var(--dur-zoom) var(--ease-zoom);
 }
 .img-frame {
   background-color: var(--skeleton);
@@ -542,7 +550,11 @@ html.img-fade img {
 }
 
 /* ── Section spacing — deliberate rhythms ────────────────── */
-.section    { padding-block: var(--sp-20); }
+/* --section-y is the one vertical rhythm for full-width page sections */
+:root { --section-y: var(--sp-20); }
+@media (max-width: 1024px) { :root { --section-y: var(--sp-16); } }
+@media (max-width: 640px)  { :root { --section-y: var(--sp-12); } }
+.section    { padding-block: var(--section-y); }
 .section-sm { padding-block: var(--sp-12); }
 .section-lg { padding-block: var(--sp-32); }
 
@@ -825,5 +837,16 @@ main {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Touch screens: no zoom on focus ────────────────────────
+   iOS Safari zooms into any field whose text is smaller than 16px. Keep fields at
+   16px on touch devices instead of disabling pinch-zoom for everyone. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }

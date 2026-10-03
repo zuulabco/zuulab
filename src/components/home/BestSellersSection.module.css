@@ -1,7 +1,7 @@
 /* BestSellersSection.module.css */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background: var(--surface-0);
 }
 
@@ -76,10 +76,6 @@
 }
 
 @media (max-width: 640px) {
-  .section {
-    padding-block: var(--sp-12);
-  }
-
   .container {
     padding-inline: var(--sp-4);
   }
@@ -92,4 +88,8 @@
     grid-template-columns: repeat(2, 1fr);
     gap: var(--sp-6) var(--sp-3);
   }
+}
+
+.muted {
+  background: var(--surface-1);
 }

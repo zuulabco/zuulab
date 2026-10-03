@@ -1,7 +1,7 @@
 /* ProcessSection.module.css */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background: var(--surface-1);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);

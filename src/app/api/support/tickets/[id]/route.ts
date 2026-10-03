@@ -58,10 +58,11 @@ export async function POST(request: Request, { params }: RouteProps) {
     const isAuth = error.message?.includes('UNAUTHORIZED')
     const isForbidden = error.message?.includes('FORBIDDEN')
     const isNotFound = error.message?.includes('NOT_FOUND')
+    const isClosed = error.message?.includes('TICKET_CLOSED')
 
     return NextResponse.json(
       { success: false, error: error.message || 'Mesaj gönderilemedi.' },
-      { status: isAuth ? 401 : isForbidden ? 403 : isNotFound ? 404 : 500 }
+      { status: isAuth ? 401 : isForbidden ? 403 : isNotFound ? 404 : isClosed ? 409 : 500 }
     )
   }
 }

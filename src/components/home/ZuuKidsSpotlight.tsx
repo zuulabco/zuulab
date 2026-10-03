@@ -5,24 +5,36 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatPrice } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
+import type { ProductListItem } from '@/types/catalog'
 import styles from './ZuuKidsSpotlight.module.css'
 
-export default function ZuuKidsSpotlight() {
+interface Props {
+  /** zuukids best seller from the live catalog; the section hides when there is none. */
+  product: ProductListItem | null
+  /** Products with variants are chosen on their own page, not added from here. */
+  hasVariants?: boolean
+}
+
+export default function ZuuKidsSpotlight({ product, hasVariants = false }: Props) {
   const addItem = useCartStore((s) => s.addItem)
   const [added, setAdded] = useState(false)
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
-    e.preventDefault()
+  if (!product) return null
+
+  const href = `/urun/${product.slug}`
+  const canQuickAdd = product.inStock && !hasVariants
+
+  const handleQuickAdd = () => {
     addItem({
-      productId: 'prod-zk1',
+      productId: product.id,
       variantId: null,
-      name: 'mini dinozor serisi (6 figür set)',
+      name: product.name.toLowerCase(),
       variantLabel: null,
-      price: 279.0,
-      imageUrl: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1200&q=85',
-      slug: 'mini-dinozor-serisi-set',
-      sku: 'ZUU-KD-001',
-      maxStock: 48,
+      price: product.price,
+      imageUrl: product.primaryImage,
+      slug: product.slug,
+      sku: product.sku,
+      maxStock: product.stockCount || 99,
       quantity: 1,
     })
     setAdded(true)
@@ -30,15 +42,13 @@ export default function ZuuKidsSpotlight() {
   }
 
   return (
-    <section className={styles.section} aria-label="zuukids kampanya alanı">
+    <section className={styles.section} aria-label="zuukids öne çıkan ürün">
       <div className={styles.container}>
-        {/* Editorial Eyebrow */}
         <div className={styles.eyebrowLine}>
-          <span className={styles.eyebrow}>zuukids kampanya serisi</span>
-          <span className={styles.specRef}>çocuk güvenli pla</span>
+          <span className={styles.eyebrow}>zuukids</span>
+          <span className={styles.specRef}>çocuk koleksiyonu</span>
         </div>
 
-        {/* Large Editorial Campaign Title */}
         <div className={styles.titleWrap}>
           <h2 className={styles.headline}>
             oyun ve keşif dolu<br />
@@ -46,79 +56,82 @@ export default function ZuuKidsSpotlight() {
           </h2>
         </div>
 
-        {/* Asymmetric Campaign Spread */}
         <div className={styles.spreadGrid}>
-          {/* Left: Dominant Campaign Visual */}
           <div className={styles.visualCol}>
-            <div className={styles.imageFrame}>
-              <Link href="/urun/mini-dinozor-serisi-set" className={styles.imageLink}>
-                <Image
-                  src="https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1200&q=85"
-                  alt="zuukids mini dinozor serisi çocuk odasında"
-                  fill
-                  sizes="(max-width: 960px) 100vw, 58vw"
-                  className={styles.campaignImg}
-                />
+            <div className={`${styles.imageFrame} ${styles.productFrame}`}>
+              <Link href={href} className={styles.imageLink}>
+                {product.primaryImage && (
+                  <Image
+                    src={product.primaryImage}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 960px) 100vw, 58vw"
+                    className={`${styles.campaignImg} ${styles.productImg}`}
+                  />
+                )}
               </Link>
             </div>
             <div className={styles.imageCaption}>
-              <span className={styles.captionTag}>zuukids / imza ürün</span>
-              <span className={styles.captionDesc}>mini dinozor serisi · 6 figür seti</span>
+              <span className={styles.captionTag}>zuukids / en çok tercih edilen</span>
+              <span className={styles.captionDesc}>{product.categoryName.toLowerCase()}</span>
             </div>
           </div>
 
-          {/* Right: Editorial Narrative & Product Details */}
           <div className={styles.narrativeCol}>
             <p className={styles.leadPara}>
-              çocukların hayal gücünü ve dokunsal algısını destekleyen; keskin kenar içermeyen, 
-              %100 gıda uyumlu sertifikalı biyo-pla polimerden üretilen figürler ve montessori araçları.
+              şekil eşleştirme, sıralama ve kesir oyunlarıyla el-göz koordinasyonunu ve problem
+              çözmeyi destekleyen setler; her parça pürüzsüz yüzey ve yuvarlatılmış kenarlarla basılır.
             </p>
 
-            {/* Clean Typographic Pillars (Zero Emojis) */}
             <div className={styles.pillarsList}>
               <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>%100 biyo-pla hammadde</h4>
-                <p className={styles.pillarDesc}>bpa, fitalat ve ağır metal içermez</p>
+                <h4 className={styles.pillarTitle}>pla hammadde</h4>
+                <p className={styles.pillarDesc}>bitki kaynaklı, kokusuz biyopolimer</p>
               </div>
               <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>montessori uyumu</h4>
-                <p className={styles.pillarDesc}>dokunsal geometri ve yaratıcı oyun</p>
+                <h4 className={styles.pillarTitle}>öğreterek oyun</h4>
+                <p className={styles.pillarDesc}>renk, şekil ve sayı kavramları</p>
               </div>
               <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>0.12mm pürüzsüzlük</h4>
-                <p className={styles.pillarDesc}>çapaksız, güvenli yuvarlatılmış formlar</p>
+                <h4 className={styles.pillarTitle}>yuvarlatılmış kenarlar</h4>
+                <p className={styles.pillarDesc}>çapaksız, elde rahat formlar</p>
               </div>
               <div className={styles.pillarItem}>
-                <h4 className={styles.pillarTitle}>aynı gün kargo</h4>
-                <p className={styles.pillarDesc}>atölyeden doğrudan ve özenli ambalaj</p>
+                <h4 className={styles.pillarTitle}>atölyeden kapınıza</h4>
+                <p className={styles.pillarDesc}>özenli paketleme ile gönderim</p>
               </div>
             </div>
 
-            {/* Product Quick-Conversion Box */}
             <div className={styles.productSnippet}>
               <div className={styles.snippetTop}>
                 <div>
-                  <span className={styles.productLabel}>öne çıkan çok satan</span>
+                  <span className={styles.productLabel}>öne çıkan ürün</span>
                   <h3 className={styles.productName}>
-                    <Link href="/urun/mini-dinozor-serisi-set">
-                      mini dinozor serisi (6 figür set)
-                    </Link>
+                    <Link href={href}>{product.name.toLowerCase()}</Link>
                   </h3>
                 </div>
                 <div className={styles.priceGroup}>
-                  <span className={styles.price}>{formatPrice(279)}</span>
-                  <span className={styles.oldPrice}>{formatPrice(349)}</span>
+                  <span className={styles.price}>{formatPrice(product.price)}</span>
+                  {product.oldPrice && product.oldPrice > product.price && (
+                    <span className={styles.oldPrice}>{formatPrice(product.oldPrice)}</span>
+                  )}
                 </div>
               </div>
 
               <div className={styles.actions}>
-                <button
-                  type="button"
-                  className={`${styles.addBtn} ${added ? styles.addSuccess : ''}`}
-                  onClick={handleQuickAdd}
-                >
-                  {added ? 'sepete eklendi' : 'sepete ekle'}
-                </button>
+                {canQuickAdd ? (
+                  <button
+                    type="button"
+                    className={`btn btn-buy ${added ? styles.addSuccess : ''}`}
+                    onClick={handleQuickAdd}
+                  >
+                    {added ? 'sepete eklendi' : 'sepete ekle'}
+                  </button>
+                ) : (
+                  <Link href={href} className="btn btn-primary">
+                    {product.inStock ? 'seçenekleri gör' : 'ürünü incele'}
+                  </Link>
+                )}
                 <Link href="/koleksiyon/zuukids" className={styles.exploreLink}>
                   tüm zuukids koleksiyonu
                 </Link>

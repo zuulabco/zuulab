@@ -123,7 +123,7 @@ export default async function EditorialCollectionGrid() {
                 <div className={styles.imageFrame}>
                   <Image
                     src={light.heroImage}
-                    alt={`${light.name} litofan ambiyans ve gece aydınlatması`}
+                    alt={`${light.name} masa lambaları ve ambiyans ışığı`}
                     fill
                     sizes="(max-width: 1024px) 100vw, 45vw"
                     className={styles.cardImg}
@@ -140,7 +140,7 @@ export default async function EditorialCollectionGrid() {
                       style={{ backgroundColor: light.accentColor }}
                       aria-hidden
                     />
-                    <span className={styles.tagText}>aydınlatma · litofan teknoloji</span>
+                    <span className={styles.tagText}>aydınlatma · masa lambaları</span>
                   </div>
                   <h3 className={styles.cardTitle}>{light.name}</h3>
                   <p className={styles.cardTagline}>{light.tagline}</p>

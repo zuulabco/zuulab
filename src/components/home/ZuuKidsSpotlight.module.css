@@ -1,7 +1,7 @@
 /* ZuuKidsSpotlight.module.css */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background-color: var(--surface-0);
   border-bottom: 1px solid var(--border);
   position: relative;
@@ -91,7 +91,7 @@
 }
 
 .visualCol:hover .campaignImg {
-  transform: scale(1.025);
+  transform: scale(var(--hover-zoom));
 }
 
 .imageCaption {
@@ -288,4 +288,15 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* Real product photos are cut-outs on white: show them whole on a light frame */
+.productFrame {
+  background-color: var(--surface-0);
+  border: 1px solid var(--border);
+}
+
+.productImg {
+  object-fit: contain;
+  padding: var(--sp-6);
 }

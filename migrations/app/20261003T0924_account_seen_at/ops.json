@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.users.orders_seen_at",
+    "label": "Add column \"orders_seen_at\" to \"users\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "orders_seen_at",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"orders_seen_at\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "orders_seen_at"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"orders_seen_at\"",
+        "sql": "ALTER TABLE \"public\".\"users\" ADD COLUMN \"orders_seen_at\" timestamp(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"orders_seen_at\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "orders_seen_at"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.users.support_seen_at",
+    "label": "Add column \"support_seen_at\" to \"users\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "support_seen_at",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"support_seen_at\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "support_seen_at"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"support_seen_at\"",
+        "sql": "ALTER TABLE \"public\".\"users\" ADD COLUMN \"support_seen_at\" timestamp(3)"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"support_seen_at\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "users",
+          "support_seen_at"
+        ]
+      }
+    ]
+  }
+]

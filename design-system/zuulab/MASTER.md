@@ -49,6 +49,21 @@ in the admin; the storefront keeps its lowercase voice.
 Durations from tokens (`--dur-fast` 120ms … `--dur-slower` 450ms), ease-out on enter.
 One purposeful movement per interaction; `prefers-reduced-motion` disables all of it.
 
+- Image hover zoom is always `scale(var(--hover-zoom))` (1.02), eased by the global image
+  transition (`--dur-zoom` 900ms, `--ease-zoom`). Cards do not lift or grow shadows.
+- Height changes (accordions, footer groups on phones) animate through
+  `grid-template-rows: 0fr → 1fr`, never by mounting/unmounting content.
+
+## Spacing
+
+Full-width page sections use `padding-block: var(--section-y)` (80px desktop, 64px
+tablet, 48px phone). Never set per-section vertical padding by hand.
+
+## Touch
+
+On touch screens every text field is 16px, so iOS does not zoom on focus; pinch-zoom
+stays enabled.
+
 ## Admin navigation
 
 Grouped by task (Satış, Katalog, Stok ve üretim, Pazaryerleri, Müşteriler, Kargo ve

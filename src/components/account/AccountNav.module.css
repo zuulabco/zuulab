@@ -136,3 +136,29 @@
   justify-content: flex-end;
   gap: var(--sp-3);
 }
+
+/* New activity on a tab (order update, support reply) */
+.navLabel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.newDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--zuu-blue);
+  flex-shrink: 0;
+  animation: newDotIn var(--dur-slow) var(--ease-out);
+}
+
+@keyframes newDotIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newDot { animation: none; }
+}

@@ -56,12 +56,12 @@
 /* Subtle image scale on desktop hover */
 @media (hover: hover) {
   .card:hover .image {
-    transform: scale(1.035);
+    transform: scale(var(--hover-zoom));
   }
 
   .card:hover .secondaryImage {
     opacity: 1;
-    transform: scale(1.035);
+    transform: scale(var(--hover-zoom));
   }
 
   .card:hover .primaryWithHover {

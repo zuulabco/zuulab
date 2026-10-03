@@ -34,11 +34,11 @@ const BANNERS: BannerItem[] = [
   {
     id: 'zuulight',
     title: 'zuulight',
-    tag: 'aydınlatma · litofan',
-    desc: 'lithophane teknolojisi ve parametrik gölge heykelleriyle şekillenen lambalar.',
+    tag: 'aydınlatma',
+    desc: 'parametrik desenli masa lambaları; katmanlardan süzülen ışık ve duvara düşen gölge desenleri.',
     href: '/koleksiyon/zuulight',
     image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1200&q=85',
-    alt: 'zuulight ambiyans aydınlatması ve ay lambası',
+    alt: 'zuulight masa lambası ve ambiyans ışığı',
   },
 ]
 

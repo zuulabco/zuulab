@@ -4,7 +4,7 @@
    ============================================================ */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background-color: var(--surface-0);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -109,7 +109,7 @@
 }
 
 .card:hover .cardImg {
-  transform: scale(1.025);
+  transform: scale(var(--hover-zoom));
 }
 
 /* Subtle gradient scrim for legibility */
@@ -264,10 +264,6 @@
 }
 
 @media (max-width: 768px) {
-  .section {
-    padding-block: var(--sp-12);
-  }
-
   .header {
     margin-bottom: var(--sp-6);
   }

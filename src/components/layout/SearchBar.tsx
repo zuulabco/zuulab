@@ -9,12 +9,12 @@ import { formatPrice } from '@/lib/utils'
 import styles from './SearchBar.module.css'
 
 const SUGGESTED_QUERIES = [
-  'mini dinozor',
-  'kulaklık standı',
-  'ay lambası',
-  'masa düzenleyici',
-  'spiral vazo',
-  'toptan stand',
+  'masa lambası',
+  'şekil eşleştirme',
+  'kesir yapboz',
+  'takı organizeri',
+  'masaüstü organizer',
+  'anahtarlık',
 ]
 
 interface SearchProduct {

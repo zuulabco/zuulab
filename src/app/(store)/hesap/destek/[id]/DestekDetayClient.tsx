@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
@@ -51,6 +51,14 @@ function getStatusLabel(status: string): string {
   }
 }
 
+/** How often an open ticket page checks for replies and status changes */
+const POLL_MS = 15000
+
+/** Server errors carry a machine prefix ("TICKET_CLOSED: …"); customers see the sentence only */
+function readableError(message: string): string {
+  return message.replace(/^[A-Z_]+:\s*/, '')
+}
+
 export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
   const { user, token, openAuthModal } = useAuthStore()
   const [mounted, setMounted] = useState(false)
@@ -64,28 +72,49 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
     setMounted(true)
   }, [])
 
-  const loadTicket = () => {
+  // `silent` refreshes (polling) keep the thread on screen and ignore passing errors.
+  // State is only set once the request settles, so the first load can run from an effect.
+  const loadTicket = useCallback((silent = false) => {
     if (!token) return
-    setLoading(true)
     fetch(`/api/support/tickets/${ticketId}`, {
       headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.ticket) {
           setTicket(data.ticket)
-        } else {
-          setError(data.error || 'Destek talebi bulunamadı.')
+          setError(null)
+        } else if (!silent) {
+          setError(readableError(data.error || 'Destek talebi bulunamadı.'))
         }
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (!silent) setError(err.message)
+      })
       .finally(() => setLoading(false))
-  }
+  }, [token, ticketId])
 
   useEffect(() => {
     loadTicket()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, ticketId])
+  }, [loadTicket])
+
+  // Live updates: while the page is visible, check for replies and status changes every
+  // 15s, and right away when the customer returns to the tab.
+  useEffect(() => {
+    if (!token) return
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') loadTicket(true)
+    }, POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadTicket(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [token, loadTicket])
 
   if (!mounted) return null
 
@@ -118,13 +147,17 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
       })
 
       const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Mesaj gönderilemedi.')
+      if (!data.success) {
+        // The ticket was closed while the customer was typing: show the closed state
+        if (res.status === 409) loadTicket(true)
+        throw new Error(data.error || 'Mesaj gönderilemedi.')
+      }
 
       setReplyBody('')
       toast.success('Mesajınız iletildi.')
-      loadTicket()
+      loadTicket(true)
     } catch (err: any) {
-      toast.error(err.message || 'Mesaj gönderilemedi.')
+      toast.error(readableError(err.message || 'Mesaj gönderilemedi.'))
     } finally {
       setSending(false)
     }
@@ -217,7 +250,7 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
               </div>
 
               {/* Reply Form or Closed Notice */}
-              {ticket.status !== 'CLOSED' ? (
+              {ticket.status !== 'CLOSED' && ticket.status !== 'RESOLVED' ? (
                 <form
                   onSubmit={handleSendReply}
                   style={{
@@ -254,7 +287,14 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
                 </form>
               ) : (
                 <div style={{ padding: 'var(--sp-4)', background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xs)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-                  bu destek talebi kapatılmıştır. yeni bir sorunuz varsa lütfen yeni talep oluşturun.
+                  {ticket.status === 'RESOLVED'
+                    ? 'bu talep çözüldü olarak işaretlendi ve yeni mesaja kapatıldı.'
+                    : 'bu destek talebi kapatıldı.'}{' '}
+                  yeni bir sorunuz varsa{' '}
+                  <Link href="/hesap/destek?yeni=1" style={{ color: 'var(--zuu-blue)' }}>
+                    yeni talep oluşturun
+                  </Link>
+                  .
                 </div>
               )}
             </div>

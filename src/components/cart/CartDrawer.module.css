@@ -278,7 +278,7 @@
 }
 
 .itemImageLink:hover .itemImage {
-  transform: scale(1.03);
+  transform: scale(var(--hover-zoom));
 }
 
 .itemNoImage {

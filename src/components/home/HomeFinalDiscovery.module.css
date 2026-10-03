@@ -4,7 +4,7 @@
    ============================================================ */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background-color: var(--surface-1);
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
@@ -119,10 +119,6 @@
 }
 
 @media (max-width: 768px) {
-  .section {
-    padding-block: var(--sp-14);
-  }
-
   .ctaBtn {
     width: 100%;
     justify-content: center;

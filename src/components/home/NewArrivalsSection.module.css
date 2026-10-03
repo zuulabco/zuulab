@@ -1,7 +1,7 @@
 /* NewArrivalsSection.module.css */
 
 .section {
-  padding-block: var(--sp-20);
+  padding-block: var(--section-y);
   background-color: var(--surface-0);
   border-bottom: 1px solid var(--border);
 }
@@ -81,7 +81,7 @@
 }
 
 .item:hover .img {
-  transform: scale(1.03);
+  transform: scale(var(--hover-zoom));
 }
 
 /* No glassmorphism tag */
