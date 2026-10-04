@@ -14,10 +14,13 @@ const dmSans = DM_Sans({
   weight: ['300', '400', '500', '600', '700'],
 })
 
+// Headings only. Not preloaded: its four files would otherwise be fetched ahead of the
+// hero photo (the LCP image). The size-adjusted fallback keeps the swap shift-free.
 const dmSerif = DM_Serif_Display({
   subsets: ['latin', 'latin-ext'],
   variable: '--font-display',
   display: 'swap',
+  preload: false,
   weight: ['400'],
   style: ['normal', 'italic'],
 })

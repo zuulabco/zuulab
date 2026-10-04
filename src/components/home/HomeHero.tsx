@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { getImageProps } from 'next/image'
 import { isCloudinaryUrl, cloudinaryHeroLoader } from '@/lib/images/cloudinary-loader'
 import styles from './HomeHero.module.css'
 
@@ -49,6 +49,26 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
   const [pageHidden, setPageHidden] = useState(false)
   const touchStartXRef = useRef<number | null>(null)
   const touchStartYRef = useRef<number | null>(null)
+  /**
+   * Slides whose photo is in the page. Only the first loads with the page (it is
+   * the LCP image); the next one joins once the page has loaded, and every slide
+   * stays loaded once shown. Until then a slide shows its inline blurred preview.
+   */
+  const [loaded, setLoaded] = useState<ReadonlySet<number>>(() => new Set([0]))
+  const keepLoaded = useCallback((...indexes: number[]) => {
+    setLoaded((prev) => (indexes.every((i) => prev.has(i)) ? prev : new Set([...prev, ...indexes])))
+  }, [])
+
+  useEffect(() => {
+    if (slides.length < 2) return
+    const preloadNext = () => keepLoaded(1)
+    if (document.readyState === 'complete') {
+      preloadNext()
+      return
+    }
+    window.addEventListener('load', preloadNext, { once: true })
+    return () => window.removeEventListener('load', preloadNext)
+  }, [slides.length, keepLoaded])
 
   useEffect(() => {
     const onVisibility = () => setPageHidden(document.hidden)
@@ -63,8 +83,13 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
   const isPaused = !canAutoplay || userPaused || isHovered || hasFocus || pageHidden
 
   const goToSlide = useCallback(
-    (index: number) => setCurrentIndex((index + slides.length) % slides.length),
-    [slides.length]
+    (index: number) => {
+      const next = (index + slides.length) % slides.length
+      // The shown slide and the one after it load their photos
+      keepLoaded(next, (next + 1) % slides.length)
+      setCurrentIndex(next)
+    },
+    [slides.length, keepLoaded]
   )
   const nextSlide = useCallback(() => goToSlide(currentIndex + 1), [currentIndex, goToSlide])
   const prevSlide = useCallback(() => goToSlide(currentIndex - 1), [currentIndex, goToSlide])
@@ -160,29 +185,7 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
                     aria-hidden
                   />
                 )}
-                <Image
-                  src={slide.imageUrl}
-                  loader={isCloudinaryUrl(slide.imageUrl) ? cloudinaryHeroLoader : undefined}
-                  quality={90}
-                  alt={[slide.headlineMain, slide.headlineAccent].filter(Boolean).join(' ')}
-                  fill
-                  priority={index === 0}
-                  sizes="100vw"
-                  className={`${styles.slideImg} ${slide.mobileImageUrl ? styles.imgDesktopOnly : ''}`}
-                  style={{ objectPosition: FOCUS[slide.focus] }}
-                />
-                {slide.mobileImageUrl && (
-                  <Image
-                    src={slide.mobileImageUrl}
-                    loader={isCloudinaryUrl(slide.mobileImageUrl) ? cloudinaryHeroLoader : undefined}
-                    quality={90}
-                    alt=""
-                    fill
-                    priority={index === 0}
-                    sizes="100vw"
-                    className={`${styles.slideImg} ${styles.imgMobileOnly}`}
-                  />
-                )}
+                {loaded.has(index) && <HeroPicture slide={slide} first={index === 0} />}
               </div>
 
               <div className={slideDark ? styles.scrimDark : styles.scrimLight} aria-hidden />
@@ -194,10 +197,11 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
                     <span>{slide.badgeText}</span>
                   </div>
 
-                  <h2 className={`${styles.headline} ${slideDark ? styles.headlineDark : styles.headlineLight}`}>
+                  {/* A rotating slogan, not a section of the page: a paragraph, not a heading */}
+                  <p className={`${styles.headline} ${slideDark ? styles.headlineDark : styles.headlineLight}`}>
                     <span>{slide.headlineMain}</span>
                     {slide.headlineAccent && <em className={styles.headlineAccent}>{slide.headlineAccent}</em>}
-                  </h2>
+                  </p>
 
                   {slide.description && (
                     <p className={`${styles.description} ${slideDark ? styles.descDark : styles.descLight}`}>{slide.description}</p>
@@ -338,5 +342,36 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
         </div>
       )}
     </section>
+  )
+}
+
+/**
+ * The slide photo as <picture>: phones download only the portrait photo when the
+ * slide has one, wider screens only the wide one. The first slide is the page's
+ * LCP image, so it loads at once with high priority and skips the fade-in (its
+ * blurred preview is already showing).
+ */
+function HeroPicture({ slide, first }: { slide: HeroSlideView; first: boolean }) {
+  const alt = [slide.headlineMain, slide.headlineAccent].filter(Boolean).join(' ')
+  const common = { alt, fill: true, sizes: '100vw' } as const
+  const loaderFor = (src: string) => (isCloudinaryUrl(src) ? cloudinaryHeroLoader : undefined)
+  const { props: wide } = getImageProps({ ...common, src: slide.imageUrl, loader: loaderFor(slide.imageUrl) })
+  const portrait = slide.mobileImageUrl
+    ? getImageProps({ ...common, src: slide.mobileImageUrl, loader: loaderFor(slide.mobileImageUrl) }).props
+    : null
+
+  return (
+    <picture>
+      {portrait && <source media="(max-width: 768px)" srcSet={portrait.srcSet} sizes={portrait.sizes} />}
+      <img
+        {...wide}
+        alt={alt}
+        className={styles.slideImg}
+        style={{ ...wide.style, objectPosition: FOCUS[slide.focus] }}
+        loading={first ? 'eager' : 'lazy'}
+        fetchPriority={first ? 'high' : undefined}
+        data-nofade={first ? '' : undefined}
+      />
+    </picture>
   )
 }

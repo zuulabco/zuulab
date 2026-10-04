@@ -13,10 +13,10 @@ export function absoluteUrl(path = '/'): string {
 }
 
 /**
- * Meta description sized for the results page: whitespace collapsed, markup
+ * Meta description (up to ~200 characters, the range search engines use): whitespace collapsed, markup
  * removed, cut at a word boundary near `max` characters.
  */
-export function metaDescription(text: string | null | undefined, max = 155): string {
+export function metaDescription(text: string | null | undefined, max = 200): string {
   const clean = (text ?? '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/[#*_`>]+/g, ' ')

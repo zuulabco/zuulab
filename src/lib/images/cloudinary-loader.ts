@@ -36,9 +36,10 @@ export function cloudinaryFeatureLoader({ src, width, quality }: ImageLoaderProp
 }
 
 /**
- * Full-width banners: served by Cloudinary at its best automatic quality, never
- * upscaled and never re-encoded a second time by the Next image optimizer.
+ * Full-width banners: Cloudinary picks the format and a good automatic quality
+ * (visually lossless at banner sizes, much lighter than :best); never upscaled
+ * and never re-encoded a second time by the Next image optimizer.
  */
 export function cloudinaryHeroLoader({ src, width }: ImageLoaderProps): string {
-  return withTransformation(src, `c_limit,w_${width},q_auto:best,f_auto`)
+  return withTransformation(src, `c_limit,w_${width},q_auto:good,f_auto`)
 }

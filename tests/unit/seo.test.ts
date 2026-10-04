@@ -4,9 +4,10 @@ import { SITE_URL } from '@/lib/config/urls'
 
 describe('seo helpers', () => {
   it('cuts long descriptions at a word boundary', () => {
-    const text = 'Zuulight Muse Masa Lambası, akışkan formu ve heykelsi tasarımıyla yaşam alanlarını sıradan bir aydınlatmanın ötesine taşır. Doğadan ilham alan kıvrımlı yüzeyi ışığı yumuşatır.'
+    const text = 'Zuulight Muse Masa Lambası, akışkan formu ve heykelsi tasarımıyla yaşam alanlarını sıradan bir aydınlatmanın ötesine taşır. Doğadan ilham alan kıvrımlı yüzeyi ışığı yumuşatır ve bulunduğu ortama sıcak, huzurlu bir atmosfer kazandırır.'
     const out = metaDescription(text)
-    expect(out.length).toBeLessThanOrEqual(155)
+    expect(text.length).toBeGreaterThan(200)
+    expect(out.length).toBeLessThanOrEqual(200)
     expect(out.endsWith('…')).toBe(true)
     expect(text.startsWith(out.slice(0, -1))).toBe(true)
     expect(out.slice(0, -1)).not.toMatch(/\s$/)

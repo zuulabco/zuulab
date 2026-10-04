@@ -4,6 +4,11 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app'
 import {
   getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  browserPopupRedirectResolver,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -38,10 +43,29 @@ function getClientApp(): FirebaseApp {
 }
 
 export const app: FirebaseApp = getClientApp()
-export const auth: Auth = getAuth(app)
+/**
+ * Auth without the popup/redirect resolver: getAuth() would load Google's sign-in
+ * iframe (apis.google.com, firebaseapp.com) on every page view for every visitor.
+ * The resolver is passed only when someone actually signs in with Google (see
+ * signInWithPopup in authStore). Persistence is the same as getAuth()'s default.
+ */
+function getClientAuth(): Auth {
+  if (typeof window === 'undefined') return getAuth(app)
+  try {
+    return initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+    })
+  } catch {
+    // Already initialised (e.g. hot reload): reuse that instance
+    return getAuth(app)
+  }
+}
+
+export const auth: Auth = getClientAuth()
 export const googleProvider = new GoogleAuthProvider()
 
 export {
+  browserPopupRedirectResolver,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,

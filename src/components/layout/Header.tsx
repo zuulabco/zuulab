@@ -362,6 +362,8 @@ export default function Header({ navigation }: { navigation: StoreNavigation }) 
         className={`${styles.mobileMenu} ${mobileOpen ? styles.mobileMenuOpen : ''}`}
         aria-label="Mobil Menü"
         aria-hidden={!mobileOpen}
+        // Closed, the drawer sits off-screen; inert keeps its links out of the tab order
+        inert={!mobileOpen}
       >
         <div className={styles.mobileInner}>
           <div className={styles.mobileTopRow}>

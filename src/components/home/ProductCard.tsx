@@ -70,7 +70,7 @@ export default function ProductCard({ product, priority = false }: Props) {
                 alt={product.name}
                 fill
                 loader={isCloudinaryUrl(product.primaryImage) ? cloudinaryCardLoader : undefined}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                sizes="(max-width: 640px) 46vw, (max-width: 1024px) 31vw, 300px"
                 className={`${styles.image} ${hasSecondaryImage ? styles.primaryWithHover : ''}`}
                 priority={priority}
               />
@@ -80,7 +80,7 @@ export default function ProductCard({ product, priority = false }: Props) {
                   alt={`${product.name} detay görünümü`}
                   fill
                   loader={isCloudinaryUrl(product.secondaryImage) ? cloudinaryCardLoader : undefined}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  sizes="(max-width: 640px) 46vw, (max-width: 1024px) 31vw, 300px"
                   className={styles.secondaryImage}
                   loading="lazy"
                 />

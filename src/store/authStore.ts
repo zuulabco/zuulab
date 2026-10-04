@@ -5,6 +5,7 @@ import { persist } from 'zustand/middleware'
 import {
   auth,
   googleProvider,
+  browserPopupRedirectResolver,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -173,7 +174,7 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
-          const result = await signInWithPopup(auth, googleProvider)
+          const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver)
           // Force fresh token to prevent stale cached token issues
           const token = await result.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend

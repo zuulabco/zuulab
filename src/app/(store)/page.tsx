@@ -24,7 +24,7 @@ export const metadata: Metadata = pageMetadata({
   // Brand first, then what people search for; the title names the brand, so the template leaves it alone.
   title: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar',
   description:
-    'zuukids çocuk oyuncakları, zuulife ev ve masaüstü objeleri, zuulight 3D baskı lambalar ve zuutoptan toptan üretim. Bolu’da tasarlanıp üretilir.',
+    'zuulab, Bolu’daki atölyesinde 3D baskıyla tasarım objeleri üretir: zuulight masa lambaları, zuukids eğitici oyuncakları, zuulife ev ve masaüstü ürünleri ve kişiye özel baskılar.',
   path: '/',
 })
 
@@ -51,8 +51,11 @@ export default async function HomePage() {
     ? await Promise.all(
         content.hero.slides
           .filter((s) => s.enabled && s.imageUrl && s.headline)
-          .map(async (s) => {
-            // Tiny blurred previews painted until the photos load (no dark flash under the scrim)
+          .map(async (s, i) => {
+            // A tiny blurred preview of the first slide is painted until its photo
+            // loads (no dark flash under the scrim). Later slides load their photo in
+            // the background after the page has loaded, well before they show.
+            if (i > 0) return resolveSlide(s, bySlug)
             const [blur, mobileBlur] = await Promise.all([blurDataUrl(s.imageUrl), blurDataUrl(s.mobileImageUrl)])
             return { ...resolveSlide(s, bySlug), blurDataUrl: blur, mobileBlurDataUrl: mobileBlur }
           })
@@ -188,7 +191,7 @@ export default async function HomePage() {
     <>
       <JsonLd data={[organizationJsonLd(socials), websiteJsonLd()]} />
       {/* The hero slides carry slogans (h2); the page heading names what the shop sells. */}
-      <h1 className="sr-only">zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar</h1>
+      <h1 className="sr-only">zuulab · 3D baskı masa lambaları, eğitici oyuncaklar ve tasarım objeleri</h1>
       {slides.length > 0 && <HomeHero slides={slides} autoplay={content.hero.autoplay} interval={content.hero.interval} />}
 
       {sections.map((section, i) => {

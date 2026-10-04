@@ -545,8 +545,9 @@ ul, ol { list-style: none; }
    A tiny head script (ImageFadeScript) adds .img-fade to <html> and marks each
    <img> with data-loaded once it has loaded (or failed). Without JS nothing is
    hidden. Frames that hold photos show the skeleton tone until the image arrives. */
-/* Images open from a soft blur rather than popping in */
-html.img-fade img:not([data-loaded]) { opacity: 0; filter: blur(12px); }
+/* Images open from a soft blur rather than popping in. data-nofade opts out: the
+   LCP image must paint the moment it arrives, not when a load handler gets to it. */
+html.img-fade img:not([data-loaded]):not([data-nofade]) { opacity: 0; filter: blur(12px); }
 /* This rule outranks component classes, so it must carry the hover-zoom transform
    too; otherwise image zooms snap instead of easing. */
 html.img-fade img {

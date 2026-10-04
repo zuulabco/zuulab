@@ -15,7 +15,8 @@ export default function FooterColumn({ title, children }: Props) {
 
   return (
     <div className={`${styles.col} ${open ? styles.colOpen : ''}`}>
-      <h3 className={styles.colTitle}>
+      {/* A navigation group label, not a content heading: keeps the page outline clean */}
+      <div className={styles.colTitle}>
         <button
           type="button"
           className={styles.colToggle}
@@ -28,7 +29,7 @@ export default function FooterColumn({ title, children }: Props) {
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
-      </h3>
+      </div>
       <div id={listId} className={styles.colBody}>
         <div className={styles.colBodyInner}>{children}</div>
       </div>

@@ -19,7 +19,7 @@ export default async function Footer() {
         <div className={styles.grid}>
           {/* Brand column */}
           <div className={styles.brand}>
-            <Link href="/" className={styles.logo}>
+            <Link prefetch={false} href="/" className={styles.logo}>
               <span className={styles.logoText}>zuulab</span>
               <span className={styles.logoDot} aria-hidden />
             </Link>
@@ -48,23 +48,23 @@ export default async function Footer() {
           {/* Koleksiyonlar */}
           <FooterColumn title="koleksiyonlar">
             <ul className={styles.links}>
-              <li><Link href="/koleksiyonlar">tüm koleksiyonlar</Link></li>
-              <li><Link href="/koleksiyon/zuukids">zuukids</Link></li>
-              <li><Link href="/koleksiyon/zuulife">zuulife</Link></li>
-              <li><Link href="/koleksiyon/zuulight">zuulight</Link></li>
-              <li><Link href="/koleksiyon/zuutoptan">zuutoptan</Link></li>
+              <li><Link prefetch={false} href="/koleksiyonlar">tüm koleksiyonlar</Link></li>
+              <li><Link prefetch={false} href="/koleksiyon/zuukids">zuukids</Link></li>
+              <li><Link prefetch={false} href="/koleksiyon/zuulife">zuulife</Link></li>
+              <li><Link prefetch={false} href="/koleksiyon/zuulight">zuulight</Link></li>
+              <li><Link prefetch={false} href="/koleksiyon/zuutoptan">zuutoptan</Link></li>
             </ul>
           </FooterColumn>
 
           {/* Hesabım */}
           <FooterColumn title="hesabım">
             <ul className={styles.links}>
-              <li><Link href="/hesap">genel bakış</Link></li>
-              <li><Link href="/hesap/siparisler">siparişlerim</Link></li>
-              <li><Link href="/hesap/favoriler">favorilerim</Link></li>
-              <li><Link href="/hesap/adresler">adreslerim</Link></li>
-              <li><Link href="/hesap/profil">profilim</Link></li>
-              <li><Link href="/hesap/destek">destek talepleri</Link></li>
+              <li><Link prefetch={false} href="/hesap">genel bakış</Link></li>
+              <li><Link prefetch={false} href="/hesap/siparisler">siparişlerim</Link></li>
+              <li><Link prefetch={false} href="/hesap/favoriler">favorilerim</Link></li>
+              <li><Link prefetch={false} href="/hesap/adresler">adreslerim</Link></li>
+              <li><Link prefetch={false} href="/hesap/profil">profilim</Link></li>
+              <li><Link prefetch={false} href="/hesap/destek">destek talepleri</Link></li>
             </ul>
           </FooterColumn>
 
@@ -73,7 +73,7 @@ export default async function Footer() {
             <ul className={styles.links}>
               {CORPORATE_PAGES.map((p) => (
                 <li key={p.slug}>
-                  <Link href={`/${p.slug}`}>{p.label}</Link>
+                  <Link prefetch={false} href={`/${p.slug}`}>{p.label}</Link>
                 </li>
               ))}
             </ul>
@@ -84,7 +84,7 @@ export default async function Footer() {
             <ul className={styles.links}>
               {LEGAL_DOCS.map((d) => (
                 <li key={d.slug}>
-                  <Link href={`/${d.slug}`}>{d.label}</Link>
+                  <Link prefetch={false} href={`/${d.slug}`}>{d.label}</Link>
                 </li>
               ))}
             </ul>
@@ -104,11 +104,12 @@ export default async function Footer() {
               © {year} zuulab. tüm hakları saklıdır.
             </p>
           </div>
-          {/* Seller identity (6563 s. Kanun); the full details are on /satici-bilgileri */}
+          {/* Seller identity (6563 s. Kanun). E-mail and KEP addresses are on the linked
+              page rather than in every page's source, out of reach of address harvesters. */}
           <p className={styles.imprint}>
-            <Link href="/satici-bilgileri">{COMPANY.tradeName}</Link> · {COMPANY.district}/{COMPANY.city} ·{' '}
-            <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> · <a href={`tel:${COMPANY.phoneE164}`}>{COMPANY.phoneDisplay}</a> · KEP:{' '}
-            {COMPANY.kep}
+            <Link prefetch={false} href="/satici-bilgileri">{COMPANY.tradeName}</Link> · {COMPANY.district}/{COMPANY.city} ·{' '}
+            <a href={`tel:${COMPANY.phoneE164}`}>{COMPANY.phoneDisplay}</a> ·{' '}
+            <Link prefetch={false} href="/satici-bilgileri">satıcı bilgileri ve iletişim</Link>
           </p>
           <div className={styles.paymentBadges}>
             <span className={styles.payBadge}>PayTR</span>
