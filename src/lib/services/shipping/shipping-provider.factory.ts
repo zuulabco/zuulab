@@ -2,6 +2,7 @@ import { ShippingProvider } from './shipping.interface'
 import { MockShippingProvider } from './mock.provider'
 import { YurticiShippingProvider } from './yurtici.provider'
 import { SuratShippingProvider } from './surat.provider'
+import { GeliverShippingProvider } from './geliver/geliver.provider'
 import { getCarrierSettings, getCarrierSettingsSync } from './shipping-settings.service'
 
 /**
@@ -20,6 +21,9 @@ function instantiateProvider(carrierKey: string): ShippingProvider {
     case 'YURTICI':
     case 'YURTICI_KARGO':
       return new YurticiShippingProvider()
+    // Kapıda ödeme (PTT Kargo) through Geliver
+    case 'GELIVER':
+      return new GeliverShippingProvider()
     case 'MOCK':
     case 'MOCK_CARGO':
       if (process.env.NODE_ENV === 'production') {
@@ -34,7 +38,7 @@ function instantiateProvider(carrierKey: string): ShippingProvider {
       if (process.env.NODE_ENV === 'production') {
         throw new Error(
           `SHIPPING_CONFIGURATION_ERROR: Unknown provider key '${normalized}'. ` +
-          `Valid values: SURAT, YURTICI, MOCK`
+          `Valid values: SURAT, YURTICI, GELIVER, MOCK`
         )
       }
       console.warn(`[ShippingProviderFactory] Unknown key '${normalized}', using Mock in dev mode.`)

@@ -2,10 +2,14 @@
 
 import Link from 'next/link'
 import { useCartStore } from '@/store/cartStore'
+import { useIsClient } from '@/hooks/useIsClient'
 import styles from './CartButton.module.css'
 
 export default function CartButton() {
-  const itemCount = useCartStore((s) => s.itemCount())
+  // The saved cart is browser-only: the badge joins after hydration (server HTML has none)
+  const isClient = useIsClient()
+  const storedCount = useCartStore((s) => s.itemCount())
+  const itemCount = isClient ? storedCount : 0
   const isDrawerOpen = useCartStore((s) => s.isDrawerOpen)
   const openDrawer = useCartStore((s) => s.openDrawer)
 

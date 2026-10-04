@@ -37,7 +37,15 @@ const PAYMENT_OPTIONS = [
     description: 'Banka hesabımıza gönderim · 48 saat içinde ödeme',
     note: BANK_ACCOUNT.bank,
   },
+  {
+    id: 'CASH_ON_DELIVERY' as const,
+    name: 'Kapıda Ödeme',
+    description: 'Siparişiniz PTT Kargo ile gelir, ödemeyi teslimatta yaparsınız',
+    note: 'PTT Kargo',
+  },
 ]
+
+type PaymentMethodId = (typeof PAYMENT_OPTIONS)[number]['id']
 
 export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: CheckoutClientProps) {
   const router = useRouter()
@@ -77,7 +85,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
   const [shippingMethod, setShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD')
 
   // Payment method: card through PayTR, or havale/EFT confirmed by the shop
-  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'BANK_TRANSFER'>('CARD')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('CARD')
 
 
 
@@ -1005,7 +1013,9 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                 <span className={styles.stepBadge} aria-hidden="true">03</span>
                 <h2 id="step-payment-heading" className={styles.stepTitle}>ödeme yöntemi</h2>
               </div>
-              <span className={styles.paymentMethodLabel}>{paymentMethod === 'CARD' ? 'kredi / banka kartı' : 'havale / eft'}</span>
+              <span className={styles.paymentMethodLabel}>
+                {paymentMethod === 'CARD' ? 'kredi / banka kartı' : paymentMethod === 'BANK_TRANSFER' ? 'havale / eft' : 'kapıda ödeme'}
+              </span>
             </div>
 
             <div className={styles.shippingOptions} role="radiogroup" aria-label="Ödeme Yöntemi">
@@ -1062,6 +1072,10 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                 {paymentMethod === 'CARD' ? (
                   <span>
                   <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
+                  </span>
+                ) : paymentMethod === 'CASH_ON_DELIVERY' ? (
+                  <span>
+                  <strong>Kapıda Ödeme:</strong> Siparişiniz onaylanıp hazırlandıktan sonra PTT Kargo ile gönderilir. Ödemeyi paket size teslim edilirken kargo görevlisine yaparsınız; ek ücret alınmaz.
                   </span>
                 ) : (
                   <span>

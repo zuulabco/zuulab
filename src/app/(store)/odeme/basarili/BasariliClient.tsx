@@ -40,6 +40,8 @@ export default function BasariliClient() {
   const { token } = useAuthStore()
 
   const [phase, setPhase] = useState<Phase>('checking')
+  /** Kapıda ödeme: confirmed now, paid to PTT Kargo at the door */
+  const [cashOnDelivery, setCashOnDelivery] = useState(false)
   const [totalAmount, setTotalAmount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function BasariliClient() {
         if (stopped) return
         if (data.success && PAID.has(data.status)) {
           stopped = true
+          setCashOnDelivery(data.paymentMethod === 'CASH_ON_DELIVERY')
           trackPurchase(orderNumber)
           clearCart()
           setPhase('paid')
@@ -98,7 +101,9 @@ export default function BasariliClient() {
   const title =
     phase === 'paid' ? 'sipariş alındı.' : phase === 'pending' ? 'ödemeniz işleniyor.' : 'ödemeniz kontrol ediliyor…'
   const subtitle =
-    phase === 'paid'
+    phase === 'paid' && cashOnDelivery
+      ? 'siparişiniz onaylandı ve hazırlanıyor. PTT Kargo ile gönderilecek; ödemeyi paket size teslim edilirken yapacaksınız.'
+      : phase === 'paid'
       ? 'ödemeniz başarıyla doğrulandı ve siparişiniz atölye üretim kuyruğuna alındı.'
       : phase === 'pending'
         ? 'bankanızdan onay bekleniyor. onaylandığında e-posta ile bilgilendirileceksiniz; sepetiniz korunuyor.'
@@ -123,8 +128,14 @@ export default function BasariliClient() {
 
           <div className={styles.receiptRow}>
             <span className={styles.receiptLabel}>ödeme durumu</span>
-            <span className={phase === 'paid' ? styles.statusPaid : undefined}>
-              {phase === 'paid' ? 'onaylandı' : phase === 'pending' ? 'işleniyor' : 'kontrol ediliyor'}
+            <span className={phase === 'paid' && !cashOnDelivery ? styles.statusPaid : undefined}>
+              {phase === 'paid' && cashOnDelivery
+                ? 'kapıda ödeme (ptt kargo)'
+                : phase === 'paid'
+                  ? 'onaylandı'
+                  : phase === 'pending'
+                    ? 'işleniyor'
+                    : 'kontrol ediliyor'}
             </span>
           </div>
 

@@ -27,8 +27,11 @@ const row = (label: string, value: string) =>
  * `bank-transfer` is the heads-up for a havale/EFT order placed but not yet paid:
  * same details, so the owner can match the incoming transfer and confirm it in the
  * panel. The usual "Sipariş Geldi!" follows once it is confirmed.
+ *
+ * `cash-on-delivery`: a kapıda ödeme order, confirmed and ready to pack; PTT collects
+ * the total at the door, so the label is created from the order page (Geliver).
  */
-export async function sendNewOrderAlert(orderId: string, kind: 'paid' | 'bank-transfer' = 'paid'): Promise<void> {
+export async function sendNewOrderAlert(orderId: string, kind: 'paid' | 'bank-transfer' | 'cash-on-delivery' = 'paid'): Promise<void> {
   try {
     const to = storeInbox()
     if (!to) {
@@ -68,11 +71,15 @@ export async function sendNewOrderAlert(orderId: string, kind: 'paid' | 'bank-tr
 
     const discount = Number(order.discountAmount)
     const awaiting = kind === 'bank-transfer'
+    const cod = kind === 'cash-on-delivery'
     const subject = awaiting
       ? `Havale Bekleniyor: #${order.orderNumber} · ${formatPrice(Number(order.total))}`
-      : `Sipariş Geldi! #${order.orderNumber} · ${formatPrice(Number(order.total))}`
+      : cod
+        ? `Sipariş Geldi! (Kapıda Ödeme) #${order.orderNumber} · ${formatPrice(Number(order.total))}`
+        : `Sipariş Geldi! #${order.orderNumber} · ${formatPrice(Number(order.total))}`
     const contentHtml = `
       <p style="font-size: 18px; color: #ffffff; margin: 0 0 16px;"><strong>${awaiting ? 'Havale/EFT ile yeni sipariş' : 'Yeni sipariş'}: #${escapeHtml(order.orderNumber)}</strong></p>
+      ${cod ? `<p style="margin: 0 0 16px;"><strong>Kapıda ödeme</strong>: ${formatPrice(Number(order.total))} teslimatta PTT Kargo tarafından tahsil edilecek. Paketi hazırlayınca siparişi panelde açıp <strong>"Kargo oluştur"</strong> ile etiketi al.</p>` : ''}
       ${awaiting ? `<p style="margin: 0 0 16px;">Ödeme henüz gelmedi. <strong>${formatPrice(Number(order.total))}</strong> hesabına ulaştığında siparişi panelde açıp <strong>"havale ödemesi geldi"</strong> ile onayla; onaylanmayan sipariş 48 saat sonra düşer ve stok serbest kalır.</p>` : ''}
       <table style="font-size: 13px; border-collapse: collapse; margin-bottom: 8px;">
         ${row('Tarih', placedAt)}
@@ -99,7 +106,9 @@ export async function sendNewOrderAlert(orderId: string, kind: 'paid' | 'bank-tr
       contentHtml,
       footerHtml: awaiting
         ? '<div>Bu e-posta, sitenize havale/EFT ile ödenecek yeni bir sipariş geldiğinde otomatik gönderilir.</div>'
-        : '<div>Bu e-posta, sitenize ödemesi tamamlanmış yeni bir sipariş geldiğinde otomatik gönderilir.</div>',
+        : cod
+          ? '<div>Bu e-posta, sitenize kapıda ödemeli yeni bir sipariş geldiğinde otomatik gönderilir.</div>'
+          : '<div>Bu e-posta, sitenize ödemesi tamamlanmış yeni bir sipariş geldiğinde otomatik gönderilir.</div>',
     })
     const result = await getEmailProvider().sendEmail({
       to,

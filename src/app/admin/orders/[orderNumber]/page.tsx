@@ -905,11 +905,15 @@ export default function AdminOrderDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Ödeme Yöntemi:</span>
-                <span style={{ fontWeight: 600 }}>{order.paymentMethod === 'BANK_TRANSFER' ? 'Havale / EFT' : 'Kredi / Banka Kartı'}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {order.paymentMethod === 'BANK_TRANSFER' ? 'Havale / EFT' : order.paymentMethod === 'CASH_ON_DELIVERY' ? 'Kapıda Ödeme' : 'Kredi / Banka Kartı'}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Sağlayıcı:</span>
-                <span style={{ fontWeight: 600 }}>{order.paymentMethod === 'BANK_TRANSFER' ? 'Banka hesabı' : 'PayTR'}</span>
+                <span style={{ fontWeight: 600 }}>
+                  {order.paymentMethod === 'BANK_TRANSFER' ? 'Banka hesabı' : order.paymentMethod === 'CASH_ON_DELIVERY' ? 'PTT Kargo (Geliver)' : 'PayTR'}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Ödeme Durumu:</span>
@@ -918,7 +922,9 @@ export default function AdminOrderDetailPage() {
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>{order.paidAt ? 'Tahsil Edilen:' : 'Beklenen Tutar:'}</span>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {order.paidAt ? 'Tahsil Edilen:' : order.paymentMethod === 'CASH_ON_DELIVERY' ? 'Kapıda Tahsil Edilecek:' : 'Beklenen Tutar:'}
+                </span>
                 <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatPrice(order.totalAmount)}</span>
               </div>
               {order.paymentMethod === 'BANK_TRANSFER' && !order.paidAt && ['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes(order.status) && (

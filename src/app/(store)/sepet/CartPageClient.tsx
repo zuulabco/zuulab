@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
+import { useIsClient } from '@/hooks/useIsClient'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
@@ -38,6 +39,7 @@ export default function CartPageClient({
     subtotal,
   } = useCartStore()
 
+  const isClient = useIsClient()
   const shippingConfig = useShippingConfig()
   useTrackCartEvent('view_cart')
   const freeShippingThreshold = shippingConfig.freeShippingThreshold ?? initialFreeShippingThreshold
@@ -141,6 +143,10 @@ export default function CartPageClient({
     setIsClearModalOpen(false)
     toast.info('sepet temizlendi')
   }
+
+  // The cart lives in localStorage; until hydration ends the page matches the server
+  // HTML (nothing), then shows the real cart or the empty state
+  if (!isClient) return null
 
   // ── EMPTY CART 2.0 ──────────────────────────────────────────
   if (items.length === 0) {

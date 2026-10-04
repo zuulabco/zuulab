@@ -63,6 +63,7 @@ export const SALES_TERMS = {
   paymentMethods: [
     'Kredi kartı ve banka kartı (PayTR güvenli ödeme altyapısı, 3D Secure)',
     'Havale / EFT (sipariş, ödeme 48 saat içinde hesabımıza ulaştığında onaylanır)',
+    'Kapıda ödeme (PTT Kargo ile gönderilir, tutar teslimatta kargo görevlisine ödenir; ek ücret alınmaz)',
   ],
   invoice: 'e-Fatura / e-Arşiv fatura',
 

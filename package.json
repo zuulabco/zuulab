@@ -11,7 +11,8 @@
     "contract:emit": "prisma contract emit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run tests/security tests/unit",
-    "test:integration": "vitest run tests/integration"
+    "test:integration": "vitest run tests/integration",
+    "geliver:setup": "npx -y tsx --env-file=.env scripts/geliver-setup.ts"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

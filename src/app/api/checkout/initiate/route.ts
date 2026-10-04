@@ -3,7 +3,12 @@ import { rateLimit } from '@/lib/security/rate-limit-response'
 import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.service'
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { CheckoutError, createOrder, updateOrderStatus } from '@/lib/services/orders.service'
-import { cleanupExpiredReservations, initiateBankTransfer, initiatePayment } from '@/lib/services/payment/payment.service'
+import {
+  cleanupExpiredReservations,
+  initiateBankTransfer,
+  initiateCashOnDelivery,
+  initiatePayment,
+} from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { getPublicOrigin } from '@/lib/config/app-url'
 import {
@@ -129,7 +134,22 @@ export async function POST(request: Request) {
       maxAge: ORDER_ACCESS_MAX_AGE,
     }
 
-    // 3a. Havale/EFT: no provider session; the customer gets the bank details
+    // 3a. Kapıda ödeme: the order is confirmed now and paid at the door (PTT Kargo)
+    if (paymentMethod === 'CASH_ON_DELIVERY') {
+      const clientIp = getClientIp(new Headers(request.headers))
+      await initiateCashOnDelivery({ orderNumber: order.orderNumber, ipAddress: clientIp })
+      const response = NextResponse.json({
+        success: true,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        provider: 'CASH_ON_DELIVERY',
+        redirectUrl: `/odeme/basarili?order=${encodeURIComponent(order.orderNumber)}`,
+      })
+      response.cookies.set(orderAccessCookie)
+      return response
+    }
+
+    // 3b. Havale/EFT: no provider session; the customer gets the bank details
     if (paymentMethod === 'BANK_TRANSFER') {
       const clientIp = getClientIp(new Headers(request.headers))
       await initiateBankTransfer({ orderNumber: order.orderNumber, ipAddress: clientIp })

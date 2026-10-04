@@ -12,6 +12,7 @@ import {
   BANK_TRANSFER_HOLD_HOURS,
   PAYMENT_HOLD_MINUTES,
   findOrderByNumber,
+  paymentMethodOf,
   markOrderPaid,
   updateOrderStatus,
   type StoredOrder,
@@ -217,7 +218,7 @@ export async function initiateBankTransfer(params: { orderNumber: string; ipAddr
     .where({ orderId: order.id })
     .orderBy((p) => p.attemptNumber.desc())
     .all()
-  const open = attempts.find((p) => p.provider === 'MANUAL' && p.status === 'PENDING')
+  const open = attempts.find((p) => paymentMethodOf(p) === 'BANK_TRANSFER' && p.status === 'PENDING')
   if (open) {
     return { paymentId: open.id, orderNumber: order.orderNumber, amount: order.totalAmount, expiresAt: order.paymentExpiresAt }
   }
@@ -279,7 +280,7 @@ export async function confirmBankTransfer(params: { orderNumber: string; confirm
     .where({ orderId: order.id, provider: 'MANUAL' })
     .orderBy((p) => p.attemptNumber.desc())
     .first()
-  if (!row || !['PENDING', 'CANCELLED'].includes(row.status)) {
+  if (!row || paymentMethodOf(row) !== 'BANK_TRANSFER' || !['PENDING', 'CANCELLED'].includes(row.status)) {
     throw new Error('Bu sipariş havale/EFT ile verilmemiş.')
   }
 
@@ -295,6 +296,79 @@ export async function confirmBankTransfer(params: { orderNumber: string; confirm
     metadata: { confirmedBy: params.confirmedBy, amount: order.totalAmount },
   })
   return result
+}
+
+/**
+ * Kapıda ödeme (cash on delivery, PTT Kargo via Geliver): nothing is paid now, so the
+ * order is confirmed straight away: stock committed, coupon used, a pending MANUAL
+ * payment marked { method: 'CASH_ON_DELIVERY' }, confirmation mail to the customer and
+ * a heads-up to the shop. The money is marked collected when Geliver reports the
+ * parcel delivered (markCashOnDeliveryCollected).
+ */
+export async function initiateCashOnDelivery(params: { orderNumber: string; ipAddress?: string }) {
+  const order = await findOrderByNumber(params.orderNumber)
+  if (!order) throw new Error('Sipariş bulunamadı.')
+  const attempts = await db.orm.public.Payment.where({ orderId: order.id }).orderBy((p) => p.attemptNumber.desc()).all()
+  // A resubmitted checkout returns the order already confirmed
+  if (attempts.some((p) => paymentMethodOf(p) === 'CASH_ON_DELIVERY') && order.status !== 'PAYMENT_PENDING') {
+    return { orderNumber: order.orderNumber, amount: order.totalAmount }
+  }
+  if (order.status !== 'PAYMENT_PENDING') {
+    throw new Error(`Bu sipariş için kapıda ödeme seçilemez. Mevcut durum: ${order.status}`)
+  }
+
+  for (const p of attempts) {
+    if (p.status === 'PENDING') await transitionPayment(p.id, ['PENDING'], 'CANCELLED')
+  }
+  const created = await db.orm.public.Payment.create({
+    orderId: order.id,
+    provider: 'MANUAL',
+    attemptNumber: (attempts[0]?.attemptNumber ?? 0) + 1,
+    status: 'PENDING',
+    amount: dbNumeric(order.totalAmount),
+    currency: 'TRY',
+    ipAddress: params.ipAddress || null,
+    rawResponse: { method: 'CASH_ON_DELIVERY', carrier: 'PTT Kargo (Geliver)' } as never,
+  })
+
+  const stock = await commitOrderStock(order.id)
+  await recordCouponUsage(order.id)
+  await db.orm.public.Order.where({ id: order.id }).update({ paymentExpiresAt: null as never })
+  const moved = await updateOrderStatus(order.orderNumber, 'CONFIRMED', 'Kapıda ödemeli sipariş (PTT Kargo); ödeme teslimatta alınacak.', 'customer')
+  if (!moved.success) console.error(`[payment.service] ${order.orderNumber} kapıda ödeme could not be confirmed: ${moved.error}`)
+
+  await logAuditEvent({
+    action: 'PAYMENT_CREATED',
+    entity: 'Payment',
+    entityId: created.id,
+    metadata: { orderNumber: order.orderNumber, amount: order.totalAmount, method: 'CASH_ON_DELIVERY', oversold: stock.oversold },
+  })
+  await sendNewOrderAlert(order.id, 'cash-on-delivery')
+  return { orderNumber: order.orderNumber, amount: order.totalAmount }
+}
+
+/** PTT delivered a kapıda ödeme parcel and collected the money: the payment is complete */
+export async function markCashOnDeliveryCollected(orderNumber: string, collectedAt: Date) {
+  const order = await findOrderByNumber(orderNumber)
+  if (!order || order.paidAt) return
+  const row = await db.orm.public.Payment
+    .where({ orderId: order.id, provider: 'MANUAL' })
+    .orderBy((p) => p.attemptNumber.desc())
+    .first()
+  if (!row || paymentMethodOf(row) !== 'CASH_ON_DELIVERY') return
+  if (!(await transitionPayment(row.id, ['PENDING', 'PROCESSING'], 'SUCCEEDED'))) return
+  await db.orm.public.Payment.where({ id: row.id }).update({
+    paidAt: toDbTimestamp(collectedAt) as never,
+    paidAmount: dbNumeric(order.totalAmount),
+    providerRef: 'kapida-odeme:ptt',
+  })
+  await markOrderPaid(order.id, collectedAt)
+  await logAuditEvent({
+    action: 'PAYMENT_PAID',
+    entity: 'Payment',
+    entityId: row.id,
+    metadata: { orderNumber, amount: order.totalAmount, method: 'CASH_ON_DELIVERY' },
+  })
 }
 
 /**

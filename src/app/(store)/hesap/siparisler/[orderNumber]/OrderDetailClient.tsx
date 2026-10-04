@@ -16,7 +16,7 @@ interface OrderDetail {
   orderNumber: string
   status: string
   paymentStatus: string
-  paymentMethod?: 'CARD' | 'BANK_TRANSFER'
+  paymentMethod?: 'CARD' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
   paymentExpiresAt?: string | null
   fulfillmentStatus: string
   createdAt: string
@@ -294,6 +294,16 @@ export default function OrderDetailClient() {
               ? `ürünlerin ${new Date(order.paymentExpiresAt).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} tarihine kadar ayrıldı. `
               : ''}
             ödemen onaylandığında siparişin hazırlanıp kargoya teslim edilecek.
+          </p>
+        </section>
+      )}
+
+      {/* Kapıda ödeme: what is paid, when and to whom */}
+      {order.paymentMethod === 'CASH_ON_DELIVERY' && order.paymentStatus !== 'PAID' && order.status !== 'CANCELLED' && (
+        <section className={styles.transferBox} aria-label="Kapıda ödeme">
+          <p className={styles.transferTitle}>kapıda ödeme · ptt kargo</p>
+          <p className={styles.transferNote} style={{ marginTop: 0 }}>
+            {formatPrice(order.totalAmount)} tutarını paket size teslim edilirken PTT Kargo görevlisine ödeyeceksiniz.
           </p>
         </section>
       )}

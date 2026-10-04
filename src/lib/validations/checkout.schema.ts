@@ -57,8 +57,11 @@ export const checkoutInitiateSchema = z.object({
   // Generated once per checkout attempt by the browser; repeated submits reuse it.
   checkoutKey: z.string().min(16).max(64).regex(/^[A-Za-z0-9_-]+$/).optional(),
   items: cartItemsSchema.min(1, 'Sepetinizde en az 1 ürün bulunmalıdır.'),
-  /** CARD: PayTR iframe. BANK_TRANSFER: havale/EFT, confirmed by the shop when the money arrives. */
-  paymentMethod: z.enum(['CARD', 'BANK_TRANSFER']).default('CARD'),
+  /**
+   * CARD: PayTR iframe. BANK_TRANSFER: havale/EFT, confirmed by the shop when the money
+   * arrives. CASH_ON_DELIVERY: kapıda ödeme, collected by PTT Kargo (Geliver).
+   */
+  paymentMethod: z.enum(['CARD', 'BANK_TRANSFER', 'CASH_ON_DELIVERY']).default('CARD'),
 })
 
 export type AddressInput = z.infer<typeof addressSchema>

@@ -10,7 +10,7 @@ export type ShipmentStatus =
   | 'RETURNED'
   | 'CANCELLED'
 
-export type ShippingProviderType = 'MOCK' | 'YURTICI' | 'SURAT'
+export type ShippingProviderType = 'MOCK' | 'YURTICI' | 'SURAT' | 'GELIVER'
 
 export interface ShipmentEvent {
   id: string
@@ -47,6 +47,9 @@ export interface CreateShipmentInput {
   orderNumber: string
   customerName: string
   customerPhone: string
+  customerEmail?: string
+  /** Kapıda ödeme: the amount the carrier collects from the customer at the door */
+  cashOnDeliveryAmount?: number
   shippingAddress: {
     addressLine: string
     city: string

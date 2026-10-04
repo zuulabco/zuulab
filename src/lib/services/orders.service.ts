@@ -27,7 +27,17 @@ export const PAYMENT_HOLD_MINUTES = 35
  */
 export const BANK_TRANSFER_HOLD_HOURS = 48
 
-export type PaymentMethod = 'CARD' | 'BANK_TRANSFER'
+export type PaymentMethod = 'CARD' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
+
+/**
+ * Havale/EFT and kapıda ödeme are both MANUAL payments (no gateway); a kapıda ödeme
+ * row carries { method: 'CASH_ON_DELIVERY' } in raw_response from the start.
+ */
+export function paymentMethodOf(payment: { provider?: string | null; rawResponse?: unknown } | null | undefined): PaymentMethod {
+  if (payment?.provider !== 'MANUAL') return 'CARD'
+  const raw = payment.rawResponse as { method?: string } | null | undefined
+  return raw?.method === 'CASH_ON_DELIVERY' ? 'CASH_ON_DELIVERY' : 'BANK_TRANSFER'
+}
 
 export interface CreateOrderPayload {
   userId: string
@@ -152,8 +162,14 @@ const PAID_STATUSES = new Set([
   'SHIPPED', 'DELIVERED', 'RETURN_REQUESTED', 'RETURNED', 'PARTIALLY_REFUNDED',
 ])
 
-function derivePaymentStatus(status: string, paidAt: unknown): string {
+function derivePaymentStatus(status: string, paidAt: unknown, method?: PaymentMethod): string {
   if (status === 'PAYMENT_PENDING') return 'PENDING'
+  // Kapıda ödeme: confirmed and shipped before any money; paid once PTT collects it
+  if (method === 'CASH_ON_DELIVERY' && !paidAt) {
+    if (status === 'CANCELLED') return 'CANCELLED'
+    if (status === 'RETURNED') return 'FAILED'
+    return 'PENDING'
+  }
   if (status === 'PAYMENT_FAILED') return 'FAILED'
   if (status === 'CANCELLED') return paidAt ? 'REFUND_PENDING' : 'CANCELLED'
   if (status === 'RETURNED' || status === 'PARTIALLY_REFUNDED') return 'REFUNDED'
@@ -192,7 +208,7 @@ function withRelations() {
     .include('items')
     .include('statusHistory', (h) => h.orderBy((x) => x.createdAt.desc()))
     .include('user', (u) => u.select('id', 'email'))
-    .include('payments', (p) => p.select('provider', 'attemptNumber').orderBy((x) => x.attemptNumber.desc()).limit(1))
+    .include('payments', (p) => p.select('provider', 'attemptNumber', 'rawResponse').orderBy((x) => x.attemptNumber.desc()).limit(1))
 }
 
 type OrderRow = Awaited<ReturnType<ReturnType<typeof withRelations>['all']>>[number]
@@ -205,8 +221,8 @@ function toStoredOrder(row: OrderRow): StoredOrder {
     orderNumber: row.orderNumber,
     userId: row.userId,
     status: row.status,
-    paymentStatus: derivePaymentStatus(row.status, row.paidAt),
-    paymentMethod: row.payments?.[0]?.provider === 'MANUAL' ? 'BANK_TRANSFER' : 'CARD',
+    paymentStatus: derivePaymentStatus(row.status, row.paidAt, paymentMethodOf(row.payments?.[0])),
+    paymentMethod: paymentMethodOf(row.payments?.[0]),
     fulfillmentStatus: deriveFulfillmentStatus(row.status),
     stockState: row.stockState,
     channel: row.channel || 'DIRECT',
@@ -548,8 +564,9 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     metadata: { total: created.totalAmount, itemCount: created.items.length, shippingMethod },
   })
 
-  // Bank transfer orders get the bank details mail instead (initiateBankTransfer)
-  if (paymentMethod !== 'BANK_TRANSFER') {
+  // Bank transfer orders get the bank details mail instead (initiateBankTransfer);
+  // kapıda ödeme orders are confirmed right away and get the confirmation mail
+  if (paymentMethod === 'CARD') {
     createNotification({ orderNumber, eventType: 'ORDER_CREATED' }).catch((err) => {
       console.warn('[orders.service] Error sending ORDER_CREATED notification:', err)
     })
