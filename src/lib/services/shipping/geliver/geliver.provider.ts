@@ -21,7 +21,7 @@ import {
   type GeliverTrackingStatus,
 } from './geliver.client'
 
-/** PTT Kargo, cash on delivery. In test mode Geliver's own test carrier is used. */
+/** PTT Kargo, cash on delivery. In test mode Geliver's own test carrier is used (without cash on delivery). */
 export const GELIVER_COD_SERVICE = 'PTT_KAPIDA_ODEME'
 const GELIVER_TEST_SERVICE = 'GELIVER_STANDART'
 
@@ -78,7 +78,9 @@ export class GeliverShippingProvider implements ShippingProvider {
   async createShipment(input: CreateShipmentInput) {
     const config = requireConfig()
     const location = await resolveGeliverLocation(config.token, input.shippingAddress.city, input.shippingAddress.district)
-    const cod = input.cashOnDeliveryAmount !== undefined
+    // Geliver's test carrier has no cash-on-delivery offer ("offerId is empty"), so test
+    // shipments are plain ones; live shipments are PTT kapıda ödeme
+    const cod = input.cashOnDeliveryAmount !== undefined && !config.testMode
     const weightKg = Math.max(0.1, input.totalWeightKg || 1)
 
     const tx = await createGeliverTransaction(config.token, {

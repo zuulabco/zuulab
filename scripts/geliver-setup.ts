@@ -12,7 +12,8 @@ import fs from 'node:fs'
 import { COMPANY } from '../src/config/company'
 
 const API = 'https://api.geliver.io/api/v1'
-const SITE = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.zuulab.com').replace(/\/$/, '')
+/** Geliver must reach the live site; a local NEXT_PUBLIC_APP_URL (localhost) is never used */
+const SITE = (process.env.GELIVER_WEBHOOK_BASE_URL || 'https://www.zuulab.com').replace(/\/$/, '')
 /** Postal code of the return address (Beşkavaklar Mah., Merkez / Bolu) */
 const SENDER_ZIP = '14100'
 const SHORT_NAME = 'zuulab-atolye'
@@ -64,6 +65,11 @@ console.log(existing ? 'Sender address already exists:' : 'Sender address create
 const webhookUrl = `${SITE}/api/shipping/geliver/webhook?token=${encodeURIComponent(secret)}`
 type Hook = { id: string; url: string; type: string }
 const hooks = await call<Hook[]>('GET', '/webhook').catch(() => [] as Hook[])
+// Webhooks of this shop pointing elsewhere (an old secret, a local address) are removed
+for (const h of hooks.filter((h) => h.url.includes('/api/shipping/geliver/webhook') && h.url !== webhookUrl)) {
+  await call('DELETE', `/webhook/${h.id}`)
+  console.log('Removed old webhook:', h.id, h.url.split('?')[0])
+}
 if (hooks.some((h) => h.url === webhookUrl && h.type === 'TRACK_UPDATED')) {
   console.log('Webhook already registered')
 } else {
