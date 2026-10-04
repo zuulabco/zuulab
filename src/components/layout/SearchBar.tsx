@@ -8,6 +8,7 @@ import type { StoreNavigation } from '@/types/navigation'
 import { formatPrice } from '@/lib/utils'
 import styles from './SearchBar.module.css'
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
+import { track } from '@/lib/analytics/gtag'
 
 const SUGGESTED_QUERIES = [
   'masa lambası',
@@ -69,6 +70,8 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
   useBodyScrollLock(open)
 
   const saveRecentSearch = (term: string) => {
+    // GA4 site search: every search made from the search panel
+    track('search', { search_term: term })
     const trimmed = term.trim().toLowerCase()
     if (!trimmed) return
     const updated = [trimmed, ...recentSearches.filter((s) => s !== trimmed)].slice(0, 4)

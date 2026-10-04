@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { pageMetadata } from '@/lib/seo/metadata'
+import Image from 'next/image'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
+import { getCollectionViews } from '@/lib/services/catalog/collection-presentation'
 import styles from '../ContentPage.module.css'
 
 export const metadata: Metadata = pageMetadata({
@@ -11,30 +13,22 @@ export const metadata: Metadata = pageMetadata({
   path: '/hakkimizda',
 })
 
-const COLLECTIONS = [
-  {
-    slug: 'zuukids',
-    desc: 'Çocuk odaları ve yaratıcı alanlar için hayvan karakterli organizasyon ve dekor ürünleri.',
-    meta: 'oyuncak · dekor · organizasyon',
-  },
-  {
-    slug: 'zuulife',
-    desc: 'Çalışma masası, günlük kullanım ve ev aksesuarları için işlevsel nesneler.',
-    meta: 'masaüstü · ev · aksesuar',
-  },
-  {
-    slug: 'zuulight',
-    desc: 'FDM baskı tekniğiyle üretilen orijinal filaman aydınlatmalar.',
-    meta: 'aydınlatma · tasarım · filaman',
-  },
-  {
-    slug: 'zuutoptan',
-    desc: 'Ticari alıcılara ve bayilere yönelik toplu sipariş ve özel üretim seçenekleri.',
-    meta: 'toptan · kurumsal · özel üretim',
-  },
+/** Brand worlds shown here, in this order, with this page's own one-line pitch */
+const COLLECTIONS: Array<{ slug: string; desc: string; meta: string }> = [
+  { slug: 'zuukids', desc: 'Çocuk odaları ve yaratıcı alanlar için oyuncak, dekor ve düzenleyiciler.', meta: 'çocuk · eğitim' },
+  { slug: 'zuulife', desc: 'Çalışma masası, günlük kullanım ve ev için işlevsel nesneler.', meta: 'masaüstü · ev' },
+  { slug: 'zuulight', desc: 'FDM baskıyla üretilen özgün masa lambaları ve aydınlatmalar.', meta: 'aydınlatma' },
+  { slug: 'zuutoptan', desc: 'İşletmelere toplu sipariş ve kişiye özel üretim.', meta: 'toptan · kurumsal' },
 ]
 
-export default function HakkimizdaPage() {
+export default async function HakkimizdaPage() {
+  // Names, photos and colours as set in the admin; only live collections are shown
+  const views = new Map((await getCollectionViews()).map((v) => [v.slug, v]))
+  const collections = COLLECTIONS.flatMap((c) => {
+    const view = views.get(c.slug)
+    return view ? [{ ...c, view }] : []
+  })
+
   return (
     <div className={`container ${styles.page}`}>
       <div className={styles.breadcrumbRow}>
@@ -114,21 +108,39 @@ export default function HakkimizdaPage() {
           </div>
 
           {/* Koleksiyonlar */}
-          <div className={styles.section}>
-            <span className={styles.sectionLabel}>koleksiyonlar</span>
-            <nav className={styles.collectionsGrid} aria-label="Zuu koleksiyonları">
-              {COLLECTIONS.map((col) => (
-                <Link key={col.slug} href={`/koleksiyon/${col.slug}`} className={styles.collectionRow}>
-                  <div className={styles.collectionInfo}>
-                    <span className={styles.collectionName}>{col.slug}</span>
-                    <span className={styles.collectionDesc}>{col.desc}</span>
-                    <span className={styles.collectionMeta}>{col.meta}</span>
-                  </div>
-                  <span className={styles.collectionArrow} aria-hidden>→</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
+          {collections.length > 0 && (
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>koleksiyonlar</span>
+              <nav className={styles.collectionCards} aria-label="zuulab koleksiyonları">
+                {collections.map(({ slug, desc, meta, view }) => (
+                  <Link key={slug} href={`/koleksiyon/${slug}`} className={styles.collectionCard}>
+                    <span className={`${styles.collectionMedia} img-frame`}>
+                      <Image
+                        src={view.heroImage}
+                        alt={`${view.name} koleksiyonu`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 360px"
+                        className={styles.collectionImg}
+                      />
+                    </span>
+                    <span className={styles.collectionScrim} aria-hidden />
+                    <span className={styles.collectionBody}>
+                      <span className={styles.collectionTag}>
+                        <span className={styles.collectionDot} style={{ backgroundColor: view.accentColor }} aria-hidden />
+                        {meta}
+                        {view.productCount > 0 && <> · {view.productCount} ürün</>}
+                      </span>
+                      <span className={styles.collectionName}>{view.name.toLocaleLowerCase('tr-TR')}</span>
+                      <span className={styles.collectionDesc}>{desc}</span>
+                      <span className={styles.collectionCta}>
+                        keşfet <span aria-hidden>→</span>
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          )}
         </div>
 
         {/* Sağ: Bilgi bloku */}

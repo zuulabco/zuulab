@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { trackItems } from '@/lib/analytics/gtag'
 
 export interface CartItem {
   productId: string
@@ -66,6 +67,9 @@ export const useCartStore = create<CartState>()(
       addItem: (newItem, extraQty) => {
         const { productId, variantId = null } = newItem
         const quantity = extraQty ?? newItem.quantity ?? 1
+        trackItems('add_to_cart', [
+          { id: productId, sku: newItem.sku, name: newItem.name, price: newItem.price, quantity, variant: newItem.variantLabel },
+        ])
         set((state) => {
           const existing = state.items.find(
             (i) => i.productId === productId && i.variantId === variantId
@@ -95,6 +99,12 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (productId, variantId = null) => {
+        const gone = get().getItem(productId, variantId)
+        if (gone) {
+          trackItems('remove_from_cart', [
+            { id: gone.productId, sku: gone.sku, name: gone.name, price: gone.price, quantity: gone.quantity, variant: gone.variantLabel },
+          ])
+        }
         set((state) => ({
           items: state.items.filter(
             (i) => !(i.productId === productId && i.variantId === variantId)

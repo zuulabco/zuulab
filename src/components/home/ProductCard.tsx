@@ -9,6 +9,7 @@ import { useCartStore } from '@/store/cartStore'
 import FavoriteButton from '../product/FavoriteButton'
 import styles from './ProductCard.module.css'
 import { cloudinaryCardLoader, isCloudinaryUrl } from '@/lib/images/cloudinary-loader'
+import { trackItems } from '@/lib/analytics/gtag'
 
 interface Props {
   product: ProductListItem
@@ -47,12 +48,17 @@ export default function ProductCard({ product, priority = false }: Props) {
 
   const hasSecondaryImage = Boolean(product.secondaryImage)
 
+  // GA4: which product was picked from a list (home rows, catalog, related)
+  const trackSelect = () =>
+    trackItems('select_item', [{ id: product.id, sku: product.sku, name: product.name, price: product.price, category: product.categoryName }])
+
   return (
     <article className={styles.card}>
       {/* ── Image & Interactive Media Layer ──────────────── */}
       <div className={styles.imageWrapper}>
         <Link
           href={`/urun/${product.slug}`}
+          onClick={trackSelect}
           className={styles.imageLink}
           tabIndex={-1}
           aria-hidden="true"
@@ -166,7 +172,7 @@ export default function ProductCard({ product, priority = false }: Props) {
         </div>
 
         <h3 className={styles.name}>
-          <Link href={`/urun/${product.slug}`} className={styles.nameLink}>
+          <Link href={`/urun/${product.slug}`} onClick={trackSelect} className={styles.nameLink}>
             {product.name.toLocaleLowerCase('tr-TR')}
           </Link>
         </h3>

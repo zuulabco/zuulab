@@ -13,6 +13,7 @@ import Modal from '@/components/common/Modal'
 import ProductCard from '@/components/home/ProductCard'
 import type { ProductListItem } from '@/types/product'
 import styles from './CartPage.module.css'
+import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 
 
 interface Props {
@@ -38,6 +39,7 @@ export default function CartPageClient({
   } = useCartStore()
 
   const shippingConfig = useShippingConfig()
+  useTrackCartEvent('view_cart')
   const freeShippingThreshold = shippingConfig.freeShippingThreshold ?? initialFreeShippingThreshold
   const STANDARD_SHIPPING_FEE = shippingConfig.method.price
   const [isCouponOpen, setIsCouponOpen] = useState(false)

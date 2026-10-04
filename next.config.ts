@@ -13,11 +13,11 @@ const nextConfig: NextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://www.paytr.com https://*.paytr.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com https://www.paytr.com https://*.paytr.com https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com https://cdn.dsmcdn.com https://lh3.googleusercontent.com https://images.unsplash.com https://*.paytr.com",
-      "connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.google.com https://*.googleapis.com https://apis.google.com https://api.cloudinary.com https://www.paytr.com https://*.paytr.com https://efatura.uyumsoft.com.tr https://efatura-test.uyumsoft.com.tr https://api.resend.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://cdn.dsmcdn.com https://lh3.googleusercontent.com https://images.unsplash.com https://*.paytr.com https://*.google-analytics.com https://www.googletagmanager.com",
+      "connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.google.com https://*.googleapis.com https://apis.google.com https://api.cloudinary.com https://www.paytr.com https://*.paytr.com https://efatura.uyumsoft.com.tr https://efatura-test.uyumsoft.com.tr https://api.resend.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
       // The PayTR iframe navigates to the card issuer's 3D Secure page (any bank's
       // domain, e.g. *.vakifbank.com.tr), and that navigation is checked against this
       // page's frame-src. The only frame we embed is PayTR's, so allowing https: here

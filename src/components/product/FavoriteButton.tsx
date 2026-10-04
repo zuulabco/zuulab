@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import styles from './FavoriteButton.module.css'
+import { track } from '@/lib/analytics/gtag'
 
 interface Props {
   productId: string
@@ -49,6 +50,7 @@ export default function FavoriteButton({ productId }: Props) {
     setLiked(newLiked)
 
     if (newLiked) {
+      track('add_to_wishlist', { currency: 'TRY', items: [{ item_id: productId }] })
       toast.success('favorilere eklendi')
     } else {
       toast.info('favorilerden kaldırıldı')

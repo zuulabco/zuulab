@@ -16,6 +16,7 @@ import { calculateShipping } from '@/lib/services/shipping.service'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
+import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
@@ -28,6 +29,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
   const [mounted, setMounted] = useState(false)
   const shippingConfig = useShippingConfig()
+  useTrackCartEvent('begin_checkout')
   const freeShippingThreshold = shippingConfig.freeShippingThreshold ?? initialFreeShippingThreshold
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

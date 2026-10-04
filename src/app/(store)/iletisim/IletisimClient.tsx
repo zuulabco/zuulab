@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import styles from '../ContentPage.module.css'
+import { track } from '@/lib/analytics/gtag'
 
 export default function IletisimClient() {
   const [name, setName] = useState('')
@@ -32,6 +33,7 @@ export default function IletisimClient() {
         setError(data.error || 'Mesajınız gönderilemedi. Lütfen tekrar deneyin.')
         return
       }
+      track('generate_lead', { lead_source: 'iletişim formu' })
       setSubmitted(true)
       setName('')
       setEmail('')

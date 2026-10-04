@@ -19,6 +19,7 @@ export type AdminPermissionName =
   | 'CONTENT_MANAGE'
   | 'PAYMENT_VIEW'
   | 'AUDIT_VIEW'
+  | 'ANALYTICS_VIEW'
   | 'SETTINGS_MANAGE'
   | 'USER_VIEW'
   | 'USER_MANAGE'
@@ -77,6 +78,7 @@ const ROLE_PERMISSIONS: Record<AuthUser['role'], AdminPermissionName[]> = {
     'CONTENT_MANAGE',
     'PAYMENT_VIEW',
     'AUDIT_VIEW',
+    'ANALYTICS_VIEW',
     'SETTINGS_MANAGE',
     'USER_VIEW',
     'USER_MANAGE',
@@ -134,6 +136,7 @@ const ROLE_PERMISSIONS: Record<AuthUser['role'], AdminPermissionName[]> = {
     'CONTENT_MANAGE',
     'PAYMENT_VIEW',
     'AUDIT_VIEW',
+    'ANALYTICS_VIEW',
     'SETTINGS_MANAGE',
     'USER_VIEW',
     'USER_MANAGE',

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { formatPrice } from '@/lib/utils'
+import { trackItems } from '@/lib/analytics/gtag'
 import styles from './Basarili.module.css'
 
 const PAID = new Set(['PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED'])
@@ -18,6 +19,19 @@ type Phase = 'checking' | 'paid' | 'pending'
  * is cleared only once the order is paid; a failed payment goes to the failure
  * page; a callback still in flight is shown as "being processed".
  */
+/**
+ * GA4 purchase, sent once per order with the cart that was paid for (read just
+ * before the cart is cleared; after a reload the cart is empty, so nothing repeats).
+ */
+function trackPurchase(orderNumber: string) {
+  const { items, coupon, discountAmount } = useCartStore.getState()
+  trackItems(
+    'purchase',
+    items.map((i) => ({ id: i.productId, sku: i.sku, name: i.name, price: i.price, quantity: i.quantity, variant: i.variantLabel })),
+    { transaction_id: orderNumber, ...(coupon ? { coupon: coupon.code, discount: discountAmount } : {}) }
+  )
+}
+
 export default function BasariliClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -42,6 +56,7 @@ export default function BasariliClient() {
         if (stopped) return
         if (data.success && PAID.has(data.status)) {
           stopped = true
+          trackPurchase(orderNumber)
           clearCart()
           setPhase('paid')
           return

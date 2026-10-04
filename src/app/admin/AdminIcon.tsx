@@ -2,6 +2,11 @@ import React from 'react'
 
 /** Line icons for the admin navigation (24px grid, stroke follows text colour). */
 const PATHS: Record<string, React.ReactNode> = {
+  analytics: (
+    <>
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </>
+  ),
   mail: (
     <>
       <rect x="3" y="5" width="18" height="14" rx="2" />

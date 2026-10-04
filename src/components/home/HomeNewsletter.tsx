@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
 import styles from './HomeNewsletter.module.css'
+import { track } from '@/lib/analytics/gtag'
 
 export default function HomeNewsletter() {
   const [email, setEmail] = useState('')
@@ -29,6 +30,7 @@ export default function HomeNewsletter() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.success) throw new Error(data.error || 'Kaydın şu an alınamadı. Biraz sonra tekrar dene.')
+      track('sign_up', { method: 'bülten' })
       setStatus('success')
       setMessage(data.message)
       setEmail('')

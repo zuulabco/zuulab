@@ -34,6 +34,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Kontrol paneli', href: '/', icon: 'home' },
       { label: 'Bugün', href: '/today', icon: 'today' },
+      { label: 'Analizler', href: '/analytics', icon: 'analytics' },
     ],
   },
   {

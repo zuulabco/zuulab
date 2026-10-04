@@ -33,7 +33,7 @@ export default function GizlilikPolitikasiPage() {
         <section className={styles.sectionFirst}>
           <h2>1. veri sorumlusu</h2>
           <p>
-            Zuulab Tasarım ve Üretim Teknolojileri ("Zuulab" veya "Şirket"), web sitemiz
+            Zuulab Tasarım ve Üretim Teknolojileri (“Zuulab” veya “Şirket”), web sitemiz
             üzerinden sunduğumuz hizmetlerden faydalanan müşterilerimizin ve
             ziyaretçilerimizin kişisel verilerinin güvenliğine ve gizliliğine azami
             önem vermektedir.
@@ -70,6 +70,12 @@ export default function GizlilikPolitikasiPage() {
             faturalandırma için e-Fatura entegratörüne (Uyumsoft) ve yasal zorunluluk
             halinde yetkili kamu kurumlarına aktarılır.
           </p>
+          <p>
+            Çerez bandında &quot;tümünü kabul et&quot; seçeneğini işaretlerseniz, site kullanımınıza ilişkin
+            istatistiksel veriler (aşağıda 5. bölümde açıklanan) Google Analytics hizmeti aracılığıyla Google&apos;a
+            aktarılır. Google bu verileri yurt dışındaki sunucularında işleyebilir; bu aktarım yalnızca açık
+            onayınızla yapılır ve onayınızı dilediğiniz zaman geri alabilirsiniz.
+          </p>
         </section>
 
         <section className={styles.section}>
@@ -84,7 +90,7 @@ export default function GizlilikPolitikasiPage() {
         <section id="cerezler" className={styles.section}>
           <h2>5. çerezler</h2>
           <p>
-            Sitemiz yalnızca çalışması için gerekli çerezleri ve tarayıcı depolamasını kullanır:
+            Sitemizin çalışması için gerekli olan çerezler ve tarayıcı depolaması her zaman kullanılır:
           </p>
           <ul>
             <li>
@@ -98,9 +104,18 @@ export default function GizlilikPolitikasiPage() {
             </li>
           </ul>
           <p>
-            Şu anda analiz veya reklam çerezi kullanmıyoruz. İleride kullanırsak bunu yalnızca &quot;tümünü kabul
-            et&quot; seçeneğini işaretleyen ziyaretçiler için yaparız. Tercihinizi değiştirmek için tarayıcınızdan bu
-            sitenin verilerini silmeniz yeterlidir; bir sonraki ziyaretinizde size yeniden sorulur.
+            <strong>Analiz çerezleri (yalnızca izin verirseniz):</strong> Çerez bandında &quot;tümünü kabul et&quot;
+            seçeneğini işaretlerseniz Google Analytics çerezlerini kullanırız. Bu çerezler hangi sayfaların
+            görüntülendiğini, ziyaretin süresini, sitemize nereden ulaşıldığını, cihaz türünü, yaklaşık konumu (şehir
+            düzeyinde), hangi ürünlerin incelendiğini ya da sepete eklendiğini ve sayfadaki tıklamaları ölçer. IP
+            adresiniz kısaltılarak işlenir; ad, e-posta, adres veya ödeme bilgisi Google&apos;a gönderilmez. Bu
+            verileri yalnızca sitemizi ve ürünlerimizi geliştirmek için toplu istatistik olarak kullanırız. Reklam
+            veya kişiselleştirilmiş reklam çerezi kullanmıyoruz.
+          </p>
+          <p>
+            &quot;Yalnızca gerekli&quot; seçeneğini işaretlerseniz analiz çerezleri hiç yüklenmez. Tercihinizi
+            değiştirmek için tarayıcınızdan bu sitenin verilerini (çerezler ve site verileri) silmeniz yeterlidir; bir
+            sonraki ziyaretinizde size yeniden sorulur.
           </p>
         </section>
       </article>
