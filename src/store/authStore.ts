@@ -12,8 +12,10 @@ import {
   sendEmailVerification,
   firebaseSignOut,
   isFirebaseClientConfigured,
+  prepareAuthProtection,
   type FirebaseUser,
 } from '@/lib/firebase'
+import { authErrorMessage } from '@/lib/auth/error-messages'
 
 export interface UserProfile {
   id: string
@@ -203,6 +205,9 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
+          // reCAPTCHA token (when the project has bot protection on); Firebase checks it
+          // on its servers and refuses the sign-in without a valid one
+          await prepareAuthProtection()
           const credential = await signInWithEmailAndPassword(auth, email, pass)
           // Force fresh token directly from Google Auth server
           const token = await credential.user.getIdToken(true)
@@ -210,13 +215,7 @@ export const useAuthStore = create<AuthState>()(
           await syncFn(token)
         } catch (err: any) {
           console.error('[authStore] Email sign-in failed:', err)
-          let msg = 'Giriş yapılamadı. Bilgilerinizi kontrol edin.'
-          if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-            msg = 'E-posta adresi veya şifre hatalı.'
-          } else if (err.code === 'auth/user-not-found') {
-            msg = 'Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.'
-          }
-          set({ error: msg, isLoading: false })
+          set({ error: authErrorMessage(err.code, 'Giriş yapılamadı. Bilgilerinizi kontrol edin.'), isLoading: false })
         }
       },
 
@@ -228,6 +227,7 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
+          await prepareAuthProtection()
           const credential = await createUserWithEmailAndPassword(auth, email, pass)
           // Proves ownership of the address; needed to attach orders placed earlier
           // as a guest with the same email (see syncOrCreateUser).
@@ -239,13 +239,7 @@ export const useAuthStore = create<AuthState>()(
           await syncFn(token, { name })
         } catch (err: any) {
           console.error('[authStore] Registration failed:', err)
-          let msg = 'Kayıt oluşturulamadı.'
-          if (err.code === 'auth/email-already-in-use') {
-            msg = 'Bu e-posta adresi zaten kullanımda.'
-          } else if (err.code === 'auth/weak-password') {
-            msg = 'Şifre en az 6 karakter olmalıdır.'
-          }
-          set({ error: msg, isLoading: false })
+          set({ error: authErrorMessage(err.code, 'Kayıt oluşturulamadı.'), isLoading: false })
         }
       },
 

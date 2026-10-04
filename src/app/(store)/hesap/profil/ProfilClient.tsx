@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
-import { auth, isFirebaseClientConfigured, sendPasswordResetEmail } from '@/lib/firebase'
+import { auth, isFirebaseClientConfigured, prepareAuthProtection, sendPasswordResetEmail } from '@/lib/firebase'
+import { authErrorMessage } from '@/lib/auth/error-messages'
+import RecaptchaNotice from '@/components/auth/RecaptchaNotice'
 import AccountNav from '@/components/account/AccountNav'
 import AccountHeader from '@/components/account/AccountHeader'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
@@ -117,11 +119,13 @@ export default function ProfilClient() {
     const email = profile?.email || user.email
     setResetState('sending')
     try {
+      // Reset emails are bot-protected with reCAPTCHA like sign-in (see prepareAuthProtection)
+      await prepareAuthProtection()
       await sendPasswordResetEmail(auth, email)
       setResetState('sent')
-    } catch {
+    } catch (err) {
       setResetState('idle')
-      toast.error('Bağlantı gönderilemedi. Biraz sonra tekrar deneyin.')
+      toast.error(authErrorMessage((err as { code?: string }).code, 'Bağlantı gönderilemedi. Biraz sonra tekrar deneyin.'))
     }
   }
 
@@ -211,6 +215,7 @@ export default function ProfilClient() {
                             ? 'gönderiliyor…'
                             : 'şifre yenileme bağlantısı gönder'}
                       </button>
+                      <RecaptchaNotice />
                     </>
                   )}
                 </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/common/Modal'
+import RecaptchaNotice from './RecaptchaNotice'
 import { useAuthStore } from '@/store/authStore'
 import styles from './AuthModal.module.css'
 
@@ -203,6 +204,7 @@ export default function AuthModal() {
           </button>
         </form>
 
+        <RecaptchaNotice />
       </Modal>
     )
   }

@@ -887,3 +887,10 @@ main {
   border-color: var(--text-primary);
   box-shadow: 0 0 0 3px rgba(17, 17, 16, 0.06);
 }
+
+/* reCAPTCHA (Firebase Auth bot protection) floats a badge in the corner, over the
+   mobile buy bar; the required notice is shown under the protected forms instead
+   (components/auth/RecaptchaNotice). */
+.grecaptcha-badge {
+  visibility: hidden;
+}

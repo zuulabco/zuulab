@@ -1,0 +1,12 @@
+.notice {
+  margin: var(--sp-3) 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.notice a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

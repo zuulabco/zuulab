@@ -9,6 +9,7 @@ import {
   browserLocalPersistence,
   browserSessionPersistence,
   browserPopupRedirectResolver,
+  initializeRecaptchaConfig,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -63,6 +64,39 @@ function getClientAuth(): Auth {
 
 export const auth: Auth = getClientAuth()
 export const googleProvider = new GoogleAuthProvider()
+
+let authProtection: Promise<boolean> | null = null
+
+/**
+ * Bot protection for email/password sign-in, sign-up and password-reset emails is
+ * Firebase's own reCAPTCHA Enterprise integration (Firebase console → Authentication
+ * → Settings → reCAPTCHA). With it on, the SDK attaches an invisible reCAPTCHA token
+ * to those requests and Firebase checks it on its servers before doing anything, so a
+ * bot calling the Firebase API directly is refused as well. Google sign-in is not
+ * covered: it runs Google's own checks.
+ *
+ * This fetches the project's setting early (plus the reCAPTCHA script, only when the
+ * protection is on) so the first attempt already carries a token. It runs when a
+ * sign-in or reset form opens, never on page load, and resolves true when the
+ * protection is on. If it fails, the SDK still adds a token on retry when Firebase
+ * asks for one: the check itself never depends on this call.
+ */
+export function prepareAuthProtection(): Promise<boolean> {
+  if (typeof window === 'undefined' || !isFirebaseClientConfigured) return Promise.resolve(false)
+  authProtection ??= initializeRecaptchaConfig(auth)
+    // The SDK adds the reCAPTCHA script right after, and only when a provider is protected
+    .then(() => new Promise<boolean>((resolve) => setTimeout(() => resolve(recaptchaScriptAdded()), 0)))
+    .catch((err) => {
+      authProtection = null
+      console.warn('[firebase] reCAPTCHA settings could not be loaded:', err)
+      return false
+    })
+  return authProtection
+}
+
+function recaptchaScriptAdded(): boolean {
+  return Boolean(document.querySelector('script[src*="recaptcha/enterprise.js"]'))
+}
 
 export {
   browserPopupRedirectResolver,
