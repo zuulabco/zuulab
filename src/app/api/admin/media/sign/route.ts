@@ -5,8 +5,10 @@ import { cloudinaryService, MAX_DIRECT_UPLOAD_BYTES } from '@/lib/services/media
 export const dynamic = 'force-dynamic'
 
 /**
- * Signs one direct browser → Cloudinary upload. Files no longer pass through this
- * server, whose requests Vercel caps at ~4.5 MB (larger photos failed with 413).
+ * Signs one direct browser → Cloudinary upload; raster photos are converted to
+ * WebP and scaled by Cloudinary as they are stored (see STORED_IMAGE_MAX_SIDE).
+ * Files no longer pass through this server, whose requests Vercel caps at ~4.5 MB
+ * (larger photos failed with 413).
  * Without Cloudinary credentials (local development) it answers direct: false and
  * the browser falls back to /api/admin/media/upload.
  */
@@ -18,7 +20,10 @@ export async function POST(request: Request) {
     if (!check.valid) {
       return NextResponse.json({ success: false, error: check.error }, { status: 400 })
     }
-    const signed = cloudinaryService.signUpload('zuulab-products')
+    // Photos are stored as WebP at a sensible size; vector and animated files as they are
+    const type = String(body.fileType || '').toLowerCase()
+    const optimize = type !== 'image/svg+xml' && type !== 'image/gif'
+    const signed = cloudinaryService.signUpload('zuulab-products', { optimize })
     if (!signed) return NextResponse.json({ success: true, direct: false })
     return NextResponse.json({ success: true, direct: true, ...signed })
   } catch (err) {

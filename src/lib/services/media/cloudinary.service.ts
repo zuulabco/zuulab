@@ -41,12 +41,30 @@ export const MAX_DIRECT_UPLOAD_BYTES = 20 * 1024 * 1024
 /** Formats Cloudinary accepts for a signed direct upload */
 const DIRECT_UPLOAD_FORMATS = 'jpg,jpeg,png,webp,gif,svg,avif'
 
+/**
+ * Longest side a stored photo keeps. The site's largest images (product page main
+ * photo at 55vw, full-width banners) need about this much on retina screens; the
+ * many-megapixel originals cameras and design tools export only made Cloudinary's
+ * first rendering of every size slow (≈1–2 s on a 17 MP PNG vs ≈0.3 s at this size).
+ */
+export const STORED_IMAGE_MAX_SIDE = 2560
+
+/**
+ * Applied by Cloudinary while it stores a raster upload (an incoming
+ * transformation): scaled down to STORED_IMAGE_MAX_SIDE, never up, at a visually
+ * lossless quality, then saved as WebP. One lossy encode, from the original.
+ */
+const STORED_IMAGE_TRANSFORMATION = `c_limit,h_${STORED_IMAGE_MAX_SIDE},w_${STORED_IMAGE_MAX_SIDE},q_auto:best,f_webp`
+
 export interface SignedUpload {
   cloudName: string
   apiKey: string
   timestamp: number
   folder: string
   allowedFormats: string
+  /** Set for raster images: stored as WebP, scaled by `transformation` */
+  format?: 'webp'
+  transformation?: string
   signature: string
 }
 
@@ -123,15 +141,34 @@ export class CloudinaryService {
   /**
    * Signature for one direct upload from the admin's browser to Cloudinary: the file
    * never passes through our server. Valid for Cloudinary's one-hour window, only for
-   * this folder and image formats. Null when Cloudinary is not configured.
+   * this folder and image formats. With `optimize` (every raster image) Cloudinary
+   * stores it as WebP scaled to STORED_IMAGE_MAX_SIDE; SVG and GIF (vector,
+   * animation) are kept as they are. Null when Cloudinary is not configured.
    */
-  signUpload(folder = 'zuulab-products'): SignedUpload | null {
+  signUpload(folder = 'zuulab-products', options: { optimize?: boolean } = {}): SignedUpload | null {
     if (!this.isConfigured) return null
     const timestamp = Math.round(Date.now() / 1000)
+    const params: Record<string, string> = {
+      allowed_formats: DIRECT_UPLOAD_FORMATS,
+      folder,
+      timestamp: String(timestamp),
+      ...(options.optimize ? { format: 'webp', transformation: STORED_IMAGE_TRANSFORMATION } : {}),
+    }
     // Cloudinary signs the parameters sorted by name, joined with &, plus the secret
-    const toSign = `allowed_formats=${DIRECT_UPLOAD_FORMATS}&folder=${folder}&timestamp=${timestamp}`
+    const toSign = Object.keys(params)
+      .sort()
+      .map((k) => `${k}=${params[k]}`)
+      .join('&')
     const signature = crypto.createHash('sha1').update(toSign + this.apiSecret).digest('hex')
-    return { cloudName: this.cloudName, apiKey: this.apiKey, timestamp, folder, allowedFormats: DIRECT_UPLOAD_FORMATS, signature }
+    return {
+      cloudName: this.cloudName,
+      apiKey: this.apiKey,
+      timestamp,
+      folder,
+      allowedFormats: DIRECT_UPLOAD_FORMATS,
+      ...(options.optimize ? { format: 'webp' as const, transformation: STORED_IMAGE_TRANSFORMATION } : {}),
+      signature,
+    }
   }
 
   /** True for an image this account serves: res.cloudinary.com/<our cloud>/image/upload/… */

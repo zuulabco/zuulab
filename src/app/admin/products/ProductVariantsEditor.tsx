@@ -153,7 +153,7 @@ function useUpload() {
   return useCallback(
     async (file: File): Promise<string | null> => {
       try {
-        return (await uploadAdminImage(file, token)).url
+        return (await uploadAdminImage(file, token, { usage: 'product' })).url
       } catch (err) {
         toast.error((err as Error).message || 'Görsel yüklenemedi.')
         return null

@@ -59,7 +59,7 @@ export default function ProductImagesEditor({
     setUploading(batch.length)
     for (const file of batch) {
       try {
-        const { url } = await uploadAdminImage(file, token)
+        const { url } = await uploadAdminImage(file, token, { usage: 'product' })
         add([url])
       } catch (err) {
         toast.error((err as Error).message || `${file.name} yüklenemedi.`)
