@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
@@ -11,6 +10,7 @@ import { formatPrice } from '@/lib/utils'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
 import { VariantsAndSizeCards } from '../ProductVariantsEditor'
+import ProductImagesEditor from '../ProductImagesEditor'
 import { SITE_URL } from '@/lib/config/urls'
 import styles from '../../admin.module.css'
 
@@ -23,8 +23,6 @@ export default function AdminEditProductPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Confirmation Modals State (UI-16 Global Modal)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
@@ -77,7 +75,7 @@ export default function AdminEditProductPage() {
   })
 
   // Media
-  const [imageUrl, setImageUrl] = useState('')
+  const [images, setImages] = useState<string[]>([])
 
   // Economics & Cost Profile
   const [economics, setEconomics] = useState<any>(null)
@@ -164,7 +162,11 @@ export default function AdminEditProductPage() {
           setIsBestSeller(!!p.isBestSeller)
           setStock(p.stock || 0)
           setLowStockThreshold(p.lowStockThreshold || 5)
-          setImageUrl(p.primaryImage?.url || p.images?.[0]?.url || '')
+          setImages(
+            (Array.isArray(p.images) ? p.images : [])
+              .map((i: { url?: string }) => i.url || '')
+              .filter((u: string) => u && u !== '/placeholder.png')
+          )
         } else {
           toast.error(data.error || 'Ürün yüklenemedi.')
         }
@@ -175,35 +177,6 @@ export default function AdminEditProductPage() {
     loadEconomics()
     loadProduction()
   }, [token, canFetch, id])
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !canFetch) return
-
-    setUploadingImage(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/admin/media/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
-      const data = await res.json()
-      if (data.success && data.url) {
-        setImageUrl(data.url)
-        toast.success('Görsel başarıyla yüklendi.')
-      } else {
-        toast.error(data.error || 'Görsel yüklenemedi.')
-      }
-    } catch {
-      toast.error('Görsel yüklenirken bağlantı hatası oluştu.')
-    } finally {
-      setUploadingImage(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
 
   const handleSaveCost = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -274,7 +247,8 @@ export default function AdminEditProductPage() {
           bestSeller: isBestSeller,
           barcode: barcode.trim() || null,
           lowStockThreshold: Number(lowStockThreshold),
-          imageUrl: imageUrl || null,
+          // Gallery in display order; the first photo is the cover
+          images: images.map((url) => ({ url })),
         }),
       })
 
@@ -944,63 +918,10 @@ export default function AdminEditProductPage() {
             </div>
           </div>
 
-          {/* Media & Image Upload Card */}
+          {/* Product photos: several, drag to reorder, first is the cover */}
           <div className={styles.formCard}>
-            <h2 className={styles.formCardTitle}>Ürün Görseli</h2>
-
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                height: 180,
-                backgroundColor: 'var(--surface-2)',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-                marginBottom: 12,
-                border: '1px solid var(--border)',
-              }}
-            >
-              {imageUrl ? (
-                <Image src={imageUrl} alt={name || 'Ürün görseli'} fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 320px" />
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>
-                  Görsel Yüklenmedi
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-              <button
-                type="button"
-                disabled={uploadingImage}
-                onClick={() => fileInputRef.current?.click()}
-                className={`${styles.btn} ${styles.btnSecondary}`}
-                style={{ width: '100%', fontSize: 12 }}
-              >
-                {uploadingImage ? 'Yükleniyor...' : 'Dosyadan Görsel Yükle'}
-              </button>
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel} style={{ fontSize: 11 }}>
-                  veya URL Giriniz:
-                </label>
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://... veya /images/..."
-                  className={styles.formInput}
-                  style={{ fontSize: 12 }}
-                />
-              </div>
-            </div>
+            <h2 className={styles.formCardTitle}>Ürün Görselleri</h2>
+            <ProductImagesEditor value={images} onChange={setImages} label={name} />
           </div>
 
           {/* Danger Zone Card */}

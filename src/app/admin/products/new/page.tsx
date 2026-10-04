@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { useAdminCatalogOptions } from '@/hooks/useAdminCatalogOptions'
 import { CategoryPicker, CollectionsPicker, MaterialPicker } from '../ProductFormPickers'
+import ProductImagesEditor from '../ProductImagesEditor'
 import { EMPTY_SIZE, EMPTY_VARIANTS, SizeEditor, VariantsEditor, saveSize, saveVariants, type SizeValue, type VariantsValue } from '../ProductVariantsEditor'
 import styles from '../../admin.module.css'
 import form from './NewProduct.module.css'
@@ -31,8 +31,6 @@ export default function AdminNewProductPage() {
   const { token, canFetch } = useAuthStore()
 
   const [loading, setLoading] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Basics
   const [name, setName] = useState('')
@@ -64,7 +62,7 @@ export default function AdminNewProductPage() {
   const [lowStockThreshold, setLowStockThreshold] = useState<number | ''>(5)
 
   // Media
-  const [imageUrl, setImageUrl] = useState('')
+  const [images, setImages] = useState<string[]>([])
 
   // Options (renk, boyut…) and measurements
   const [variants, setVariants] = useState<VariantsValue>(EMPTY_VARIANTS)
@@ -89,35 +87,6 @@ export default function AdminNewProductPage() {
 
   const toggleCollection = (colSlug: string) => {
     setSelectedCollections((prev) => (prev.includes(colSlug) ? prev.filter((s) => s !== colSlug) : [...prev, colSlug]))
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !canFetch) return
-
-    setUploadingImage(true)
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/admin/media/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
-      const data = await res.json()
-      if (data.success && data.url) {
-        setImageUrl(data.url)
-        toast.success('Görsel yüklendi.')
-      } else {
-        toast.error(data.error || 'Görsel yüklenemedi.')
-      }
-    } catch {
-      toast.error('Görsel yüklenirken bağlantı hatası oluştu.')
-    } finally {
-      setUploadingImage(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,7 +123,7 @@ export default function AdminNewProductPage() {
           bestSeller: isBestSeller,
           stock: Number(stock) || 0,
           lowStockThreshold: Number(lowStockThreshold) || 5,
-          imageUrl: imageUrl.trim() || null,
+          images: images.map((url) => ({ url })),
         }),
       })
 
@@ -280,38 +249,11 @@ export default function AdminNewProductPage() {
           </section>
 
           <section className={styles.formCard}>
-            <h2 className={styles.formCardTitle}>Görsel</h2>
-            <div className={form.media}>
-              <button
-                type="button"
-                className={form.dropzone}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
-                aria-label="Görsel yükle"
-              >
-                {imageUrl ? (
-                  <Image src={imageUrl} alt={name || 'Önizleme'} fill style={{ objectFit: 'cover' }} sizes="180px" />
-                ) : (
-                  <span>{uploadingImage ? 'Yükleniyor…' : 'Görsel seç'}</span>
-                )}
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} hidden />
-              <div className={form.stack}>
-                <p className={styles.formHelp} style={{ margin: 0 }}>
-                  Kare ya da 4:5 oranında, beyaz veya sade zeminli fotoğraflar kartlarda en iyi görünür.
-                </p>
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel} htmlFor="new-img-url">veya görsel adresi</label>
-                  <input
-                    id="new-img-url"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://…"
-                    className={styles.formInput}
-                  />
-                </div>
-              </div>
-            </div>
+            <h2 className={styles.formCardTitle}>Görseller</h2>
+            <p className={styles.formHelp} style={{ margin: '0 0 10px' }}>
+              Kare ya da 4:5 oranında, beyaz veya sade zeminli fotoğraflar kartlarda en iyi görünür.
+            </p>
+            <ProductImagesEditor value={images} onChange={setImages} label={name} />
           </section>
 
           <section className={styles.formCard}>

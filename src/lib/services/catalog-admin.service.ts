@@ -71,6 +71,25 @@ export type AdminProduct = CatalogProduct & {
   primaryImage: { url: string; alt: string; isPrimary: boolean }
 }
 
+/** Most photos one product keeps (the product page gallery) */
+export const MAX_PRODUCT_IMAGES = 12
+
+/** A product's photos from the admin form: trimmed, without blanks, repeats or the placeholder */
+export function cleanImageList(images: Array<{ url: string; alt?: string }>): Array<{ url: string; alt?: string }> {
+  if (!Array.isArray(images)) throw new CatalogValidationError('Görsel listesi geçersiz.')
+  const seen = new Set<string>()
+  const out: Array<{ url: string; alt?: string }> = []
+  for (const img of images) {
+    const url = typeof img?.url === 'string' ? img.url.trim() : ''
+    if (!url || url === '/placeholder.png' || seen.has(url)) continue
+    if (!/^(https:\/\/|\/)/.test(url) || url.length > 1000) throw new CatalogValidationError(`Geçersiz görsel adresi: ${url.slice(0, 80)}`)
+    seen.add(url)
+    out.push({ url, alt: typeof img.alt === 'string' ? img.alt.slice(0, 200) : undefined })
+  }
+  if (out.length > MAX_PRODUCT_IMAGES) throw new CatalogValidationError(`Bir ürüne en fazla ${MAX_PRODUCT_IMAGES} görsel eklenebilir.`)
+  return out
+}
+
 class CatalogValidationError extends Error {
   statusCode = 400
   isValidation = true
@@ -376,16 +395,16 @@ export async function adminCreateProduct(payload: AdminProductPayload, adminEmai
     } as never)
 
     const images = payload.images?.length
-      ? payload.images
+      ? cleanImageList(payload.images)
       : payload.imageUrl
-        ? [{ url: payload.imageUrl, isPrimary: true }]
+        ? cleanImageList([{ url: payload.imageUrl }])
         : []
     for (let i = 0; i < images.length; i++) {
       await tx.orm.public.ProductImage.create({
         productId: id,
         url: images[i].url,
         alt: images[i].alt || payload.name,
-        isPrimary: images[i].isPrimary ?? i === 0,
+        isPrimary: i === 0,
         sortOrder: i,
         type: 'PRODUCT',
       })
@@ -506,7 +525,24 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
     await syncProductCollections(id, collectionIds)
   }
 
-  if (payload.imageUrl) {
+  if (payload.images !== undefined) {
+    // The full gallery in display order: the first photo is the cover
+    const images = cleanImageList(payload.images)
+    const alt = payload.name || existing.name
+    await db.transaction(async (tx) => {
+      await tx.orm.public.ProductImage.where({ productId: id }).delete()
+      for (let i = 0; i < images.length; i++) {
+        await tx.orm.public.ProductImage.create({
+          productId: id,
+          url: images[i].url,
+          alt: images[i].alt || alt,
+          isPrimary: i === 0,
+          sortOrder: i,
+          type: 'PRODUCT',
+        })
+      }
+    })
+  } else if (payload.imageUrl) {
     const primary = await db.orm.public.ProductImage.where({ productId: id, isPrimary: true }).first()
     if (primary) {
       await db.orm.public.ProductImage.where({ id: primary.id }).update({ url: payload.imageUrl })
