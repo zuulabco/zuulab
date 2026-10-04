@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/services/auth.service'
 import { getAllOrders } from '@/lib/services/orders.service'
 import { adminGetProducts } from '@/lib/services/catalog-admin.service'
-import { adminGetCustomers } from '@/lib/services/customers-admin.service'
 
 export async function GET(request: Request) {
   try {
@@ -12,21 +11,20 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const q = (searchParams.get('q') || '').trim().toLowerCase()
+    // As typed: the services lower-case it themselves (toLowerCase would break 'İ')
+    const q = (searchParams.get('q') || '').trim()
 
     if (!q || q.length < 2) {
       return NextResponse.json({
         success: true,
         orders: [],
         products: [],
-        customers: [],
       })
     }
 
-    const [allOrders, productsRes, allCustomers] = await Promise.all([
+    const [allOrders, productsRes] = await Promise.all([
       getAllOrders({ search: q, limit: 5 }),
       adminGetProducts({ search: q, limit: 5 }),
-      adminGetCustomers({ search: q }),
     ])
 
     return NextResponse.json({
@@ -43,12 +41,6 @@ export async function GET(request: Request) {
         sku: p.sku,
         price: p.price,
         stock: p.stock,
-      })),
-      customers: allCustomers.slice(0, 5).map((c) => ({
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        orderCount: c.orderCount,
       })),
     })
   } catch (error: any) {

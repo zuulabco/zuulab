@@ -70,12 +70,14 @@ export const useCartStore = create<CartState>()(
         trackItems('add_to_cart', [
           { id: productId, sku: newItem.sku, name: newItem.name, price: newItem.price, quantity, variant: newItem.variantLabel },
         ])
+        // Every add opens the cart drawer so the customer sees what is in the cart
         set((state) => {
           const existing = state.items.find(
             (i) => i.productId === productId && i.variantId === variantId
           )
           if (existing) {
             return {
+              isDrawerOpen: true,
               items: state.items.map((i) =>
                 i.productId === productId && i.variantId === variantId
                   ? {
@@ -90,6 +92,7 @@ export const useCartStore = create<CartState>()(
             }
           }
           return {
+            isDrawerOpen: true,
             items: [
               ...state.items,
               { ...newItem, variantId, quantity },

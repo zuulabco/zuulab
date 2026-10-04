@@ -7,6 +7,7 @@ import { getShippingProvider } from './shipping-provider.factory'
 import { verifyCarrierWebhook } from './webhook-signature'
 import { createNotification } from '../notification/notification.service'
 import { markCashOnDeliveryCollected } from '../payment/payment.service'
+import { carrierDisplayName, MANUAL_CARRIER, suratTrackingUrl } from '@/lib/constants/carriers'
 import type {
   StoredShipment,
   ShipmentStatus,
@@ -355,13 +356,87 @@ async function _executeCreateShipment(params: {
     orderNumber: order.orderNumber,
     eventType: 'SHIPMENT_CREATED',
     metadata: {
-      carrier: provider.providerName,
+      carrier: carrierDisplayName(provider.providerName),
       trackingNumber: newShipment.trackingNumber,
       trackingUrl: newShipment.trackingUrl,
     },
   }).catch(() => {})
 
   return newShipment
+}
+
+/** Shipments recorded by hand (Sürat Kargo): no carrier API behind them */
+const MANUAL_PREFIX = 'manual:'
+function isManualShipment(shipment: StoredShipment): boolean {
+  return shipment.providerShipmentId.startsWith(MANUAL_PREFIX)
+}
+
+/**
+ * Card and havale orders go with Sürat Kargo: the admin hands the parcel in and enters
+ * the tracking number. The shipment is recorded as shipped and the order moves to
+ * SHIPPED, which mails the customer the carrier and tracking number.
+ */
+export async function recordManualShipment(params: {
+  orderNumber: string
+  trackingNumber: string
+  requestedBy?: string
+}): Promise<StoredShipment> {
+  const trackingNumber = params.trackingNumber.trim().replace(/\s+/g, '')
+  if (!/^[A-Za-z0-9-]{6,40}$/.test(trackingNumber)) throw new Error('Geçerli bir takip numarası girin.')
+
+  const order = await getOrderByNumber(params.orderNumber, undefined, true)
+  if (!order) throw new Error(`Sipariş bulunamadı: #${params.orderNumber}`)
+  if (order.paymentMethod === 'CASH_ON_DELIVERY') {
+    throw new Error('Kapıda ödemeli sipariş PTT Kargo (Geliver) ile gönderilir; "Kargoya Hazırla" ile etiket oluşturun.')
+  }
+  if (!['CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED'].includes(order.status)) {
+    throw new Error(`Bu durumdaki sipariş kargoya verilemez. (Durum: ${order.status})`)
+  }
+  if (!isDatabaseConfigured) throw new Error('DATABASE_CONFIGURATION_ERROR: DATABASE_URL must be configured.')
+
+  const provider = MANUAL_CARRIER
+  const trackingUrl = suratTrackingUrl(trackingNumber)
+  const now = new Date()
+  const fields = {
+    providerShipmentId: `${MANUAL_PREFIX}${trackingNumber}`,
+    trackingNumber,
+    trackingUrl,
+    status: 'PICKED_UP' as const,
+    labelData: null,
+    labelFormat: null,
+    shippedAt: toDbTimestamp(now) as never,
+    deliveredAt: null,
+    cancelledAt: null,
+    updatedAt: toDbTimestamp(now) as never,
+  }
+  const previous = await db.orm.public.Shipment.where({ orderId: order.id, provider }).first()
+  let shipmentId: string
+  if (previous) {
+    await db.orm.public.Shipment.where({ id: previous.id }).update(fields as never)
+    shipmentId = previous.id
+  } else {
+    const created = await db.orm.public.Shipment.create({ orderId: order.id, provider, webhookDedupeKeys: [], ...fields } as never)
+    shipmentId = (created as { id: string }).id
+  }
+  await addShipmentEvents(shipmentId, [
+    { status: 'SHIPPED', description: `${carrierDisplayName(provider)} kargoya verildi (takip no: ${trackingNumber}).`, location: 'ZUULAB Atölye', eventAt: now },
+  ])
+
+  if (order.status !== 'SHIPPED') {
+    const moved = await updateOrderStatus(order.orderNumber, 'SHIPPED', `${carrierDisplayName(provider)} ile kargoya verildi: ${trackingNumber}`, params.requestedBy || 'admin')
+    if (!moved.success) throw new Error(moved.error || 'Sipariş durumu güncellenemedi.')
+  }
+
+  await logAuditEvent({
+    action: 'SHIPMENT_CREATED',
+    entity: 'Shipment',
+    entityId: shipmentId,
+    metadata: { orderNumber: order.orderNumber, provider, trackingNumber, manual: true, requestedBy: params.requestedBy },
+  }).catch(() => {})
+
+  const saved = await shipmentQuery().where({ id: shipmentId }).first()
+  if (!saved) throw new Error('Kargo kaydı oluşturuldu ancak okunamadı.')
+  return mapDbShipmentToInterface(saved, order.orderNumber)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -384,6 +459,21 @@ export async function getTrackingInfo(params: {
 
   const shipment = await _findShipmentByOrderId(order.id, order.orderNumber)
   if (!shipment) throw new Error('Bu sipariş için henüz kargo kaydı oluşturulmamış.')
+
+  // Hand-entered Sürat shipments have no tracking API: what is stored is all there is
+  if (isManualShipment(shipment)) {
+    return {
+      shipment,
+      tracking: {
+        providerShipmentId: shipment.providerShipmentId,
+        trackingNumber: shipment.trackingNumber,
+        trackingUrl: shipment.trackingUrl,
+        status: shipment.status,
+        lastEventAt: shipment.updatedAt,
+        events: [],
+      },
+    }
+  }
 
   const provider = getShippingProvider(shipment.provider)
   const tracking = await provider.getTracking(shipment.providerShipmentId || shipment.trackingNumber)
@@ -442,7 +532,7 @@ export async function getTrackingInfo(params: {
       createNotification({
         orderNumber: order.orderNumber,
         eventType: 'OUT_FOR_DELIVERY',
-        metadata: { carrier: shipment.provider, trackingNumber: shipment.trackingNumber },
+        metadata: { carrier: carrierDisplayName(shipment.provider), trackingNumber: shipment.trackingNumber },
       }).catch(() => {})
     }
 
@@ -520,8 +610,10 @@ export async function cancelShipmentForOrder(params: {
   if (shipment.status === 'DELIVERED') throw new Error('Teslim edilmiş kargo iptal edilemez.')
   if (shipment.status === 'CANCELLED') return shipment
 
-  const provider = getShippingProvider(shipment.provider)
-  await provider.cancelShipment(shipment.providerShipmentId || shipment.trackingNumber)
+  if (!isManualShipment(shipment)) {
+    const provider = getShippingProvider(shipment.provider)
+    await provider.cancelShipment(shipment.providerShipmentId || shipment.trackingNumber)
+  }
 
   const now = new Date()
 
@@ -668,7 +760,7 @@ export async function applyShipmentUpdate(
         await updateOrderStatus(order.orderNumber, 'SHIPPED', `Kargo yola çıktı: ${update.trackingNumber || shipment.trackingNumber}`, 'carrier-webhook').catch(() => {})
       }
     } else if (update.status === 'OUT_FOR_DELIVERY') {
-      createNotification({ orderNumber: order.orderNumber, eventType: 'OUT_FOR_DELIVERY', metadata: { carrier: shipment.provider, trackingNumber: shipment.trackingNumber } }).catch(() => {})
+      createNotification({ orderNumber: order.orderNumber, eventType: 'OUT_FOR_DELIVERY', metadata: { carrier: carrierDisplayName(shipment.provider), trackingNumber: shipment.trackingNumber } }).catch(() => {})
     } else if (update.status === 'DELIVERED') {
       if (order.paymentMethod === 'CASH_ON_DELIVERY') {
         // PTT collected the order total at the door

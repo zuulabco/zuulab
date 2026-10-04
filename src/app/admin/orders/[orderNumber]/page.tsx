@@ -14,6 +14,7 @@ import {
   getShipmentStatusConfig,
   getInvoiceStatusConfig,
 } from '@/lib/constants/admin-status'
+import { carrierDisplayName } from '@/lib/constants/carriers'
 import styles from '../../admin.module.css'
 import { SkeletonPage } from '@/components/common/Skeleton'
 
@@ -30,10 +31,10 @@ export default function AdminOrderDetailPage() {
   const [newNote, setNewNote] = useState('')
   const [addingNote, setAddingNote] = useState(false)
 
-  // Tracking & Shipping Provider State
+  // Sürat Kargo tracking number entered by hand
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [shippingProvider, setShippingProvider] = useState('YURTICI_KARGO')
   const [updatingShipping, setUpdatingShipping] = useState(false)
+  const [downloadingLabel, setDownloadingLabel] = useState(false)
 
   // Invoice State
   const [invoice, setInvoice] = useState<any>(null)
@@ -60,6 +61,10 @@ export default function AdminOrderDetailPage() {
   const [showCancelShipmentModal, setShowCancelShipmentModal] = useState(false)
   const [cancelShipmentReason, setCancelShipmentReason] = useState('Müşteri talebiyle iptal')
 
+  const [showCancelOrderModal, setShowCancelOrderModal] = useState(false)
+  const [cancelOrderReason, setCancelOrderReason] = useState('')
+  const [cancellingOrder, setCancellingOrder] = useState(false)
+
   const loadOrder = useCallback(() => {
     if (!canFetch || !orderNumber) return
     setLoading(true)
@@ -71,8 +76,6 @@ export default function AdminOrderDetailPage() {
       .then((data) => {
         if (data.success && data.order) {
           setOrder(data.order)
-          setTrackingNumber(data.order.shippingTrackingNumber || '')
-          setShippingProvider(data.order.shippingProvider || 'YURTICI_KARGO')
         } else {
           setError(data.error || 'Sipariş detayları alınamadı.')
         }
@@ -108,7 +111,6 @@ export default function AdminOrderDetailPage() {
         if (data.success && data.shipment) {
           setShipment(data.shipment)
           setTrackingNumber(data.shipment.trackingNumber || '')
-          setShippingProvider(data.shipment.provider || 'YURTICI_KARGO')
         }
       })
       .catch((err) => console.error(err))
@@ -329,17 +331,18 @@ export default function AdminOrderDetailPage() {
     if (!canFetch) return
     setUpdatingShipping(true)
     try {
-      const res = await fetch(`/api/orders/${orderNumber}/shipping`, {
+      const res = await fetch(`/api/admin/orders/${orderNumber}/shipping/manual`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ trackingNumber, provider: shippingProvider }),
+        body: JSON.stringify({ trackingNumber }),
       })
       const data = await res.json()
       if (data.success) {
-        toast.success('Kargo takip numarası kaydedildi.')
+        setShipment(data.shipment)
+        toast.success('Sipariş Sürat Kargo ile kargoya verildi; müşteriye takip numarası gönderildi.')
         loadOrder()
       } else {
         toast.error(data.error || 'Kargo bilgisi kaydedilemedi.')
@@ -348,6 +351,72 @@ export default function AdminOrderDetailPage() {
       toast.error('Kargo bilgisi kaydedilirken hata oluştu.')
     } finally {
       setUpdatingShipping(false)
+    }
+  }
+
+  // Geliver PTT label (PDF), opened in a new tab for printing
+  const handleDownloadLabel = async () => {
+    if (!canFetch) return
+    // Opened before the await so the popup is not blocked
+    const win = window.open('', '_blank')
+    setDownloadingLabel(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderNumber}/shipping/label`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok || !res.headers.get('content-type')?.includes('pdf')) {
+        const data = await res.json().catch(() => ({}))
+        win?.close()
+        toast.error(data.error || 'Kargo etiketi alınamadı.')
+        return
+      }
+      const url = URL.createObjectURL(await res.blob())
+      if (win) win.location.href = url
+      else window.location.href = url
+    } catch {
+      win?.close()
+      toast.error('Kargo etiketi indirilirken bağlantı hatası oluştu.')
+    } finally {
+      setDownloadingLabel(false)
+    }
+  }
+
+  // Cancel the order; an open shipment is cancelled with the carrier first
+  const confirmCancelOrder = async () => {
+    if (!canFetch) return
+    setCancellingOrder(true)
+    try {
+      if (shipment && shipment.status !== 'CANCELLED') {
+        const res = await fetch(`/api/admin/orders/${orderNumber}/shipping/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ reason: 'Sipariş iptal edildi.' }),
+        })
+        const data = await res.json()
+        if (!data.success) {
+          toast.error(`Kargo kaydı iptal edilemedi, sipariş iptal edilmedi: ${data.error || ''}`)
+          return
+        }
+        setShipment(data.shipment)
+      }
+      const res = await fetch(`/api/orders/${orderNumber}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: 'CANCELLED', note: cancelOrderReason.trim() || 'Yönetici panelinden iptal edildi.' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Sipariş iptal edildi; stok geri alındı ve müşteriye bilgi verildi.')
+        setShowCancelOrderModal(false)
+        setCancelOrderReason('')
+        loadOrder()
+      } else {
+        toast.error(data.error || 'Sipariş iptal edilemedi.')
+      }
+    } catch {
+      toast.error('İptal sırasında bağlantı hatası oluştu.')
+    } finally {
+      setCancellingOrder(false)
     }
   }
 
@@ -429,6 +498,11 @@ export default function AdminOrderDetailPage() {
   const paymentStatusCfg = getPaymentStatusConfig(order.paymentStatus)
   const shipmentStatusCfg = getShipmentStatusConfig(shipment?.status || order.fulfillmentStatus)
   const invoiceStatusCfg = getInvoiceStatusConfig(invoice?.status || 'PENDING')
+  // Kapıda ödeme ships PTT Kargo through Geliver; card and havale ship Sürat Kargo by hand
+  const isCod = order.paymentMethod === 'CASH_ON_DELIVERY'
+  const activeShipment = shipment && shipment.status !== 'CANCELLED' ? shipment : null
+  const canShip = ['CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING'].includes(order.status)
+  const canCancelOrder = ['PAYMENT_PENDING', 'PAYMENT_FAILED', 'PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING'].includes(order.status)
 
   return (
     <div className={styles.pageContainer} style={{ maxWidth: 1160 }}>
@@ -478,14 +552,25 @@ export default function AdminOrderDetailPage() {
             Durumu Güncelle
           </button>
 
-          {!shipment && (
+          {isCod && !activeShipment && canShip && (
             <button
               type="button"
               disabled={creatingShipment}
               onClick={handleCreateShipment}
               className={`${styles.btn} ${styles.btnSecondary}`}
             >
-              {creatingShipment ? 'Hazırlanıyor...' : 'Kargo Sevk Kaydı Aç'}
+              {creatingShipment ? 'Etiket oluşturuluyor...' : 'Kargoya Hazırla (PTT etiketi)'}
+            </button>
+          )}
+
+          {activeShipment?.provider === 'GELIVER' && (
+            <button
+              type="button"
+              disabled={downloadingLabel}
+              onClick={handleDownloadLabel}
+              className={`${styles.btn} ${styles.btnSecondary}`}
+            >
+              {downloadingLabel ? 'Etiket açılıyor...' : 'Kargo Etiketini Yazdır'}
             </button>
           )}
 
@@ -497,6 +582,16 @@ export default function AdminOrderDetailPage() {
               className={`${styles.btn} ${styles.btnSecondary}`}
             >
               {creatingInvoice ? 'Kesiliyor...' : 'e-Fatura Oluştur'}
+            </button>
+          )}
+
+          {canCancelOrder && (
+            <button
+              type="button"
+              onClick={() => setShowCancelOrderModal(true)}
+              className={`${styles.btn} ${styles.btnDanger}`}
+            >
+              Siparişi İptal Et
             </button>
           )}
         </div>
@@ -586,73 +681,119 @@ export default function AdminOrderDetailPage() {
           <div className={styles.formCard}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h2 className={styles.formCardTitle} style={{ borderBottom: 'none', margin: 0, padding: 0 }}>
-                Kargo & Sevkiyat Yönetimi
+                Kargo · {isCod ? 'PTT Kargo (kapıda ödeme, Geliver)' : 'Sürat Kargo'}
               </h2>
               <span className={`${styles.badge} ${styles[shipmentStatusCfg.badgeClass] || styles.badgeNeutral}`}>
                 {shipmentStatusCfg.label}
               </span>
             </div>
 
-            {shipment ? (
+            {activeShipment ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, background: 'var(--surface-1)', padding: 12, borderRadius: 'var(--radius-sm)' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Taşıyıcı Kargo Firması</div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{shipment.carrier || shipment.provider}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Kargo Firması</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {carrierDisplayName(activeShipment.provider)}
+                      {activeShipment.provider === 'GELIVER' && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> · Geliver</span>}
+                    </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Takip Numarası</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {activeShipment.provider === 'GELIVER' ? 'Barkod / Takip No' : 'Takip Numarası'}
+                    </div>
                     <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--zuu-blue)' }}>
-                      {shipment.trackingNumber || '—'}
+                      {activeShipment.trackingNumber || '—'}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Gönderi Durumu</div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{shipment.status}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{shipmentStatusCfg.label}</div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    disabled={syncingShipment}
-                    onClick={handleSyncShipment}
-                    className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
-                  >
-                    {syncingShipment ? 'Eşitleniyor...' : 'Kargo Takip Eşitle'}
-                  </button>
+                {activeShipment.provider === 'GELIVER' && activeShipment.status === 'LABEL_CREATED' && (
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                    PTT etiketi Geliver&apos;de oluşturuldu. Etiketi yazdırıp paketin üzerine yapıştır ve paketi PTT&apos;ye teslim et;
+                    PTT paketi kabul edince sipariş otomatik olarak &quot;Kargoya Verildi&quot; olur. Tahsilat ({formatPrice(order.totalAmount)}) teslimatta PTT tarafından yapılır.
+                  </p>
+                )}
 
-                  {shipment.trackingUrl && (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {activeShipment.provider === 'GELIVER' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={downloadingLabel}
+                        onClick={handleDownloadLabel}
+                        className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}
+                      >
+                        {downloadingLabel ? 'Etiket açılıyor...' : 'Kargo Etiketini Yazdır (PDF)'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={syncingShipment}
+                        onClick={handleSyncShipment}
+                        className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
+                      >
+                        {syncingShipment ? 'Eşitleniyor...' : 'Kargo Durumunu Güncelle'}
+                      </button>
+                    </>
+                  )}
+
+                  {activeShipment.trackingUrl && (
                     <a
-                      href={shipment.trackingUrl}
+                      href={activeShipment.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
                     >
-                      ↗ Taşıyıcı Sayfasında Gör
+                      ↗ {carrierDisplayName(activeShipment.provider)} Takip Sayfası
                     </a>
                   )}
 
-                  {shipment.status !== 'CANCELLED' && shipment.status !== 'DELIVERED' && (
+                  {activeShipment.status !== 'DELIVERED' && (
                     <button
                       type="button"
                       onClick={() => setShowCancelShipmentModal(true)}
                       className={`${styles.btn} ${styles.btnSm} ${styles.btnDanger}`}
                     >
-                      Kargo Gönderisini İptal Et
+                      Kargo Kaydını İptal Et
                     </button>
+                  )}
+                </div>
+              </div>
+            ) : isCod ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                  Kapıda ödemeli sipariş PTT Kargo ile gider. &quot;Kargoya Hazırla&quot; Geliver&apos;de kapıda ödemeli ({formatPrice(order.totalAmount)}) PTT gönderisini açar
+                  ve etiketi oluşturur; gönderi ancak bundan sonra Geliver panelinde görünür.
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    disabled={creatingShipment || !canShip}
+                    onClick={handleCreateShipment}
+                    className={`${styles.btn} ${styles.btnPrimary}`}
+                  >
+                    {creatingShipment ? 'Etiket oluşturuluyor...' : 'Kargoya Hazırla – PTT Etiketi Oluştur'}
+                  </button>
+                  {!canShip && (
+                    <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+                      Bu durumdaki sipariş için etiket oluşturulamaz.
+                    </span>
                   )}
                 </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                  Bu sipariş için henüz resmi bir Yurtiçi Kargo sevk kaydı oluşturulmadı.
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                  Paketi Sürat Kargo&apos;ya teslim ettikten sonra takip numarasını gir. Sipariş &quot;Kargoya Verildi&quot; olur ve müşteriye takip bağlantısıyla e-posta gider.
                 </p>
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                   <div className={styles.formGroup} style={{ flex: 1, minWidth: 200 }}>
-                    <label className={styles.formLabel}>Manuel Takip Numarası Girin:</label>
+                    <label className={styles.formLabel}>Sürat Kargo Takip Numarası</label>
                     <input
                       type="text"
                       placeholder="Örn: 139847192837"
@@ -665,22 +806,18 @@ export default function AdminOrderDetailPage() {
 
                   <button
                     type="button"
-                    disabled={updatingShipping}
+                    disabled={updatingShipping || !canShip || !trackingNumber.trim()}
                     onClick={handleSaveShipping}
-                    className={`${styles.btn} ${styles.btnSecondary}`}
-                  >
-                    {updatingShipping ? 'Kaydediliyor...' : 'Kaydet'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={creatingShipment}
-                    onClick={handleCreateShipment}
                     className={`${styles.btn} ${styles.btnPrimary}`}
                   >
-                    {creatingShipment ? 'Oluşturuluyor...' : '+ Otomatik Kargo Kaydı Aç'}
+                    {updatingShipping ? 'Kaydediliyor...' : 'Kargoya Verildi Olarak Kaydet'}
                   </button>
                 </div>
+                {!canShip && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {order.status === 'PAYMENT_PENDING' ? 'Ödeme onaylanınca kargoya verilebilir.' : 'Bu durumdaki sipariş kargoya verilemez.'}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -835,7 +972,7 @@ export default function AdminOrderDetailPage() {
               </div>
               {order.discountAmount > 0 && (
                 <div className={styles.summaryRow} style={{ color: '#059669' }}>
-                  <span>Kupon İndirimi:</span>
+                  <span>İndirim (kampanya, kupon, havale):</span>
                   <span style={{ fontVariantNumeric: 'tabular-nums' }}>-{formatPrice(order.discountAmount)}</span>
                 </div>
               )}
@@ -1011,6 +1148,55 @@ export default function AdminOrderDetailPage() {
               disabled={statusUpdating}
             >
               {statusUpdating ? 'Güncelleniyor...' : 'Onayla ve Güncelle'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Cancel Order Confirmation ── */}
+      <Modal
+        isOpen={showCancelOrderModal}
+        onClose={() => setShowCancelOrderModal(false)}
+        ariaLabel="Sipariş İptal Onayı"
+        maxWidth={480}
+      >
+        <div style={{ padding: '8px 4px' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', color: '#dc2626' }}>
+            Siparişi İptal Et
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px' }}>
+            #{order.orderNumber} iptal edilecek: ayrılan stok geri alınır ve müşteriye iptal e-postası gider.
+            {activeShipment && ` Açık kargo kaydı (${carrierDisplayName(activeShipment.provider)}) de iptal edilir.`}
+            {order.paidAt && ' Ödeme alınmış: iadeyi PayTR / banka üzerinden ayrıca yapman gerekir.'}
+          </p>
+
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>İptal Gerekçesi (müşteriye gider)</label>
+            <input
+              type="text"
+              placeholder="Örn: Ürün stokta kalmadı."
+              value={cancelOrderReason}
+              onChange={(e) => setCancelOrderReason(e.target.value)}
+              className={styles.formInput}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={() => setShowCancelOrderModal(false)}
+              disabled={cancellingOrder}
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              onClick={confirmCancelOrder}
+              disabled={cancellingOrder}
+            >
+              {cancellingOrder ? 'İptal Ediliyor...' : 'Evet, Siparişi İptal Et'}
             </button>
           </div>
         </div>

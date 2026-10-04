@@ -122,6 +122,8 @@ export default function ProductDetailsClient({ product }: Props) {
 
   const handleBuyNow = () => {
     handleAddToCart()
+    // Going to the cart page anyway: no drawer on top of it
+    useCartStore.getState().closeDrawer()
     router.push('/sepet')
   }
 

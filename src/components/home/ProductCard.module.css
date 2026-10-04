@@ -395,10 +395,6 @@
   animation: saleScroll 9s linear infinite;
 }
 
-.card:hover .saleTrack {
-  animation-play-state: paused;
-}
-
 .saleHalf {
   display: flex;
   flex-shrink: 0;

@@ -8,6 +8,9 @@
 
 export const DEFAULT_VAT_RATE = 20
 
+/** Havale/EFT orders get this much off the products (after campaign and coupon) */
+export const BANK_TRANSFER_DISCOUNT_RATE = 0.04
+
 export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }

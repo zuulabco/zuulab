@@ -1,12 +1,13 @@
 import 'server-only'
 import { db } from '@/prisma/db'
-import { DEFAULT_VAT_RATE, orderVat, round2 } from '@/lib/pricing/money'
+import { BANK_TRANSFER_DISCOUNT_RATE, DEFAULT_VAT_RATE, orderVat, round2 } from '@/lib/pricing/money'
 import { calculateShipping, shippingMethodFromSettings } from '../shipping.service'
 import { getStoreSettings } from '../settings/store-settings.service'
 import { couponProductDiscount, resolveCoupon, type ApplicableCoupon } from '../coupons.service'
 import { resolveCartCampaigns, type AppliedCampaign } from '../campaigns.service'
 
 export type ShippingMethodId = 'STANDARD' | 'EXPRESS'
+export type QuotePaymentMethod = 'CARD' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
 
 export interface CartItemInput {
   productId: string
@@ -46,6 +47,10 @@ export interface CartQuote {
   campaignDiscount: number
   /** Money off from the coupon */
   couponDiscount: number
+  /** Money off for paying by havale/EFT */
+  bankTransferDiscount: number
+  /** The payment method this quote was priced for */
+  paymentMethod: QuotePaymentMethod
   /** The campaign behind `campaignDiscount`, or a free-shipping campaign */
   campaign: AppliedCampaign | null
   shippingMethod: ShippingMethodId
@@ -80,6 +85,8 @@ export async function quoteCart(params: {
    * a guest typing a member's e-mail even carries that member's id.
    */
   memberUserId?: string | null
+  /** Havale/EFT takes BANK_TRANSFER_DISCOUNT_RATE off */
+  paymentMethod?: QuotePaymentMethod
 }): Promise<CartQuote> {
   // One delivery method; 'EXPRESS' from older carts is treated as standard
   const shippingMethod: ShippingMethodId = 'STANDARD'
@@ -186,7 +193,11 @@ export async function quoteCart(params: {
   })
   const campaignDiscount = campaigns.discount
   const couponDiscount = coupon ? couponProductDiscount(coupon, round2(subtotal - campaignDiscount)) : 0
-  const discountAmount = round2(Math.min(subtotal, campaignDiscount + couponDiscount))
+  const bankTransferDiscount =
+    params.paymentMethod === 'BANK_TRANSFER'
+      ? round2(Math.max(0, subtotal - campaignDiscount - couponDiscount) * BANK_TRANSFER_DISCOUNT_RATE)
+      : 0
+  const discountAmount = round2(Math.min(subtotal, campaignDiscount + couponDiscount + bankTransferDiscount))
   const settings = await getStoreSettings()
   const freeShippingThreshold = settings.freeShippingThreshold
   const shipping = calculateShipping(
@@ -205,6 +216,8 @@ export async function quoteCart(params: {
     discountAmount,
     campaignDiscount,
     couponDiscount,
+    bankTransferDiscount,
+    paymentMethod: params.paymentMethod ?? 'CARD',
     campaign: campaigns.discountCampaign ?? campaigns.freeShippingCampaign,
     shippingMethod,
     shippingAmount,

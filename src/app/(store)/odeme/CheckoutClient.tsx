@@ -19,6 +19,7 @@ import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
+import { BANK_TRANSFER_DISCOUNT_RATE } from '@/lib/pricing/money'
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
@@ -36,7 +37,7 @@ const PAYMENT_OPTIONS = [
   {
     id: 'BANK_TRANSFER' as const,
     name: 'Havale / EFT',
-    description: 'Banka hesabımıza gönderim · 48 saat içinde ödeme',
+    description: `Banka hesabımıza gönderim · 48 saat içinde ödeme · %${BANK_TRANSFER_DISCOUNT_RATE * 100} indirim`,
     note: BANK_ACCOUNT.bank,
   },
   {
@@ -107,7 +108,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
     loading: quoteLoading,
     error: quoteError,
     refresh: refreshQuote,
-  } = useCartQuote({ items, couponCode: coupon?.code, shippingMethod }, { enabled: items.length > 0 })
+  } = useCartQuote({ items, couponCode: coupon?.code, shippingMethod, paymentMethod }, { enabled: items.length > 0 })
 
   // One id per checkout attempt: a double click or network retry reuses it and gets
   // the same order back; it is renewed when the server rejects the attempt.
@@ -303,13 +304,21 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
   // Coupon part only; an automatic campaign discount has its own row
   const discount = quote ? (quote.couponDiscount ?? quote.discountAmount) : discountAmount
   const campaignDiscount = quote?.campaignDiscount ?? 0
+  const quoteForMethod = quote?.paymentMethod === paymentMethod
+  // Havale/EFT discount: from the quote once it is priced for havale, estimated until then
+  const bankTransferDiscount =
+    paymentMethod !== 'BANK_TRANSFER'
+      ? 0
+      : quoteForMethod
+        ? (quote?.bankTransferDiscount ?? 0)
+        : Math.round(Math.max(0, sub - discount - campaignDiscount) * BANK_TRANSFER_DISCOUNT_RATE * 100) / 100
   const isFreeShipCoupon = (quote ? quote.coupon?.type : coupon?.type) === 'FREE_SHIPPING'
   const threshold = quote?.freeShippingThreshold ?? freeShippingThreshold
   // Per-method prices for the option cards; the selected method's fee comes from the quote.
   const shippingCalc = calculateShipping(sub, isFreeShipCoupon, threshold, shippingConfig.method)
-  const quoteIsCurrent = Boolean(quote) && !quoteLoading && quote?.shippingMethod === shippingMethod
+  const quoteIsCurrent = Boolean(quote) && !quoteLoading && quote?.shippingMethod === shippingMethod && quoteForMethod
   const effectiveShipping = quoteIsCurrent ? quote!.shippingAmount : shippingCalc.shippingFee
-  const grandTotal = quoteIsCurrent ? quote!.total : Math.max(0, sub - discount - campaignDiscount + effectiveShipping)
+  const grandTotal = quoteIsCurrent ? quote!.total : Math.max(0, sub - discount - campaignDiscount - bankTransferDiscount + effectiveShipping)
   const remainingForFree = quote?.remainingForFreeShipping ?? shippingCalc.remainingForFreeShipping
   const freeShippingProgress = threshold === 0 ? 100 : Math.min(100, Math.round((sub / threshold) * 100))
   const cartIssues = quote?.issues ?? []
@@ -1097,7 +1106,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   return { ...it, price: priced?.unitPrice ?? it.price }
                 })}
                 subtotal={sub}
-                discount={discount + campaignDiscount}
+                discount={discount + campaignDiscount + bankTransferDiscount}
                 shipping={effectiveShipping}
                 total={grandTotal}
                 buyer={{
@@ -1257,6 +1266,13 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
               <div className={`${styles.priceRow} ${styles.discountRow}`}>
                 <span>kupon ({coupon?.code})</span>
                 <span className={styles.priceValue}>-{formatPrice(discount)}</span>
+              </div>
+            )}
+
+            {bankTransferDiscount > 0 && (
+              <div className={`${styles.priceRow} ${styles.discountRow}`}>
+                <span>havale / eft indirimi (%{BANK_TRANSFER_DISCOUNT_RATE * 100})</span>
+                <span className={styles.priceValue}>-{formatPrice(bankTransferDiscount)}</span>
               </div>
             )}
 

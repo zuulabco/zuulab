@@ -177,6 +177,11 @@
   text-align: center;
 }
 
+/* Kapıda ödeme has a fifth step: the payment taken at the door */
+.timelineTrackFive {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .timelineStep {
   display: flex;
   flex-direction: column;
@@ -504,6 +509,10 @@
   .timelineTrack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--sp-4);
+  }
+
+  .timelineTrackFive {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

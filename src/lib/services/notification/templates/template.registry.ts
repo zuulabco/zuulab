@@ -278,7 +278,7 @@ function renderOrderShipped(data: OrderTemplateData) {
       <div style="font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 6px;">Kargo Bilgileri</div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
         <span style="color: rgba(255,255,255,0.6);">Kargo Firması:</span>
-        <span style="font-weight: 600; color: #ffffff;">${data.carrier || 'Yurtiçi Kargo'}</span>
+        <span style="font-weight: 600; color: #ffffff;">${data.carrier || 'Kargo'}</span>
       </div>
       <div style="display: flex; justify-content: space-between;">
         <span style="color: rgba(255,255,255,0.6);">Takip Numarası:</span>
@@ -290,7 +290,7 @@ function renderOrderShipped(data: OrderTemplateData) {
       Kargoyu Canlı Takip Et →
     </a>
   `
-  const text = `Merhaba ${data.customerName},\n#${data.orderNumber} kargoya verildi.\nKargo Firması: ${data.carrier || 'Yurtiçi Kargo'}\nTakip No: ${data.trackingNumber}\nTakip Linki: ${trackingLink}`
+  const text = `Merhaba ${data.customerName},\n#${data.orderNumber} kargoya verildi.\nKargo Firması: ${data.carrier || 'Kargo'}\nTakip No: ${data.trackingNumber}\nTakip Linki: ${trackingLink}`
   return { subject, html: renderEmailBase({ title: subject, contentHtml }).html, text }
 }
 

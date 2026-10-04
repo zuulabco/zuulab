@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { formatPrice } from '@/lib/utils'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import AuthModal from '@/components/auth/AuthModal'
@@ -180,6 +181,35 @@ export default function AdminLayout({
   const [searchResults, setSearchResults] = useState<any>(null)
   const [isSearching, setIsSearching] = useState(false)
 
+  // Searches as the admin types (debounced); stale answers are dropped
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2 || !canFetch) {
+      setSearchResults(null)
+      return
+    }
+    let isCancelled = false
+    const handle = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(q)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        const data = await res.json().catch(() => ({}))
+        if (isCancelled) return
+        setSearchResults(data.success ? data : { error: data.error || 'Arama yapılamadı.' })
+      } catch {
+        if (!isCancelled) setSearchResults({ error: 'Arama sırasında bağlantı hatası oluştu.' })
+      } finally {
+        if (!isCancelled) setIsSearching(false)
+      }
+    }, 300)
+    return () => {
+      isCancelled = true
+      clearTimeout(handle)
+    }
+  }, [searchQuery, canFetch, token])
+
   useEffect(() => {
     let isCancelled = false
     setMounted(true)
@@ -216,9 +246,11 @@ export default function AdminLayout({
     }
   }, [user, isCheckingSession, serverVerified, checkSession])
 
-  // Auto-close mobile drawer on route change
+  // Auto-close mobile drawer and search results on route change
   useEffect(() => {
     setMobileMenuOpen(false)
+    setSearchResults(null)
+    setSearchQuery('')
   }, [pathname])
 
   // Close mobile drawer on Escape key
@@ -226,32 +258,20 @@ export default function AdminLayout({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMobileMenuOpen(false)
+        setSearchResults(null)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const handleGlobalSearch = async (e: React.FormEvent) => {
+  // Enter opens the first result (orders before products)
+  const handleGlobalSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchQuery.trim() || !canFetch) return
-    setIsSearching(true)
-    try {
-      const headers: Record<string, string> = {}
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-      const res = await fetch(`/api/admin/search?q=${encodeURIComponent(searchQuery)}`, {
-        headers,
-      })
-      const data = await res.json()
-      if (data.success) {
-        setSearchResults(data)
-      }
-    } catch {
-    } finally {
-      setIsSearching(false)
-    }
+    const firstOrder = searchResults?.orders?.[0]
+    const firstProduct = searchResults?.products?.[0]
+    if (firstOrder) router.push(`/admin/orders/${firstOrder.orderNumber}`)
+    else if (firstProduct) router.push(`/admin/products/${firstProduct.id}`)
   }
 
   if (!mounted || isCheckingSession) {
@@ -456,14 +476,15 @@ export default function AdminLayout({
           {/* Quick Search */}
           <form onSubmit={handleGlobalSearch} style={{ position: 'relative', width: 260 }}>
             <input
-              type="text"
-              placeholder="Hızlı ara: sipariş, ürün, müşteri..."
+              type="search"
+              aria-label="Yönetim panelinde ara"
+              placeholder="Hızlı ara: sipariş no, müşteri, ürün, SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input input-sm"
               style={{ borderRadius: 'var(--radius-full)' }}
             />
-            {searchResults && (
+            {(searchResults || isSearching) && searchQuery.trim().length >= 2 && (
               <div
                 style={{
                   position: 'absolute',
@@ -482,37 +503,43 @@ export default function AdminLayout({
                   <span>Arama Sonuçları</span>
                   <button type="button" onClick={() => setSearchResults(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11 }}>✕</button>
                 </div>
-                {searchResults.orders?.length > 0 && (
+                {isSearching && !searchResults && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>Aranıyor...</div>
+                )}
+                {searchResults?.error && (
+                  <div style={{ fontSize: 12, color: '#dc2626', padding: '6px 0' }}>{searchResults.error}</div>
+                )}
+                {searchResults?.orders?.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Siparişler</div>
                     {searchResults.orders.map((o: any) => (
                       <Link
                         key={o.orderNumber}
-                        href={`/orders/${o.orderNumber}`}
+                        href={`/admin/orders/${o.orderNumber}`}
                         onClick={() => setSearchResults(null)}
                         style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
                       >
-                        #{o.orderNumber} · {o.customerName} (₺{o.total})
+                        #{o.orderNumber} · {o.customerName} ({formatPrice(o.total)})
                       </Link>
                     ))}
                   </div>
                 )}
-                {searchResults.products?.length > 0 && (
+                {searchResults?.products?.length > 0 && (
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Ürünler</div>
                     {searchResults.products.map((p: any) => (
                       <Link
                         key={p.id}
-                        href={`/products/${p.id}`}
+                        href={`/admin/products/${p.id}`}
                         onClick={() => setSearchResults(null)}
                         style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
                       >
-                        {p.name} (Stok: {p.stock})
+                        {p.name} · {p.sku} (Stok: {p.stock})
                       </Link>
                     ))}
                   </div>
                 )}
-                {(!searchResults.orders?.length && !searchResults.products?.length) && (
+                {searchResults && !searchResults.error && !searchResults.orders?.length && !searchResults.products?.length && (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>Sonuç bulunamadı.</div>
                 )}
               </div>

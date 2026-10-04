@@ -4,6 +4,7 @@ import { getOrderByNumber } from '../orders.service'
 import { logAuditEvent } from '../admin.service'
 import { getEmailProvider } from './email-provider.factory'
 import { generateEmailTemplate } from './templates/template.registry'
+import { carrierDisplayName } from '@/lib/constants/carriers'
 import type {
   StoredNotification,
   NotificationEventType,
@@ -107,6 +108,18 @@ export async function createNotification(params: {
     return existingInMemory
   }
 
+  // The shipped mail is queued by the status change, which knows no carrier: take it from the shipment
+  let shipmentData: { carrier?: string; trackingNumber?: string; trackingUrl?: string } = {}
+  if (params.eventType === 'ORDER_SHIPPED' && !params.metadata?.trackingNumber && isDatabaseConfigured) {
+    const s = await db.orm.public.Shipment.where({ orderId: order.id })
+      .orderBy((x) => x.updatedAt.desc())
+      .first()
+      .catch(() => null)
+    if (s && !s.cancelledAt) {
+      shipmentData = { carrier: carrierDisplayName(s.provider), trackingNumber: s.trackingNumber ?? undefined, trackingUrl: s.trackingUrl ?? undefined }
+    }
+  }
+
   // 2. Generate Template Content from Authoritative Server Data
   const templateResult = generateEmailTemplate(params.eventType, {
     orderNumber: order.orderNumber,
@@ -126,9 +139,9 @@ export async function createNotification(params: {
           district: order.shippingAddressSnapshot.district,
         }
       : undefined,
-    carrier: (params.metadata?.carrier as string) || (params.templateData?.carrier as string) || 'Kargo',
-    trackingNumber: (params.metadata?.trackingNumber as string) || (params.templateData?.trackingNumber as string),
-    trackingUrl: (params.metadata?.trackingUrl as string) || (params.templateData?.trackingUrl as string),
+    carrier: (params.metadata?.carrier as string) || (params.templateData?.carrier as string) || shipmentData.carrier || 'Kargo',
+    trackingNumber: (params.metadata?.trackingNumber as string) || (params.templateData?.trackingNumber as string) || shipmentData.trackingNumber,
+    trackingUrl: (params.metadata?.trackingUrl as string) || (params.templateData?.trackingUrl as string) || shipmentData.trackingUrl,
     cancellationReason: (params.metadata?.cancellationReason as string) || (params.templateData?.cancellationReason as string),
     returnNumber: (params.metadata?.returnNumber as string) || (params.templateData?.returnNumber as string),
     returnReason: (params.metadata?.returnReason as string) || (params.templateData?.returnReason as string),

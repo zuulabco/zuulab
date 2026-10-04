@@ -26,6 +26,9 @@ export interface CartQuoteView {
   discountAmount: number
   campaignDiscount?: number
   couponDiscount?: number
+  /** Havale/EFT discount (0 for other payment methods) */
+  bankTransferDiscount?: number
+  paymentMethod?: 'CARD' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
   campaign?: { id: string; name: string; type: 'PERCENTAGE' | 'FIXED' | 'FREE_SHIPPING'; label: string } | null
   shippingMethod: 'STANDARD' | 'EXPRESS'
   shippingAmount: number
@@ -43,6 +46,7 @@ interface QuoteInput {
   items: Array<{ productId: string; variantId?: string | null; quantity: number }>
   couponCode?: string | null
   shippingMethod?: 'STANDARD' | 'EXPRESS'
+  paymentMethod?: 'CARD' | 'BANK_TRANSFER' | 'CASH_ON_DELIVERY'
 }
 
 /**
@@ -62,6 +66,7 @@ export function useCartQuote(input: QuoteInput, options: { enabled?: boolean } =
     items: input.items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? null, quantity: i.quantity })),
     couponCode: input.couponCode || null,
     shippingMethod: input.shippingMethod || 'STANDARD',
+    paymentMethod: input.paymentMethod || 'CARD',
   })
 
   const fetchQuote = useCallback(async () => {

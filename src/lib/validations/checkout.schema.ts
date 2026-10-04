@@ -42,6 +42,8 @@ export const cartQuoteSchema = z.object({
   items: cartItemsSchema,
   couponCode: z.string().trim().max(30).optional().nullable(),
   shippingMethod: shippingMethodSchema,
+  /** Havale/EFT is priced with its discount */
+  paymentMethod: z.enum(['CARD', 'BANK_TRANSFER', 'CASH_ON_DELIVERY']).optional(),
 })
 
 export const checkoutInitiateSchema = z.object({

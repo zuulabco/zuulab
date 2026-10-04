@@ -146,7 +146,7 @@ export const VALID_ORDER_TRANSITIONS: Record<string, string[]> = {
   PAYMENT_PENDING: ['PAYMENT_RECEIVED', 'CONFIRMED', 'PAYMENT_FAILED', 'CANCELLED'],
   PAYMENT_FAILED: ['PAYMENT_PENDING', 'CONFIRMED', 'CANCELLED'],
   PAYMENT_RECEIVED: ['CONFIRMED', 'PREPARING', 'CANCELLED'],
-  CONFIRMED: ['PREPARING', 'IN_PRODUCTION', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'IN_PRODUCTION', 'SHIPPED', 'CANCELLED'],
   PREPARING: ['IN_PRODUCTION', 'PACKING', 'SHIPPED', 'CANCELLED'],
   IN_PRODUCTION: ['PACKING', 'SHIPPED', 'CANCELLED'],
   PACKING: ['SHIPPED', 'CANCELLED'],
@@ -448,6 +448,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     shippingMethod,
     userId,
     memberUserId: payload.isMember ? userId : null,
+    paymentMethod,
   })
 
   if (quote.lines.length === 0) {

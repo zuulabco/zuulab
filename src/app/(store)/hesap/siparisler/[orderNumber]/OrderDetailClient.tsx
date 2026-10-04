@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
 import { BANK_ACCOUNT, formatIban } from '@/config/company'
+import { carrierDisplayName } from '@/lib/constants/carriers'
 import Modal from '@/components/common/Modal'
 import styles from './OrderDetail.module.css'
 import { SkeletonLines, SkeletonList } from '@/components/common/Skeleton'
@@ -61,7 +62,11 @@ interface OrderDetail {
 export default function OrderDetailClient() {
   const params = useParams()
   const orderNumber = params.orderNumber as string
-  const { token } = useAuthStore()
+  const router = useRouter()
+  const { token, user, openAuthModal } = useAuthStore()
+  const [mounted, setMounted] = useState(false)
+  // Came in logged out (e.g. from an order mail): after logging in, go to the order list
+  const arrivedLoggedOut = useRef(false)
 
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,7 +84,14 @@ export default function OrderDetailClient() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
-      .then((res) => res.json())
+      .then((res) => {
+        // The saved session has expired: log in again, then go to the order list
+        if (res.status === 401) {
+          arrivedLoggedOut.current = true
+          openAuthModal()
+        }
+        return res.json()
+      })
       .then((data) => {
         if (data.success && data.order) {
           setOrder(data.order)
@@ -134,8 +146,24 @@ export default function OrderDetailClient() {
   }
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    if (!user) {
+      arrivedLoggedOut.current = true
+      openAuthModal()
+    } else if (arrivedLoggedOut.current) {
+      router.replace('/hesap/siparisler')
+    }
+  }, [mounted, user, openAuthModal, router])
+
+  useEffect(() => {
+    // No token yet: the session is still being restored (or the visitor must log in)
+    if (!token || !user) return
     loadOrder()
-  }, [orderNumber, token])
+  }, [orderNumber, token, user])
 
   const handleConfirmCancel = async () => {
     setCancelling(true)
@@ -169,6 +197,22 @@ export default function OrderDetailClient() {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  if (!mounted) return null
+
+  if (!user) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>giriş yapmalısınız</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
+          siparişinizi görüntülemek için hesabınıza giriş yapın.
+        </p>
+        <button type="button" className={styles.backBtn} onClick={() => openAuthModal()}>
+          giriş yap
+        </button>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div aria-busy="true" aria-label="Sipariş yükleniyor" style={{ padding: 'var(--sp-6) 0' }}>
@@ -191,16 +235,35 @@ export default function OrderDetailClient() {
   }
 
   // Active step calculation
-  const isPaid = order.paymentStatus === 'PAID' || order.status === 'CONFIRMED' || order.status === 'PREPARING' || order.status === 'SHIPPED' || order.status === 'DELIVERED'
-  const isPreparing = order.status === 'PREPARING' || order.status === 'IN_PRODUCTION' || order.status === 'SHIPPED' || order.status === 'DELIVERED'
-  const isShipped = order.status === 'SHIPPED' || order.status === 'DELIVERED'
-  const isDelivered = order.status === 'DELIVERED'
+  const isCod = order.paymentMethod === 'CASH_ON_DELIVERY'
+  const afterDelivery = ['DELIVERED', 'RETURN_REQUESTED', 'RETURNED', 'PARTIALLY_REFUNDED'].includes(order.status)
+  const isShipped = order.status === 'SHIPPED' || afterDelivery
+  const isPreparing = ['PREPARING', 'IN_PRODUCTION', 'PACKING'].includes(order.status) || isShipped
+  const isConfirmed = order.status === 'CONFIRMED' || order.status === 'PAYMENT_RECEIVED' || isPreparing
+  const isPaid = order.paymentStatus === 'PAID' || (!isCod && isConfirmed)
+  const isDelivered = afterDelivery
   const isCancelled = order.status === 'CANCELLED'
+
+  // Kapıda ödeme: nothing is paid up front, PTT collects the money at the door
+  const timeline: Array<{ key: string; done: boolean; label: string; sub: string }> = isCod
+    ? [
+        { key: 'confirm', done: isConfirmed, label: isConfirmed ? 'onay alındı' : 'onay bekleniyor', sub: isConfirmed ? 'sipariş onaylandı' : 'onay bekleniyor' },
+        { key: 'prepare', done: isPreparing, label: 'hazırlanıyor', sub: '3d atölye üretimi' },
+        { key: 'ship', done: isShipped, label: 'kargoya verildi', sub: 'ptt kargo' },
+        { key: 'pay', done: isPaid, label: isPaid ? 'ödeme alındı' : 'ödeme bekleniyor', sub: isPaid ? 'kapıda tahsil edildi' : 'kapıda ödenecek' },
+        { key: 'deliver', done: isDelivered, label: 'teslim edildi', sub: 'adrese ulaştı' },
+      ]
+    : [
+        { key: 'pay', done: isPaid, label: 'ödeme alındı', sub: isPaid ? 'doğrulandı' : 'bekleniyor' },
+        { key: 'prepare', done: isPreparing, label: 'hazırlanıyor', sub: '3d atölye üretimi' },
+        { key: 'ship', done: isShipped, label: 'kargoya verildi', sub: 'sevk edildi' },
+        { key: 'deliver', done: isDelivered, label: 'teslim edildi', sub: 'adrese ulaştı' },
+      ]
 
   const getStatusBadgeClass = () => {
     if (isDelivered) return styles.statusDelivered
     if (isShipped) return styles.statusShipped
-    if (isPaid) return styles.statusConfirmed
+    if (isConfirmed) return styles.statusConfirmed
     if (isCancelled) return styles.statusCancelled
     return styles.statusPaymentPending
   }
@@ -347,30 +410,14 @@ export default function OrderDetailClient() {
       {/* Minimal Order Status Timeline */}
       {!isCancelled ? (
         <div className={styles.timelineCard}>
-          <div className={styles.timelineTrack}>
-            <div className={`${styles.timelineStep} ${!isPaid ? styles.timelineStepInactive : ''}`}>
-              <span className={styles.timelineDot}>{isPaid ? '●' : '○'}</span>
-              <span className={styles.timelineStepLabel}>ödeme alındı</span>
-              <span className={styles.timelineStepSub}>{isPaid ? 'doğrulandı' : 'bekleniyor'}</span>
-            </div>
-
-            <div className={`${styles.timelineStep} ${!isPreparing ? styles.timelineStepInactive : ''}`}>
-              <span className={styles.timelineDot}>{isPreparing ? '●' : '○'}</span>
-              <span className={styles.timelineStepLabel}>hazırlanıyor</span>
-              <span className={styles.timelineStepSub}>3d atölye üretimi</span>
-            </div>
-
-            <div className={`${styles.timelineStep} ${!isShipped ? styles.timelineStepInactive : ''}`}>
-              <span className={styles.timelineDot}>{isShipped ? '●' : '○'}</span>
-              <span className={styles.timelineStepLabel}>kargoya verildi</span>
-              <span className={styles.timelineStepSub}>sevk edildi</span>
-            </div>
-
-            <div className={`${styles.timelineStep} ${!isDelivered ? styles.timelineStepInactive : ''}`}>
-              <span className={styles.timelineDot}>{isDelivered ? '●' : '○'}</span>
-              <span className={styles.timelineStepLabel}>teslim edildi</span>
-              <span className={styles.timelineStepSub}>adrese ulaştı</span>
-            </div>
+          <div className={`${styles.timelineTrack} ${timeline.length === 5 ? styles.timelineTrackFive : ''}`}>
+            {timeline.map((step) => (
+              <div key={step.key} className={`${styles.timelineStep} ${!step.done ? styles.timelineStepInactive : ''}`}>
+                <span className={styles.timelineDot}>{step.done ? '●' : '○'}</span>
+                <span className={styles.timelineStepLabel}>{step.label}</span>
+                <span className={styles.timelineStepSub}>{step.sub}</span>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
@@ -479,7 +526,7 @@ export default function OrderDetailClient() {
               <h3 className={styles.cardTitle}>kargo takibi</h3>
               <div className={styles.addressContent}>
                 <div>
-                  <strong>firma:</strong> {customerShipping.provider === 'YURTICI_KARGO' ? 'yurtiçi kargo' : customerShipping.provider.toLowerCase()}
+                  <strong>firma:</strong> {carrierDisplayName(customerShipping.provider).toLocaleLowerCase('tr-TR')}
                 </div>
                 <div>
                   <strong>takip no:</strong>{' '}
