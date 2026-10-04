@@ -30,8 +30,6 @@ export interface UserProfile {
 interface AuthState {
   user: UserProfile | null
   token: string | null
-  /** When this browser last logged in (ms); sign-ins end at the next midnight in Türkiye */
-  signedInAt: number | null
   isAuthenticated: boolean
   canFetch: boolean
   isLoading: boolean
@@ -58,7 +56,6 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
-      signedInAt: null,
       isAuthenticated: false,
       canFetch: false,
       isLoading: false,
@@ -135,7 +132,6 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: data.user,
               token: firebaseToken,
-              signedInAt: Date.now(),
               isAuthenticated: true,
               canFetch: true,
               isLoading: false,
@@ -266,12 +262,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           await fetch('/api/auth/logout', { method: 'POST' })
         } catch {}
-        set({ user: null, token: null, signedInAt: null, isAuthenticated: false, canFetch: false, error: null })
+        set({ user: null, token: null, isAuthenticated: false, canFetch: false, error: null })
       },
     }),
     {
       name: 'zuulab_auth_session',
-      partialize: (state) => ({ user: state.user, token: state.token, signedInAt: state.signedInAt }),
+      partialize: (state) => ({ user: state.user, token: state.token }),
       onRehydrateStorage: () => (state) => {
         if (state && (state.user || state.token)) {
           state.isAuthenticated = true

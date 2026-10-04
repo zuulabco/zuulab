@@ -4,7 +4,6 @@ import { DEFAULT_OG_IMAGE } from '@/lib/seo/metadata'
 import { DM_Sans, DM_Serif_Display } from 'next/font/google'
 import React from 'react'
 import ToastContainer from '@/components/common/ToastContainer'
-import DailySessionGuard from '@/components/auth/DailySessionGuard'
 import ImageFadeScript from '@/components/common/ImageFadeScript'
 import './globals.css'
 
@@ -85,7 +84,6 @@ export default function RootLayout({
       <body>
         {children}
         <ToastContainer />
-        <DailySessionGuard />
       </body>
     </html>
   )

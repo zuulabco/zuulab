@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/security/rate-limit-response'
 import { verifyAuthToken } from '@/lib/firebase-admin'
-import { isSignInFromEarlierDay } from '@/lib/auth/daily-session'
 import { syncOrCreateUser, extractBearerToken, AuthSyncError } from '@/lib/services/auth.service'
 import {
   createSessionToken,
   getSessionCookieDomain,
   SESSION_COOKIE_NAME,
-  sessionMaxAge,
+  SESSION_MAX_AGE,
 } from '@/lib/services/session.service'
 
 export async function POST(request: Request) {
@@ -31,13 +30,6 @@ export async function POST(request: Request) {
     if (!decoded || !decoded.uid) {
       return NextResponse.json(
         { success: false, error: 'Geçersiz veya süresi dolmuş belirteç.' },
-        { status: 401 }
-      )
-    }
-    // A sign-in from before today's midnight has ended: log in again
-    if (isSignInFromEarlierDay((decoded.auth_time || 0) * 1000)) {
-      return NextResponse.json(
-        { success: false, error: 'Oturumunuz gece yarısı sona erdi. Lütfen tekrar giriş yapın.', code: 'SESSION_ENDED' },
         { status: 401 }
       )
     }
@@ -78,8 +70,7 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      // Ends at the next midnight, like the sign-in itself
-      maxAge: sessionMaxAge(),
+      maxAge: SESSION_MAX_AGE,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     })
 

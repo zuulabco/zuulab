@@ -1,6 +1,5 @@
 import 'server-only'
 import crypto from 'crypto'
-import { isSignInFromEarlierDay, secondsUntilTrMidnight } from '@/lib/auth/daily-session'
 
 export interface SessionPayload {
   userId: string
@@ -13,13 +12,7 @@ export interface SessionPayload {
 }
 
 export const SESSION_COOKIE_NAME = 'zuulab_session'
-/** Longest a session can live; sign-ins actually end at the next midnight (sessionMaxAge) */
-export const SESSION_MAX_AGE = 24 * 60 * 60
-
-/** Seconds until the next 00:00 in Türkiye, when every sign-in ends */
-export function sessionMaxAge(): number {
-  return secondsUntilTrMidnight()
-}
+export const SESSION_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
 
 /**
  * Resolves session secret from environment variables.
@@ -49,7 +42,7 @@ function getSessionSecret(): string {
  */
 export function createSessionToken(
   data: Omit<SessionPayload, 'iat' | 'exp'>,
-  expiresInSeconds = sessionMaxAge()
+  expiresInSeconds = SESSION_MAX_AGE
 ): string {
   const iat = Math.floor(Date.now() / 1000)
   const exp = iat + expiresInSeconds
@@ -99,10 +92,6 @@ export function verifySessionToken(token: string): SessionPayload | null {
 
     const now = Math.floor(Date.now() / 1000)
     if (payload.exp && payload.exp < now) {
-      return null
-    }
-    // Sessions end at midnight: one issued on an earlier day is no longer valid
-    if (payload.iat && isSignInFromEarlierDay(payload.iat * 1000)) {
       return null
     }
 
