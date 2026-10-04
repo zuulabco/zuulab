@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { getPublicOrigin } from '@/lib/config/app-url'
+import { getGeliverConfig } from '@/lib/services/shipping/geliver/geliver.client'
 import {
   createOrderAccessToken,
   ORDER_ACCESS_COOKIE_NAME,
@@ -49,6 +50,10 @@ export async function POST(request: Request) {
       checkoutKey,
       paymentMethod,
     } = parsed.data
+
+    if (paymentMethod === 'CASH_ON_DELIVERY' && !getGeliverConfig()) {
+      return NextResponse.json({ success: false, error: 'Kapıda ödeme şu anda kullanılamıyor. Lütfen başka bir ödeme yöntemi seçin.' }, { status: 400 })
+    }
 
     let effectiveShippingAddress = {
       ...shippingAddress,

@@ -22,6 +22,8 @@ import { BANK_ACCOUNT } from '@/config/company'
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
+  /** Geliver is configured, so kapıda ödeme orders can be shipped */
+  cashOnDeliveryEnabled?: boolean
 }
 
 const PAYMENT_OPTIONS = [
@@ -47,7 +49,8 @@ const PAYMENT_OPTIONS = [
 
 type PaymentMethodId = (typeof PAYMENT_OPTIONS)[number]['id']
 
-export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: CheckoutClientProps) {
+export default function CheckoutClient({ initialFreeShippingThreshold = 750, cashOnDeliveryEnabled = false }: CheckoutClientProps) {
+  const paymentOptions = PAYMENT_OPTIONS.filter((o) => o.id !== 'CASH_ON_DELIVERY' || cashOnDeliveryEnabled)
   const router = useRouter()
   const { items, coupon, discountAmount, applyCoupon, removeCoupon, subtotal } = useCartStore()
   const { user, token, openAuthModal } = useAuthStore()
@@ -1019,7 +1022,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
             </div>
 
             <div className={styles.shippingOptions} role="radiogroup" aria-label="Ödeme Yöntemi">
-              {PAYMENT_OPTIONS.map((option) => {
+              {paymentOptions.map((option) => {
                 const isSelected = paymentMethod === option.id
                 return (
                   <div

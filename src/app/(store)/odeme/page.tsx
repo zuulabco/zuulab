@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import { getFreeShippingThreshold } from '@/lib/services/settings/store-settings.service'
+import { getGeliverConfig } from '@/lib/services/shipping/geliver/geliver.client'
 import CheckoutClient from './CheckoutClient'
 
 export const metadata: Metadata = {
@@ -26,7 +27,8 @@ export default async function CheckoutPage() {
           { label: 'ödeme' },
         ]}
       />
-      <CheckoutClient initialFreeShippingThreshold={freeShippingThreshold} />
+      {/* Kapıda ödeme is offered only once Geliver (PTT Kargo) is set up to ship it */}
+      <CheckoutClient initialFreeShippingThreshold={freeShippingThreshold} cashOnDeliveryEnabled={getGeliverConfig() !== null} />
     </div>
   )
 }
