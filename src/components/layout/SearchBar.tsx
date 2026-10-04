@@ -7,6 +7,7 @@ import Image from 'next/image'
 import type { StoreNavigation } from '@/types/navigation'
 import { formatPrice } from '@/lib/utils'
 import styles from './SearchBar.module.css'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 const SUGGESTED_QUERIES = [
   'masa lambası',
@@ -65,14 +66,7 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
   }, [])
 
   // Body scroll lock when search modal is open
-  useEffect(() => {
-    if (!open) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prevOverflow
-    }
-  }, [open])
+  useBodyScrollLock(open)
 
   const saveRecentSearch = (term: string) => {
     const trimmed = term.trim().toLowerCase()
@@ -263,7 +257,7 @@ export default function SearchBar({ navigation }: { navigation: StoreNavigation 
                             </div>
                             <div className={styles.productInfo}>
                               <span className={styles.productCat}>{p.categoryName}</span>
-                              <span className={styles.productTitle}>{p.name.toLowerCase()}</span>
+                              <span className={styles.productTitle}>{p.name.toLocaleLowerCase('tr-TR')}</span>
                               <span className={styles.productPrice}>{formatPrice(p.price)}</span>
                             </div>
                             <span className={styles.itemArrow}>→</span>

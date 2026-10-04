@@ -52,6 +52,17 @@
   overflow: hidden;
 }
 
+/* Inline tiny copy of the photo, blurred, under the real image while it loads */
+.blurPreview {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 38%;
+  filter: blur(24px);
+  /* the blur fades out at the edges; scaling up keeps them off-screen */
+  transform: scale(1.15);
+}
+
 .slideImg {
   object-fit: cover;
   object-position: center 38%;
@@ -66,6 +77,7 @@
 .imageWrapper .slideImg {
   transition:
     opacity var(--dur-slower) var(--ease-out),
+    filter var(--dur-slower) var(--ease-out),
     transform 1400ms var(--ease-zoom);
 }
 
@@ -606,9 +618,18 @@
     padding-inline: var(--sp-4);
   }
 
-  .slideIndex,
-  .progressTrack {
+  .slideIndex {
     display: none;
+  }
+
+  /* The bar's animation is the autoplay timer, so it must keep running: hidden,
+     not display:none (an element that is not rendered never fires animationend). */
+  .progressTrack {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .controlsLeft .dots {

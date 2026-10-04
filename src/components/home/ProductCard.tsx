@@ -31,7 +31,7 @@ export default function ProductCard({ product, priority = false }: Props) {
     addItem({
       productId: product.id,
       variantId: null,
-      name: product.name.toLowerCase(),
+      name: product.name.toLocaleLowerCase('tr-TR'),
       variantLabel: null,
       price: product.price,
       imageUrl: product.primaryImage,
@@ -156,7 +156,7 @@ export default function ProductCard({ product, priority = false }: Props) {
       {/* ── Metadata & Details ───────────────────────────── */}
       <div className={styles.info}>
         <div className={styles.metaRow}>
-          <span className={styles.category}>{product.categoryName.toLowerCase()}</span>
+          <span className={styles.category}>{product.categoryName.toLocaleLowerCase('tr-TR')}</span>
           {product.avgRating !== null && product.reviewCount > 0 && (
             <span className={styles.rating} aria-label={`Puan: ${product.avgRating.toFixed(1)}`}>
               <StarIcon />
@@ -167,7 +167,7 @@ export default function ProductCard({ product, priority = false }: Props) {
 
         <h3 className={styles.name}>
           <Link href={`/urun/${product.slug}`} className={styles.nameLink}>
-            {product.name.toLowerCase()}
+            {product.name.toLocaleLowerCase('tr-TR')}
           </Link>
         </h3>
 

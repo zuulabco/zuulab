@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('[contact] Could not record message:', error)
     return NextResponse.json(
-      { success: false, error: 'Mesajınız şu anda iletilemedi. Lütfen info@zuulab.com adresine e-posta gönderin.' },
+      { success: false, error: 'Mesajınız şu anda iletilemedi. Lütfen zuulab.co@gmail.com adresine e-posta gönderin.' },
       { status: 500 }
     )
   }

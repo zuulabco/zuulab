@@ -34,7 +34,7 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatform, { name: string; placeholde
 }
 
 export const DEFAULT_SOCIAL_LINKS: SocialLink[] = [
-  { id: 'soc-instagram', platform: 'instagram', url: 'https://instagram.com/zuulab', active: true },
+  { id: 'soc-instagram', platform: 'instagram', url: 'https://instagram.com/zuu.lab', active: true },
   { id: 'soc-x', platform: 'x', url: 'https://twitter.com/zuulab', active: true },
   { id: 'soc-youtube', platform: 'youtube', url: 'https://youtube.com/zuulab', active: true },
 ]

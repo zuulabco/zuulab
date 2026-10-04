@@ -29,9 +29,22 @@ export interface VariantDraft {
   options: Record<string, string>
   sku: string
   stock: number
+  /** First photo (older rows only have this one) */
   imageUrl: string
+  /** Every photo of this combination, in order */
+  images?: string[]
   isActive: boolean
 }
+
+/** Most photos one combination can have (MAX_VARIANT_IMAGES on the server) */
+const MAX_PHOTOS = 8
+
+/** A row's photos, also for rows saved before multi-photo variants */
+const photosOf = (r: Pick<VariantDraft, 'imageUrl' | 'images'>): string[] =>
+  r.images?.length ? r.images : r.imageUrl ? [r.imageUrl] : []
+
+/** The photo fields for a new list: images plus the mirrored first photo */
+const withPhotos = (urls: string[]) => ({ images: urls, imageUrl: urls[0] ?? '' })
 
 export interface VariantsValue {
   options: OptionDraft[]
@@ -77,9 +90,9 @@ function rebuild(options: OptionDraft[], previous: VariantDraft[]): VariantDraft
   return combos.map((combo) => {
     const prev = byKey.get(comboKey(usable, combo))
     if (prev) return { ...prev, options: combo }
-    // A new combination takes the photo already chosen for its colour
-    const sameColor = color ? previous.find((p) => p.options[color.name] === combo[color.name] && p.imageUrl) : undefined
-    return { options: combo, sku: '', stock: 0, imageUrl: sameColor?.imageUrl ?? '', isActive: true }
+    // A new combination takes the photos already chosen for its colour
+    const sameColor = color ? previous.find((p) => p.options[color.name] === combo[color.name] && photosOf(p).length) : undefined
+    return { options: combo, sku: '', stock: 0, ...withPhotos(sameColor ? photosOf(sameColor) : []), isActive: true }
   })
 }
 
@@ -154,44 +167,68 @@ function useUpload() {
   )
 }
 
-function ImagePick({ url, onChange, label, size = 44 }: { url: string; onChange: (url: string) => void; label: string; size?: number }) {
+/**
+ * The photos of one colour or combination: thumbnails in order, × removes one,
+ * + uploads one or more files (several can be picked at once). The first photo is
+ * the one the product page opens when this option is chosen.
+ */
+function PhotoList({ urls, onChange, label, size = 44 }: { urls: string[]; onChange: (urls: string[]) => void; label: string; size?: number }) {
   const upload = useUpload()
   const input = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const room = MAX_PHOTOS - urls.length
   return (
-    <>
-      <button
-        type="button"
-        className={v.rowImage}
-        style={{ width: size, height: size }}
-        onClick={() => input.current?.click()}
-        disabled={busy}
-        aria-label={`${label}: görsel seç`}
-        title={url ? 'Görseli değiştir' : 'Görsel yükle'}
-      >
-        {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt="" />
-        ) : (
+    <div className={v.photoList}>
+      {urls.map((url, n) => (
+        <span key={url} className={v.photoItem} style={{ width: size, height: size }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={`${label} görsel ${n + 1}`} />
+          <button
+            type="button"
+            className={v.photoRemove}
+            onClick={() => onChange(urls.filter((u) => u !== url))}
+            aria-label={`${label}: ${n + 1}. görseli kaldır`}
+            title="Görseli kaldır"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      {room > 0 && (
+        <button
+          type="button"
+          className={v.rowImage}
+          style={{ width: size, height: size }}
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          aria-label={`${label}: görsel ekle`}
+          title={urls.length ? 'Görsel ekle (birden fazla seçebilirsiniz)' : 'Görsel yükle (birden fazla seçebilirsiniz)'}
+        >
           <span>{busy ? '…' : '+'}</span>
-        )}
-      </button>
+        </button>
+      )}
       <input
         ref={input}
         type="file"
         accept="image/*"
+        multiple
         hidden
         onChange={async (e) => {
-          const file = e.target.files?.[0]
-          if (!file) return
-          setBusy(true)
-          const uploaded = await upload(file)
-          setBusy(false)
-          if (uploaded) onChange(uploaded)
+          const files = Array.from(e.target.files ?? [])
           if (input.current) input.current.value = ''
+          if (files.length === 0) return
+          if (files.length > room) toast.error(`Bir seçeneğe en fazla ${MAX_PHOTOS} görsel eklenebilir; ilk ${room} tanesi yükleniyor.`)
+          setBusy(true)
+          const uploaded: string[] = []
+          for (const file of files.slice(0, room)) {
+            const url = await upload(file)
+            if (url) uploaded.push(url)
+          }
+          setBusy(false)
+          if (uploaded.length) onChange([...urls, ...uploaded.filter((u) => !urls.includes(u))])
         }}
       />
-    </>
+    </div>
   )
 }
 
@@ -263,7 +300,7 @@ function ColorOptionCard({
   option: OptionDraft
   rows: VariantDraft[]
   onChange: (o: OptionDraft) => void
-  onRowsImage: (value: string, url: string) => void
+  onRowsImage: (value: string, urls: string[]) => void
   onRemove: () => void
 }) {
   const [custom, setCustom] = useState(false)
@@ -328,16 +365,19 @@ function ColorOptionCard({
         <div className={v.chosen}>
           <span className={v.chosenLabel}>Seçilen renkler ve görselleri</span>
           {option.values.map((val) => {
-            const photo = rows.find((r) => r.options[option.name] === val && r.imageUrl)?.imageUrl ?? ''
+            const withPhoto = rows.find((r) => r.options[option.name] === val && photosOf(r).length)
+            const photos = withPhoto ? photosOf(withPhoto) : []
             return (
               <div key={val} className={v.chosenRow}>
                 <Swatch colors={swatches[val] ?? ['#bdbdbd']} size={28} />
                 <span className={v.chosenName}>{val}</span>
-                <ImagePick url={photo} label={val} size={40} onChange={(url) => onRowsImage(val, url)} />
-                <span className={v.chosenHint}>{photo ? 'bu renk seçilince açılacak görsel' : 'bu renge görsel ekle'}</span>
-                {photo && (
-                  <button type="button" className={v.linkBtn} onClick={() => onRowsImage(val, '')}>
-                    görseli kaldır
+                <PhotoList urls={photos} label={val} size={40} onChange={(urls) => onRowsImage(val, urls)} />
+                <span className={v.chosenHint}>
+                  {photos.length ? 'bu renk seçilince ilk görsel açılır, diğerleri galeride arkasından gelir' : 'bu renge bir veya daha fazla görsel ekle'}
+                </span>
+                {photos.length > 1 && (
+                  <button type="button" className={v.linkBtn} onClick={() => onRowsImage(val, [])}>
+                    tümünü kaldır
                   </button>
                 )}
                 <button type="button" className={v.removeX} aria-label={`${val} rengini kaldır`} onClick={() => remove(val)}>
@@ -360,12 +400,12 @@ export function VariantsEditor({ value, onChange, productSku }: { value: Variant
   const setOptions = (next: OptionDraft[]) => onChange({ options: next, variants: rebuild(next, value.variants) })
   const setRow = (index: number, patch: Partial<VariantDraft>) =>
     onChange({ ...value, options, variants: value.variants.map((r, i) => (i === index ? { ...r, ...patch } : r)) })
-  /** One photo per colour: every combination with that colour shows it */
-  const setColorImage = (colorValue: string, url: string) =>
+  /** Photos per colour: every combination with that colour shows them */
+  const setColorImage = (colorValue: string, urls: string[]) =>
     onChange({
       ...value,
       options,
-      variants: value.variants.map((r) => (colorOption && r.options[colorOption.name] === colorValue ? { ...r, imageUrl: url } : r)),
+      variants: value.variants.map((r) => (colorOption && r.options[colorOption.name] === colorValue ? { ...r, ...withPhotos(urls) } : r)),
     })
 
   const addColor = () => setOptions([{ name: 'Renk', type: 'color', values: [], swatches: {} }, ...options])
@@ -495,7 +535,7 @@ export function VariantsEditor({ value, onChange, productSku }: { value: Variant
                     <tr key={label} className={r.isActive ? '' : v.rowOff}>
                       {!colorOption && (
                         <td>
-                          <ImagePick url={r.imageUrl} label={label} onChange={(url) => setRow(i, { imageUrl: url })} />
+                          <PhotoList urls={photosOf(r)} label={label} onChange={(urls) => setRow(i, withPhotos(urls))} />
                         </td>
                       )}
                       <td className={v.comboCell}>

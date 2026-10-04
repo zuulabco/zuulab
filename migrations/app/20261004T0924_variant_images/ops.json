@@ -1,0 +1,44 @@
+[
+  {
+    "id": "column.public.product_variants.images",
+    "label": "Add column \"images\" to \"product_variants\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "images",
+        "table": "product_variants"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"images\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "images"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"images\"",
+        "sql": "ALTER TABLE \"public\".\"product_variants\" ADD COLUMN \"images\" jsonb"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"images\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "product_variants",
+          "images"
+        ]
+      }
+    ]
+  }
+]

@@ -21,6 +21,9 @@ export interface HeroSlideView {
   secondaryCtaHref?: string
   imageUrl: string
   mobileImageUrl?: string
+  /** Inline ~32px previews shown blurred until the photos load */
+  blurDataUrl?: string
+  mobileBlurDataUrl?: string
   focus: 'center' | 'left' | 'right'
   theme: 'light' | 'dark'
 }
@@ -109,10 +112,17 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
       aria-label="Öne çıkan koleksiyonlar ve ürünler"
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      // Hover pauses only for a real mouse: a tap fires a synthetic mouseenter with no
+      // mouseleave after it, which used to stop autoplay on phones for good.
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') setIsHovered(true)
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === 'mouse') setIsHovered(false)
+      }}
       onFocus={(e) => {
-        if (e.target !== e.currentTarget) setHasFocus(true)
+        // Keyboard focus pauses; focus left behind by a tap on a dot or tab does not.
+        if (e.target !== e.currentTarget && e.target.matches(':focus-visible')) setHasFocus(true)
       }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHasFocus(false)
@@ -136,11 +146,25 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
               aria-hidden={!isActive}
             >
               <div className={styles.imageWrapper}>
+                {slide.blurDataUrl && (
+                  <div
+                    className={`${styles.blurPreview} ${slide.mobileImageUrl ? styles.imgDesktopOnly : ''}`}
+                    style={{ backgroundImage: `url(${slide.blurDataUrl})`, backgroundPosition: FOCUS[slide.focus] }}
+                    aria-hidden
+                  />
+                )}
+                {slide.mobileImageUrl && slide.mobileBlurDataUrl && (
+                  <div
+                    className={`${styles.blurPreview} ${styles.imgMobileOnly}`}
+                    style={{ backgroundImage: `url(${slide.mobileBlurDataUrl})` }}
+                    aria-hidden
+                  />
+                )}
                 <Image
                   src={slide.imageUrl}
                   loader={isCloudinaryUrl(slide.imageUrl) ? cloudinaryHeroLoader : undefined}
                   quality={90}
-                  alt=""
+                  alt={[slide.headlineMain, slide.headlineAccent].filter(Boolean).join(' ')}
                   fill
                   priority={index === 0}
                   sizes="100vw"
@@ -170,10 +194,10 @@ export default function HomeHero({ slides, autoplay = true, interval = 6 }: Hero
                     <span>{slide.badgeText}</span>
                   </div>
 
-                  <h1 className={`${styles.headline} ${slideDark ? styles.headlineDark : styles.headlineLight}`}>
+                  <h2 className={`${styles.headline} ${slideDark ? styles.headlineDark : styles.headlineLight}`}>
                     <span>{slide.headlineMain}</span>
                     {slide.headlineAccent && <em className={styles.headlineAccent}>{slide.headlineAccent}</em>}
-                  </h1>
+                  </h2>
 
                   {slide.description && (
                     <p className={`${styles.description} ${slideDark ? styles.descDark : styles.descLight}`}>{slide.description}</p>

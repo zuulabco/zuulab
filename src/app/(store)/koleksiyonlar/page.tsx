@@ -1,15 +1,17 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
 import Image from 'next/image'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import { getCollectionViews } from '@/lib/services/catalog/collection-presentation'
 import styles from './CollectionsDiscovery.module.css'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Koleksiyonlar',
   description:
-    'zuulab özel tasarım dünyaları ve tematik seriler. zuukids, zuulife, zuulight, zuutoptan ve deneysel form koleksiyonları.',
-}
+    'zuulab koleksiyonları: zuukids çocuk oyuncakları, zuulife ev ve masaüstü objeleri, zuulight 3D baskı lambalar ve zuutoptan toptan, kurumsal üretim.',
+  path: '/koleksiyonlar',
+})
 
 // The brand worlds with a hand-designed slot on this page.
 const FEATURED_SLUGS = ['zuukids', 'zuulife', 'zuulight', 'zuutoptan', 'koleksiyonlar']

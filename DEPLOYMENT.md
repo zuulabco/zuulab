@@ -86,6 +86,10 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261002T1932_marketplace_listings` — marketplace listings, their links to site products and store prices
    - `20261002T2024_marketplace_orders` — marketplace packages and the site orders created from them
    - `20261002T2151_marketplace_push` — stock/price push state per listing and push batches
+   - `20261003T1037_campaigns_materials` — campaigns and production materials
+   - `20261003T1343_variants_material_care` — variant options, per-combination photo, material care text
+   - `20261003T1942_newsletter` — newsletter subscribers and welcome codes
+   - `20261004T0924_variant_images` — several photos per variant (`product_variants.images`)
 
 ---
 

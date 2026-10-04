@@ -40,6 +40,9 @@ export interface AdminProductPayload {
   barcode?: string | null
   description?: string
   shortDescription?: string
+  /** Search result title / description; empty falls back to name and short description */
+  seoTitle?: string | null
+  seoDescription?: string | null
   price: number
   compareAtPrice?: number | null
   costPrice?: number | null
@@ -168,6 +171,10 @@ async function loadAdminProducts(productIds?: string[]): Promise<AdminProduct[]>
       specifications: [],
       sortOrder: p.sortOrder,
       createdAt: dbTimestampToIso(p.createdAt) ?? undefined,
+      updatedAt: dbTimestampToIso(p.updatedAt) ?? undefined,
+      barcode: p.barcode ?? null,
+      seoTitle: p.metaTitle ?? null,
+      seoDescription: p.metaDesc ?? null,
     }
   })
 }
@@ -346,6 +353,9 @@ export async function adminCreateProduct(payload: AdminProductPayload, adminEmai
       sku,
       description: payload.description || '',
       shortDescription: payload.shortDescription || '',
+      barcode: payload.barcode?.trim() || null,
+      metaTitle: payload.seoTitle?.trim() || null,
+      metaDesc: payload.seoDescription?.trim() || null,
       categoryId: category.id,
       collectionId: collectionIds[0] ?? null,
       price: dbNumeric(price),
@@ -440,6 +450,8 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
   }
   if (payload.description !== undefined) updateFields.description = payload.description
   if (payload.shortDescription !== undefined) updateFields.shortDescription = payload.shortDescription
+  if (payload.seoTitle !== undefined) updateFields.metaTitle = payload.seoTitle?.trim() || null
+  if (payload.seoDescription !== undefined) updateFields.metaDesc = payload.seoDescription?.trim() || null
   if (payload.price !== undefined) updateFields.price = dbNumeric(requirePrice(payload.price, 'Fiyat'))
   if (payload.compareAtPrice !== undefined) {
     updateFields.oldPrice = payload.compareAtPrice ? dbNumeric(requirePrice(payload.compareAtPrice, 'Eski fiyat')) : null
@@ -535,6 +547,8 @@ export async function adminDuplicateProduct(id: string, adminEmail = 'system') {
       sku: `${original.sku}-KOPYA`,
       description: original.description,
       shortDescription: original.shortDescription,
+      seoTitle: original.seoTitle ?? null,
+      seoDescription: original.seoDescription ?? null,
       price: original.price,
       compareAtPrice: original.oldPrice ?? null,
       costPrice: original.costPrice,

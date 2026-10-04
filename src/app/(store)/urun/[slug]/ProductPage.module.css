@@ -27,7 +27,9 @@
 
 @media (max-width: 960px) {
   .mainGrid {
-    grid-template-columns: 1fr;
+    /* minmax(0, …): a plain 1fr grows to its widest child, which pushed the page
+       6px wider than the phone and made the fixed buy bar slide while scrolling. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--sp-8);
   }
 }

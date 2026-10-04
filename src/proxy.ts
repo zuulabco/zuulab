@@ -157,7 +157,10 @@ export async function proxy(request: NextRequest) {
     } else {
       adminUrl.pathname = `/admin${pathname}`
     }
-    return NextResponse.rewrite(adminUrl)
+    const response = NextResponse.rewrite(adminUrl)
+    // The panel must never show up in search results, even if a link to it leaks.
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    return response
   }
 
   // 3. STOREFRONT MAINTENANCE MODE EVALUATION:

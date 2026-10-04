@@ -1108,7 +1108,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                   )}
                 </div>
                 <div className={styles.summaryItemDetails}>
-                  <span className={styles.summaryItemName}>{item.name.toLowerCase()}</span>
+                  <span className={styles.summaryItemName}>{item.name.toLocaleLowerCase('tr-TR')}</span>
                   <div className={styles.summaryItemMeta}>
                     {item.variantLabel && <span>{item.variantLabel} · </span>}
                     <span>adet: {item.quantity}</span>
@@ -1179,7 +1179,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
             )}
 
             <div className={styles.priceRow}>
-              <span>kargo ({shippingCalc.selectedMethod.name.toLowerCase()})</span>
+              <span>kargo ({shippingCalc.selectedMethod.name.toLocaleLowerCase('tr-TR')})</span>
               <span>
                 {effectiveShipping === 0 ? (
                   <strong className={styles.freeShipTagText}>ücretsiz</strong>

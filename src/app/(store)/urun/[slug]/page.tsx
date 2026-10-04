@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { pageTitle, socialTitle } from '@/lib/seo/title'
+import { pageMetadata, productSummary } from '@/lib/seo/metadata'
+import { JsonLd, breadcrumbJsonLd, productJsonLd } from '@/lib/seo/jsonld'
+import { getStoreSettings } from '@/lib/services/settings/store-settings.service'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductGallery from '@/components/product/ProductGallery'
 import ProductDetailsClient from '@/components/product/ProductDetailsClient'
@@ -22,17 +24,15 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
   const product = await getProductBySlug(slug)
-  if (!product) return { title: 'Ürün bulunamadı' }
+  if (!product) return { title: 'Ürün bulunamadı', robots: { index: false } }
 
-  return {
-    title: pageTitle(product.name),
-    description: product.shortDescription,
-    openGraph: {
-      title: socialTitle(product.name),
-      description: product.shortDescription,
-      images: product.images[0] ? [product.images[0].url] : [],
-    },
-  }
+  const photos = product.images.filter((img) => !img.url.endsWith('/placeholder.png')).slice(0, 4)
+  return pageMetadata({
+    title: product.seoTitle || product.name,
+    description: productSummary(product),
+    path: `/urun/${product.slug}`,
+    images: photos.map((img) => ({ url: img.url, alt: img.alt })),
+  })
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
@@ -48,83 +48,38 @@ export default async function ProductDetailPage({ params }: PageProps) {
     (product.collectionWorld && product.collectionWorld !== 'general' ? product.collectionWorld : undefined)
 
   // Related products from same collection / category (4-item grid) from DB
-  const { items: allCandidates } = await getProducts({
-    collectionSlug: primaryCollectionSlug,
-    categorySlug: product.categorySlug,
-    limit: 8,
-  })
+  const [{ items: allCandidates }, settings] = await Promise.all([
+    getProducts({
+      collectionSlug: primaryCollectionSlug,
+      categorySlug: product.categorySlug,
+      limit: 8,
+    }),
+    getStoreSettings(),
+  ])
 
   const relatedProducts: ProductListItem[] = allCandidates
     .filter((p) => p.id !== product.id)
     .slice(0, 4)
     .map(toProductListItem)
 
-  // Product structured data JSON-LD
-  const productJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    description: product.description,
-    image: product.images.map((img) => img.url),
-    sku: product.sku,
-    brand: {
-      '@type': 'Brand',
-      name: 'zuulab',
-    },
-    offers: {
-      '@type': 'Offer',
-      price: product.price,
-      priceCurrency: 'TRY',
-      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      url: `https://zuulab.com/urun/${product.slug}`,
-    },
-    aggregateRating: product.reviewCount > 0 ? {
-      '@type': 'AggregateRating',
-      ratingValue: product.rating,
-      reviewCount: product.reviewCount,
-    } : undefined,
-  }
-
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'zuulab',
-        item: 'https://zuulab.com',
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'ürünler',
-        item: 'https://zuulab.com/urunler',
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: product.categoryName.toLowerCase(),
-        item: `https://zuulab.com/kategori/${product.categorySlug}`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 4,
-        name: product.name.toLowerCase(),
-        item: `https://zuulab.com/urun/${product.slug}`,
-      },
-    ],
+  // Shipping terms for the Offer markup, as set in Ayarlar → Kargo
+  const shipping = {
+    fee: settings.shipping.fee,
+    freeShippingThreshold: settings.freeShippingThreshold,
+    estimatedDelivery: settings.shipping.estimatedDelivery,
   }
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      <JsonLd
+        data={[
+          productJsonLd(product, shipping),
+          breadcrumbJsonLd([
+            { name: 'Ürünler', path: '/urunler' },
+            { name: product.categoryName, path: `/kategori/${product.categorySlug}` },
+            { name: product.name, path: `/urun/${product.slug}` },
+          ]),
+        ]}
       />
 
       <div className={`container ${styles.pageContainer}`}>
@@ -132,8 +87,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
         <Breadcrumbs
           items={[
             { label: 'ürünler', href: '/urunler' },
-            { label: product.categoryName.toLowerCase(), href: `/kategori/${product.categorySlug}` },
-            { label: product.name.toLowerCase() },
+            { label: product.categoryName.toLocaleLowerCase('tr-TR'), href: `/kategori/${product.categorySlug}` },
+            { label: product.name.toLocaleLowerCase('tr-TR') },
           ]}
         />
 
@@ -143,10 +98,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <ProductGallery
             images={[
               ...product.images,
-              // Variant photos join the gallery; choosing that colour selects its photo
+              // Variant photos join the gallery, each colour's set kept together; choosing
+              // that colour selects its first photo and the rest follow it
               ...(product.variants ?? [])
-                .filter((v, i, all) => v.imageUrl && !product.images.some((im) => im.url === v.imageUrl) && all.findIndex((x) => x.imageUrl === v.imageUrl) === i)
-                .map((v) => ({ url: v.imageUrl!, alt: `${product.name} — ${v.value}`, isPrimary: false })),
+                .flatMap((v) =>
+                  (v.images?.length ? v.images : v.imageUrl ? [v.imageUrl] : []).map((url, n) => ({
+                    url,
+                    alt: n === 0 ? `${product.name} — ${v.value}` : `${product.name} — ${v.value} (${n + 1})`,
+                    isPrimary: false,
+                  }))
+                )
+                .filter((img, i, all) => !product.images.some((im) => im.url === img.url) && all.findIndex((x) => x.url === img.url) === i),
             ]}
             productName={product.name}
           />

@@ -1,0 +1,45 @@
+/* WhatsAppButton.module.css — fixed chat button, bottom-left */
+
+.button {
+  position: fixed;
+  left: var(--sp-5);
+  bottom: calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+  /* Under overlays, drawers and the cookie banner; above the page */
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12);
+  transform: translateZ(0);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.button:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22), 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.button:active {
+  transform: scale(0.96);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--zuu-blue);
+  outline-offset: 3px;
+}
+
+@media (max-width: 768px) {
+  .button {
+    left: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    width: 52px;
+    height: 52px;
+  }
+}

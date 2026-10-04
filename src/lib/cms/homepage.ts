@@ -271,8 +271,8 @@ export const SECTION_TEMPLATES: { [T in SectionType]: SectionTemplate<T> } = {
     defaults: () => ({
       heading: 'mekana karakter katan formlar.',
       body: 'kullanıcılarımızın evlerinden, çocuk odalarından ve çalışma alanlarından objelerimizin günlük yaşamdaki duruşu.',
-      linkLabel: '@zuulab instagram',
-      linkHref: 'https://instagram.com/zuulab',
+      linkLabel: '@zuu.lab instagram',
+      linkHref: 'https://instagram.com/zuu.lab',
       tiles: [
         {
           imageUrl: 'https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1000&q=85',

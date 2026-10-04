@@ -11,17 +11,23 @@ import HomeFinalDiscovery from '@/components/home/HomeFinalDiscovery'
 import HomeNewsletter from '@/components/home/HomeNewsletter'
 import TextCtaSection from '@/components/home/TextCtaSection'
 import ScrollReveal from '@/components/common/ScrollReveal'
+import WhatsAppButton from '@/components/common/WhatsAppButton'
+import { blurDataUrl } from '@/lib/images/blur'
 import { getCategories, getProducts } from '@/lib/services/products.service'
 import { toProductListItem, type CatalogProduct } from '@/types/catalog'
 import { getPublishedHomepageContent } from '@/lib/services/cms.service'
 import type { HeroSlide, HomeSection, ProductRailSettings } from '@/lib/cms/homepage'
+import { pageMetadata } from '@/lib/seo/metadata'
+import { JsonLd, organizationJsonLd, websiteJsonLd } from '@/lib/seo/jsonld'
+import { getActiveSocialLinks } from '@/lib/services/social.service'
 
-export const metadata: Metadata = {
-  // Brand first, then what people search for. Absolute: the layout template would add the brand again.
-  title: { absolute: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar' },
+export const metadata: Metadata = pageMetadata({
+  // Brand first, then what people search for; the title names the brand, so the template leaves it alone.
+  title: 'zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar',
   description:
-    'zuukids çocuk koleksiyonu, zuulife yaşam alanı objeleri, zuulight aydınlatma ve butik işletmelere özel zuutoptan çözümleriyle zuulab tasarım evrenini keşfedin.',
-}
+    'zuukids çocuk oyuncakları, zuulife ev ve masaüstü objeleri, zuulight 3D baskı lambalar ve zuutoptan toptan üretim. Bolu’da tasarlanıp üretilir.',
+  path: '/',
+})
 
 /*
  * The homepage is built from the published layout in the admin (Vitrin → Ana sayfa):
@@ -30,10 +36,11 @@ export const metadata: Metadata = {
  * it, so the page never repeats itself.
  */
 export default async function HomePage() {
-  const [{ items: ranked }, categories, content] = await Promise.all([
+  const [{ items: ranked }, categories, content, socials] = await Promise.all([
     getProducts({ sort: 'bestseller', limit: 1000 }),
     getCategories(),
     getPublishedHomepageContent(),
+    getActiveSocialLinks(),
   ])
 
   const bySlug = new Map(ranked.map((p) => [p.slug, p]))
@@ -42,7 +49,15 @@ export default async function HomePage() {
 
   // ── Hero ─────────────────────────────────────────────
   const slides: HeroSlideView[] = content.hero.active
-    ? content.hero.slides.filter((s) => s.enabled && s.imageUrl && s.headline).map((s) => resolveSlide(s, bySlug))
+    ? await Promise.all(
+        content.hero.slides
+          .filter((s) => s.enabled && s.imageUrl && s.headline)
+          .map(async (s) => {
+            // Tiny blurred previews painted until the photos load (no dark flash under the scrim)
+            const [blur, mobileBlur] = await Promise.all([blurDataUrl(s.imageUrl), blurDataUrl(s.mobileImageUrl)])
+            return { ...resolveSlide(s, bySlug), blurDataUrl: blur, mobileBlurDataUrl: mobileBlur }
+          })
+      )
     : []
 
   // ── Sections ─────────────────────────────────────────
@@ -172,6 +187,10 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={[organizationJsonLd(socials), websiteJsonLd()]} />
+      {/* The hero slides carry slogans (h2); the page heading names what the shop sells. */}
+      <h1 className="sr-only">zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar</h1>
+      <WhatsAppButton />
       {slides.length > 0 && <HomeHero slides={slides} autoplay={content.hero.autoplay} interval={content.hero.interval} />}
 
       {sections.map((section, i) => {

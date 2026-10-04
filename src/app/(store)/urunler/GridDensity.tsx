@@ -6,7 +6,9 @@ import styles from './ProductCatalog.module.css'
 
 export type GridColumns = 3 | 4 | 5
 
-const KEY = 'zuu-catalog-columns'
+/** localStorage key of the column choice; also read by the catalog's server copy */
+export const GRID_COLUMNS_KEY = 'zuu-catalog-columns'
+const KEY = GRID_COLUMNS_KEY
 const EVENT = 'zuu-catalog-columns'
 const OPTIONS: GridColumns[] = [3, 4, 5]
 

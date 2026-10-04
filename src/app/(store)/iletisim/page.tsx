@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import IletisimClient from './IletisimClient'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'İletişim',
   description:
-    'Zuulab ile iletişim kurun. E-posta, telefon, atölye adresi ve destek kanalları.',
-}
+    'zuulab ile iletişime geçin: sipariş soruları, kişiye özel tasarım ve toptan üretim talepleri için e-posta, destek talebi ve sosyal medya kanalları.',
+  path: '/iletisim',
+})
 
 export default function IletisimPage() {
   return (

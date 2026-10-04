@@ -11,6 +11,7 @@ import { formatPrice } from '@/lib/utils'
 import { isCloudinaryUrl, cloudinaryCardLoader } from '@/lib/images/cloudinary-loader'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import styles from './CartDrawer.module.css'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 
 export default function CartDrawer() {
@@ -59,7 +60,9 @@ export default function CartDrawer() {
     }
   }, [pathname])
 
-  // Escape key and body scroll lock
+  useBodyScrollLock(isRendered)
+
+  // Escape key
   useEffect(() => {
     if (!isRendered) return
 
@@ -69,9 +72,6 @@ export default function CartDrawer() {
       }
     }
 
-    const prevOverflow = document.body.style.overflow
-    const restoreOverflow = prevOverflow === 'hidden' ? '' : prevOverflow
-    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
 
     if (isDrawerOpen && !isExiting) {
@@ -79,7 +79,6 @@ export default function CartDrawer() {
     }
 
     return () => {
-      document.body.style.overflow = restoreOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isRendered, isDrawerOpen, isExiting, closeDrawer])
@@ -233,7 +232,7 @@ export default function CartDrawer() {
                           className={styles.itemName}
                           onClick={closeDrawer}
                         >
-                          {item.name.toLowerCase()}
+                          {item.name.toLocaleLowerCase('tr-TR')}
                         </Link>
                         <button
                           type="button"
@@ -247,7 +246,7 @@ export default function CartDrawer() {
 
                       {item.variantLabel && (
                         <span className={styles.variantLabel}>
-                          {item.variantLabel.toLowerCase()}
+                          {item.variantLabel.toLocaleLowerCase('tr-TR')}
                         </span>
                       )}
 

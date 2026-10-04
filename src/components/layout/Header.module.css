@@ -217,6 +217,9 @@
   top: 0;
   right: 0;
   bottom: 0;
+  /* The visible viewport, also while the mobile address bar slides in and out */
+  height: 100vh;
+  height: 100dvh;
   width: min(300px, 85vw);
   background: var(--surface-0);
   z-index: var(--z-modal);
@@ -224,6 +227,9 @@
   transition: transform var(--dur-slower) var(--ease-editorial);
   overflow-y: auto;
   overflow-x: hidden;
+  /* Reaching the end of the menu must not start scrolling the page behind it */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border-left: 1px solid var(--border);
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.06);
 }

@@ -230,6 +230,7 @@
   top: 80px; /* below header */
   max-height: calc(100vh - 100px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -694,6 +695,7 @@
 .drawerBody {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--sp-4) var(--sp-5);
 }
 
@@ -898,54 +900,6 @@
   color: var(--text-primary);
 }
 
-/* ── Skeleton Loading ─────────────────────────────────────── */
-.skeletonCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  animation: pulseSkeleton 1.6s ease-in-out infinite;
-}
-
-.skeletonImg {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.skeletonMeta {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-1) 0;
-}
-
-.skeletonLine {
-  height: 12px;
-  background: var(--surface-2);
-  border-radius: var(--radius-xs);
-}
-
-.skeletonLineShort {
-  width: 65%;
-  height: 14px;
-}
-
-.skeletonLineTiny {
-  width: 40%;
-  height: 10px;
-}
-
-@keyframes pulseSkeleton {
-  0%, 100% {
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-
 .isPending {
   opacity: 0.65;
   pointer-events: none;
@@ -1069,10 +1023,6 @@
 @media (prefers-reduced-motion: reduce) {
   .drawerSheet {
     animation: none;
-  }
-  .skeletonCard {
-    animation: none;
-    opacity: 0.6;
   }
   .isPending {
     transition: none;

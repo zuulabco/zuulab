@@ -49,11 +49,11 @@ export default function NewArrivalsSection({ products }: Props) {
 
               <div className={styles.meta}>
                 <span className={styles.category}>
-                  {product.collectionWorld ?? product.categoryName.toLowerCase()}
+                  {product.collectionWorld ?? product.categoryName.toLocaleLowerCase('tr-TR')}
                 </span>
                 <h3 className={styles.name}>
                   <Link href={`/urun/${product.slug}`}>
-                    {product.name.toLowerCase()}
+                    {product.name.toLocaleLowerCase('tr-TR')}
                   </Link>
                 </h3>
                 <div className={styles.priceRow}>

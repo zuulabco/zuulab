@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { pageTitle, socialTitle } from '@/lib/seo/title'
+import { pageMetadata } from '@/lib/seo/metadata'
+import { JsonLd, breadcrumbJsonLd, collectionPageJsonLd } from '@/lib/seo/jsonld'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductCatalogClient, {
-  ProductCatalogSkeleton,
+  ProductCatalogStatic,
 } from '../../urunler/ProductCatalogClient'
 import {
   getProductsByCollection,
@@ -31,20 +31,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const config = await getCollectionView(slug)
 
   if (!config) {
-    return {
-      title: 'Koleksiyon bulunamadı',
-    }
+    return { title: 'Koleksiyon bulunamadı', robots: { index: false } }
   }
 
-  return {
-    title: pageTitle(config.seo.title),
+  return pageMetadata({
+    title: config.seo.title,
     description: config.seo.description,
-    openGraph: {
-      title: socialTitle(config.seo.title),
-      description: config.seo.description,
-      images: [{ url: config.heroImage, alt: `${config.name} koleksiyonu` }],
-    },
-  }
+    path: `/koleksiyon/${config.slug}`,
+    images: config.heroImage.endsWith('/placeholder.png') ? undefined : [{ url: config.heroImage, alt: `${config.name} koleksiyonu` }],
+  })
 }
 
 export default async function CollectionPage({ params }: PageProps) {
@@ -62,38 +57,31 @@ export default async function CollectionPage({ params }: PageProps) {
     getCollections(),
   ])
 
-  // JSON-LD structured data for collection page
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'zuulab',
-        item: 'https://zuulab.com',
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'ürünler',
-        item: 'https://zuulab.com/urunler',
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: config.name,
-        item: `https://zuulab.com/koleksiyon/${config.slug}`,
-      },
-    ],
+  const catalog = {
+    products,
+    categories,
+    collections,
+    initialCollection: config.slug,
+    hideHeroIntro: true,
+    catalogTitle: config.name,
+    catalogDescription: config.tagline,
   }
 
   return (
     <>
-      {/* Structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      <JsonLd
+        data={[
+          collectionPageJsonLd({
+            name: config.name,
+            description: config.seo.description,
+            path: `/koleksiyon/${config.slug}`,
+            products,
+          }),
+          breadcrumbJsonLd([
+            { name: 'Koleksiyonlar', path: '/koleksiyonlar' },
+            { name: config.name, path: `/koleksiyon/${config.slug}` },
+          ]),
+        ]}
       />
 
       <div
@@ -108,22 +96,14 @@ export default async function CollectionPage({ params }: PageProps) {
           <Breadcrumbs
             items={[
               { label: 'koleksiyonlar', href: '/koleksiyonlar' },
-              { label: config.name.toLowerCase() },
+              { label: config.name.toLocaleLowerCase('tr-TR') },
             ]}
           />
         </div>
 
         {/* Compact catalog for this collection */}
-        <Suspense fallback={<ProductCatalogSkeleton />}>
-          <ProductCatalogClient
-            products={products}
-            categories={categories}
-            collections={collections}
-            initialCollection={config.slug}
-            hideHeroIntro={true}
-            catalogTitle={config.name}
-            catalogDescription={config.tagline}
-          />
+        <Suspense fallback={<ProductCatalogStatic {...catalog} />}>
+          <ProductCatalogClient {...catalog} />
         </Suspense>
       </div>
     </>

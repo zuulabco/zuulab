@@ -541,6 +541,8 @@ model ProductVariant {
   options    Json?
   // Photo shown when the shopper picks this combination
   imageUrl   String?     @map("image_url")
+  // Every photo of this combination, in order; image_url mirrors the first one
+  images     Json?
   sku        String?
   price      Decimal?    @db.Decimal(10, 2)
   stock      Int         @default(0)

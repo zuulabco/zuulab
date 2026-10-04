@@ -154,6 +154,7 @@
 .dropdownBody {
   max-height: calc(78vh - 62px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--sp-4) var(--sp-4);
 }
 

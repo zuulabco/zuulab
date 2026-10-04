@@ -1,37 +1,34 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Hakkımızda',
   description:
-    'Zuulab, İstanbul merkezli tasarım odaklı katmanlı üretim stüdyosudur. 3D printing ile günlük yaşam nesnelerini yeniden tasarlıyoruz.',
-}
+    'zuulab, Bolu’da kendi atölyesinde 3D baskıyla lamba, oyuncak ve ev objeleri tasarlayıp üreten bağımsız bir tasarım stüdyosudur. Hikayemiz ve ilkelerimiz.',
+  path: '/hakkimizda',
+})
 
 const COLLECTIONS = [
   {
     slug: 'zuukids',
-    logo: '/zuukids_logo.svg',
     desc: 'Çocuk odaları ve yaratıcı alanlar için hayvan karakterli organizasyon ve dekor ürünleri.',
     meta: 'oyuncak · dekor · organizasyon',
   },
   {
     slug: 'zuulife',
-    logo: '/zuulife_logo.svg',
     desc: 'Çalışma masası, günlük kullanım ve ev aksesuarları için işlevsel nesneler.',
     meta: 'masaüstü · ev · aksesuar',
   },
   {
     slug: 'zuulight',
-    logo: '/zuulight_logo.svg',
     desc: 'FDM baskı tekniğiyle üretilen orijinal filaman aydınlatmalar.',
     meta: 'aydınlatma · tasarım · filaman',
   },
   {
     slug: 'zuutoptan',
-    logo: '/zuutoptan_logo.svg',
     desc: 'Ticari alıcılara ve bayilere yönelik toplu sipariş ve özel üretim seçenekleri.',
     meta: 'toptan · kurumsal · özel üretim',
   },
@@ -51,8 +48,8 @@ export default function HakkimizdaPage() {
           fikirleri fiziksel şeylere dönüştürüyoruz.
         </h1>
         <p className={styles.heroLead}>
-          Zuulab, İstanbul merkezli bağımsız bir tasarım ve üretim stüdyosudur.
-          3D printing'i endüstriyel bir araç olarak kullanıyor; günlük nesneleri
+          zuulab, Bolu’da kendi atölyesinde üretim yapan bağımsız bir tasarım stüdyosudur.
+          3D printing’i endüstriyel bir araç olarak kullanıyor; günlük nesneleri
           yeniden tasarlıyoruz.
         </p>
       </header>
@@ -121,20 +118,9 @@ export default function HakkimizdaPage() {
             <span className={styles.sectionLabel}>koleksiyonlar</span>
             <nav className={styles.collectionsGrid} aria-label="Zuu koleksiyonları">
               {COLLECTIONS.map((col) => (
-                <Link
-                  key={col.slug}
-                  href={`/kategori/${col.slug}`}
-                  className={styles.collectionRow}
-                >
-                  <div className={styles.collectionLogoWrap}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={col.logo}
-                      alt={col.slug}
-                      style={{ maxHeight: 28, maxWidth: 140, width: 'auto', objectFit: 'contain' }}
-                    />
-                  </div>
+                <Link key={col.slug} href={`/koleksiyon/${col.slug}`} className={styles.collectionRow}>
                   <div className={styles.collectionInfo}>
+                    <span className={styles.collectionName}>{col.slug}</span>
                     <span className={styles.collectionDesc}>{col.desc}</span>
                     <span className={styles.collectionMeta}>{col.meta}</span>
                   </div>
@@ -165,7 +151,7 @@ export default function HakkimizdaPage() {
             <div className={styles.infoSeparator} />
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>konum</span>
-              <span className={styles.infoValue}>Kadıköy, İstanbul — Türkiye</span>
+              <span className={styles.infoValue}>Bolu, Türkiye</span>
             </div>
             <div className={styles.infoSeparator} />
             <div className={styles.infoRow}>
@@ -175,8 +161,8 @@ export default function HakkimizdaPage() {
             <div className={styles.infoSeparator} />
             <div className={styles.infoRow}>
               <span className={styles.infoLabel}>iletişim</span>
-              <a href="mailto:info@zuulab.com" className={styles.infoLink}>
-                info@zuulab.com
+              <a href="mailto:zuulab.co@gmail.com" className={styles.infoLink}>
+                zuulab.co@gmail.com
               </a>
             </div>
             <div className={styles.infoSeparator} />

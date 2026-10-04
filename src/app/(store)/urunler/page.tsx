@@ -1,14 +1,16 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
-import ProductCatalogClient, { ProductCatalogSkeleton } from './ProductCatalogClient'
+import ProductCatalogClient, { ProductCatalogStatic } from './ProductCatalogClient'
 import { getProducts, getCategories, getCollections } from '@/lib/services/products.service'
 
-export const metadata: Metadata = {
-  title: 'Ürünler',
+export const metadata: Metadata = pageMetadata({
+  title: 'Tüm ürünler: 3D baskı lambalar, oyuncaklar ve ev objeleri',
   description:
-    'zuulab tasarım evreni: zuukids, zuulife, zuulight ve zuutoptan 3d baskı koleksiyonları. biyo-bozunur pla ve endüstriyel hassas üretim modelleri.',
-}
+    'Tüm zuulab ürünleri: zuulight 3D baskı lambalar, zuukids eğitici oyuncaklar, zuulife ev ve masaüstü objeleri ve kişiye özel anahtarlıklar.',
+  path: '/urunler',
+})
 
 export default async function ProductsPage() {
   const [{ items: products }, categories, collections] = await Promise.all([
@@ -16,6 +18,12 @@ export default async function ProductsPage() {
     getCategories(),
     getCollections(),
   ])
+
+  const catalog = {
+    products,
+    categories,
+    collections,
+  }
 
   return (
     <div
@@ -27,12 +35,8 @@ export default async function ProductsPage() {
     >
       <Breadcrumbs items={[{ label: 'ürünler' }]} />
 
-      <Suspense fallback={<ProductCatalogSkeleton />}>
-        <ProductCatalogClient
-          products={products}
-          categories={categories}
-          collections={collections}
-        />
+      <Suspense fallback={<ProductCatalogStatic {...catalog} />}>
+        <ProductCatalogClient {...catalog} />
       </Suspense>
     </div>
   )

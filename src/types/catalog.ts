@@ -54,10 +54,19 @@ export interface CatalogProduct {
     options?: Record<string, string>
     /** Photo to show when this combination is chosen */
     imageUrl?: string
+    /** All photos of this combination, first = imageUrl */
+    images?: string[]
   }>
   specifications: Array<{ name: string; value: string }>
   sortOrder?: number
   createdAt?: string
+  /** Last edit of the product row; the sitemap's lastmod */
+  updatedAt?: string
+  /** SEO title / description typed in the admin; pages fall back to name and short description */
+  seoTitle?: string | null
+  seoDescription?: string | null
+  /** GTIN / EAN when the product has one (Product schema) */
+  barcode?: string | null
   /** Units sold in paid orders (all channels) */
   soldCount?: number
   /** How many customers have it in their favourites */

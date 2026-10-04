@@ -38,9 +38,9 @@ function mergeShipping(saved: Partial<ShippingSettings> | undefined, base: Shipp
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   storeName: 'Zuulab 3D Studio',
-  storeEmail: 'iletisim@zuulab.com',
-  storePhone: '+90 216 555 0192',
-  storeAddress: 'Moda Cad. Zuulab Tasarım Atölyesi No: 42, Kadıköy / İstanbul',
+  storeEmail: 'zuulab.co@gmail.com',
+  storePhone: '0 533 425 14 95',
+  storeAddress: 'Bolu, Türkiye',
   currency: 'TRY',
   taxRate: 20,
   freeShippingThreshold: 750,

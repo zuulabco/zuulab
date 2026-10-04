@@ -410,7 +410,7 @@ export function getMaintenanceHtml(): string {
             <polyline points="22,6 12,13 2,6"></polyline>
           </svg>
           <div class="info-text">
-            İletişim ve destek: <a href="mailto:destek@zuulab.com">destek@zuulab.com</a>
+            İletişim ve destek: <a href="mailto:zuulab.co@gmail.com">zuulab.co@gmail.com</a>
           </div>
         </div>
       </div>

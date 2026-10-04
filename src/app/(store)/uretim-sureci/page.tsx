@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
-  title: 'Üretim Süreci',
+export const metadata: Metadata = pageMetadata({
+  title: 'Üretim süreci',
   description:
-    'Dijital tasarımdan kalite kontrolüne kadar Zuulab\'ın 5 aşamalı üretim süreci. Kendi atölyemizde, talep üzerine üretim.',
-}
+    'zuulab’ın 5 aşamalı 3D baskı süreci: tasarım ve simülasyon, FDM katmanlı üretim, yüzey temizliği, kalite kontrol ve geri dönüştürülebilir paketleme.',
+  path: '/uretim-sureci',
+})
 
 const STEPS = [
   {

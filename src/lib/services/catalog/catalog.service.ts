@@ -1,5 +1,5 @@
 import 'server-only'
-import { normalizeOptions } from '@/lib/services/product-variants.service'
+import { normalizeOptions, variantImages } from '@/lib/services/product-variants.service'
 import { tidyShortDescription } from '@/lib/utils'
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
@@ -38,6 +38,26 @@ function safeOptions(raw: unknown) {
   } catch {
     return undefined
   }
+}
+
+/**
+ * Specifications as shoppers see them. Attributes imported from a marketplace
+ * repeat and include compliance fields (producer e-mail, "CE mark: not on the
+ * photo"…) that only that marketplace asks for; each name/value is kept once and
+ * those are left out.
+ */
+const MARKETPLACE_ONLY_SPEC = /^(üretici|ithalatçı)\s|ce uygunluk|batarya türü/i
+
+function storefrontSpecs(rows: Array<{ name: string; value: string }>) {
+  const seen = new Set<string>()
+  const out: Array<{ name: string; value: string }> = []
+  for (const { name, value } of rows) {
+    const key = `${name}|${value}`.trim().toLocaleLowerCase('tr-TR')
+    if (!value?.trim() || MARKETPLACE_ONLY_SPEC.test(name) || seen.has(key)) continue
+    seen.add(key)
+    out.push({ name, value })
+  }
+  return out
 }
 
 export async function loadSnapshot(): Promise<CatalogSnapshot> {
@@ -165,10 +185,15 @@ export async function loadSnapshot(): Promise<CatalogSnapshot> {
         sku: v.sku || p.sku,
         options: (v.options as Record<string, string> | null) ?? undefined,
         imageUrl: v.imageUrl ?? undefined,
+        images: variantImages(v.images, v.imageUrl),
       })),
-      specifications: (specsByProduct.get(p.id) ?? []).map((s) => ({ name: s.name, value: s.value })),
+      specifications: storefrontSpecs(specsByProduct.get(p.id) ?? []),
       sortOrder: p.sortOrder,
       createdAt: dbTimestampToIso(p.createdAt) ?? undefined,
+      updatedAt: dbTimestampToIso(p.updatedAt) ?? undefined,
+      seoTitle: p.metaTitle?.trim() || null,
+      seoDescription: p.metaDesc?.trim() || null,
+      barcode: p.barcode?.trim() || null,
       soldCount: soldByProduct.get(p.id) ?? 0,
       favoriteCount: favoritesByProduct.get(p.id) ?? 0,
     })

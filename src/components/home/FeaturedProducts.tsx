@@ -32,8 +32,8 @@ export default function FeaturedProducts({
       <div className="container">
         <div className={styles.header}>
           <div>
-            <h2 className={styles.title}>{title.toLowerCase()}</h2>
-            {subtitle && <p className={styles.subtitle}>{subtitle.toLowerCase()}</p>}
+            <h2 className={styles.title}>{title.toLocaleLowerCase('tr-TR')}</h2>
+            {subtitle && <p className={styles.subtitle}>{subtitle.toLocaleLowerCase('tr-TR')}</p>}
           </div>
           {viewAllHref && (
             <Link href={viewAllHref} className={styles.viewAll}>

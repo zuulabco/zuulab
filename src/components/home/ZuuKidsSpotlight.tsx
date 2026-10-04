@@ -38,7 +38,7 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false, setting
     addItem({
       productId: product.id,
       variantId: null,
-      name: product.name.toLowerCase(),
+      name: product.name.toLocaleLowerCase('tr-TR'),
       variantLabel: null,
       price: product.price,
       imageUrl: product.primaryImage,

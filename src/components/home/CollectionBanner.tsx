@@ -28,7 +28,7 @@ export default function CollectionBanner({
   theme = 'dark',
 }: Props) {
   return (
-    <section className={`${styles.section} ${styles[theme]}`} aria-label={title.toLowerCase()}>
+    <section className={`${styles.section} ${styles[theme]}`} aria-label={title.toLocaleLowerCase('tr-TR')}>
       <div className={`${styles.inner} ${align === 'right' ? styles.reversed : ''}`}>
         {/* Image side */}
         <div className={styles.imageSide}>
@@ -47,12 +47,12 @@ export default function CollectionBanner({
         {/* Text side */}
         <div className={styles.textSide}>
           <div className={styles.textContent}>
-            <span className={styles.eyebrow}>{eyebrow.toLowerCase()}</span>
-            <h2 className={styles.title}>{title.toLowerCase()}</h2>
-            <p className={styles.subtitle}>{subtitle.toLowerCase()}</p>
-            <p className={styles.description}>{description.toLowerCase()}</p>
+            <span className={styles.eyebrow}>{eyebrow.toLocaleLowerCase('tr-TR')}</span>
+            <h2 className={styles.title}>{title.toLocaleLowerCase('tr-TR')}</h2>
+            <p className={styles.subtitle}>{subtitle.toLocaleLowerCase('tr-TR')}</p>
+            <p className={styles.description}>{description.toLocaleLowerCase('tr-TR')}</p>
             <Link href={ctaHref} className={styles.ctaLink}>
-              <span>{ctaText.toLowerCase()}</span>
+              <span>{ctaText.toLocaleLowerCase('tr-TR')}</span>
               <span className={styles.ctaArrow} aria-hidden>→</span>
             </Link>
           </div>

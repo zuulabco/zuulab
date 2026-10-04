@@ -32,7 +32,10 @@ export interface VariantRowInput {
   options: Record<string, string>
   sku?: string | null
   stock: number
+  /** First photo; kept for older callers. `images` wins when both are sent. */
   imageUrl?: string | null
+  /** Every photo of this combination, in order */
+  images?: string[] | null
   isActive?: boolean
 }
 
@@ -51,7 +54,15 @@ export class VariantValidationError extends Error {
 }
 
 const MAX_OPTIONS = 3
+/** Photos per combination (one colour usually needs a few angles, not dozens) */
+export const MAX_VARIANT_IMAGES = 8
 const MAX_VALUES = 30
+
+/** A variant's photos: the stored list, or its single legacy image_url */
+export function variantImages(raw: unknown, imageUrl: string | null | undefined): string[] {
+  const list = Array.isArray(raw) ? raw.filter((u): u is string => typeof u === 'string' && u.length > 0) : []
+  return list.length > 0 ? list : imageUrl ? [imageUrl] : []
+}
 
 function clean(s: unknown, max = 40): string {
   return String(s ?? '').trim().replace(/\s+/g, ' ').slice(0, max)
@@ -121,6 +132,7 @@ export async function getProductVariants(productId: string): Promise<ProductVari
         sku: r.sku ?? '',
         stock: r.stock,
         imageUrl: r.imageUrl ?? '',
+        images: variantImages(r.images, r.imageUrl),
         isActive: r.isActive,
       }
     }),
@@ -156,10 +168,15 @@ export async function saveProductVariants(
       const row = inputByKey.get(key)
       const stock = Math.max(0, Math.floor(Number(row?.stock ?? 0)) || 0)
       if (stock > 100000) throw new VariantValidationError('Stok en fazla 100.000 olabilir.')
-      const imageUrl = clean(row?.imageUrl, 500) || null
-      if (imageUrl && !/^https:\/\//.test(imageUrl) && !imageUrl.startsWith('/')) {
+      const sent = Array.isArray(row?.images) ? row.images : [row?.imageUrl]
+      const images = [...new Set(sent.map((u) => clean(u, 500)).filter(Boolean))]
+      if (images.length > MAX_VARIANT_IMAGES) {
+        throw new VariantValidationError(`Bir seçeneğe en fazla ${MAX_VARIANT_IMAGES} görsel eklenebilir.`)
+      }
+      if (images.some((u) => !/^https:\/\//.test(u) && !u.startsWith('/'))) {
         throw new VariantValidationError('Varyant görseli https:// ile başlayan bir adres olmalıdır.')
       }
+      const imageUrl = images[0] ?? null
       const fields = {
         name: options.map((o) => o.name).join(' / '),
         value: options.map((o) => combo[o.name]).join(' / '),
@@ -167,6 +184,8 @@ export async function saveProductVariants(
         sku: clean(row?.sku, 60).toUpperCase() || `${product.sku}-${i + 1}`,
         stock,
         imageUrl,
+        // [] rather than null: the ORM silently skips a null JSON value, which would keep removed photos
+        images: images as never,
         isActive: row?.isActive !== false,
         sortOrder: i,
         price: dbNumeric(Number(product.price)),

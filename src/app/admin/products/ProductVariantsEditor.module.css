@@ -218,6 +218,63 @@
   object-fit: cover;
 }
 
+/* Several photos per colour / combination */
+.photoList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.photoItem {
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.photoItem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photoItem:first-child {
+  border-color: var(--text-primary);
+}
+
+.photoRemove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.photoItem:hover .photoRemove,
+.photoRemove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .photoRemove {
+    opacity: 1;
+  }
+}
+
 .sizeGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
-  title: 'Gizlilik ve Güvenlik Politikası',
-  description: 'Zuulab kişisel verilerin korunması, çerez politikası ve gizlilik ilkeleri.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Gizlilik ve güvenlik politikası',
+  description:
+    'zuulab gizlilik politikası: kişisel verilerin KVKK kapsamında işlenmesi, veri aktarımı, çerez kullanımı ve KVKK madde 11 kapsamındaki haklarınız.',
+  path: '/gizlilik-politikasi',
+})
 
 export default function GizlilikPolitikasiPage() {
   return (
@@ -74,7 +77,7 @@ export default function GizlilikPolitikasiPage() {
           <p>
             Veri sahibi olarak, kişisel verilerinizin işlenip işlenmediğini öğrenme,
             silinmesini veya düzeltilmesini talep etme haklarına sahipsiniz. Taleplerinizi{' '}
-            <a href="mailto:info@zuulab.com">info@zuulab.com</a> adresine iletebilirsiniz.
+            <a href="mailto:zuulab.co@gmail.com">zuulab.co@gmail.com</a> adresine iletebilirsiniz.
           </p>
         </section>
 

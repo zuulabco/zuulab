@@ -133,7 +133,7 @@ async function runTests() {
     assert(html.includes('#0080C4') || html.includes('--zuu-blue'), 'Contains brand blue color')
     assert(html.includes('#FEC80F') || html.includes('--zuu-yellow'), 'Contains brand yellow color')
     assert(html.includes('noindex, nofollow'), 'Contains robots noindex tag')
-    assert(html.includes('destek@zuulab.com'), 'Contains support email')
+    assert(html.includes('zuulab.co@gmail.com'), 'Contains support email')
 
     // ----------------------------------------------------
     // TEST 5: Proxy Behavior with MAINTENANCE_MODE=false

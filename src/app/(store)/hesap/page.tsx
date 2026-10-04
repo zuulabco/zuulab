@@ -5,6 +5,7 @@ import HesapClient from './HesapClient'
 export const metadata: Metadata = {
   title: 'Hesabım',
   description: 'Zuulab müşteri hesabı, sipariş geçmişi ve profil yönetimi.',
+  robots: { index: false, follow: true },
 }
 
 export default function AccountPage() {

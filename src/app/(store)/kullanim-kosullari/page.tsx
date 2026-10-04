@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
-  title: 'Kullanım Koşulları',
-  description: 'Zuulab web sitesi kullanım şartları, fikri mülkiyet ve sipariş koşulları.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'Kullanım koşulları',
+  description:
+    'zuulab web sitesi kullanım koşulları: genel hükümler, fikri ve sınai mülkiyet hakları, sipariş ve kişiye özel üretim koşulları.',
+  path: '/kullanim-kosullari',
+})
 
 export default function KullanimKosullariPage() {
   return (

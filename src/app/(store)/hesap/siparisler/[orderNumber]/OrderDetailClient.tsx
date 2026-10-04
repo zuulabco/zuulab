@@ -370,7 +370,7 @@ export default function OrderDetailClient() {
                     href={`/urun/${item.slug || item.productId}`}
                     className={styles.itemName}
                   >
-                    {item.productName.toLowerCase()}
+                    {item.productName.toLocaleLowerCase('tr-TR')}
                   </Link>
                   <span className={styles.itemMeta}>
                     sku: {item.sku} · adet: {item.quantity}

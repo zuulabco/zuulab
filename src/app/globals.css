@@ -212,6 +212,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  /* clip cuts sideways overflow without making <body> a scroll container, which
+     made fixed bars (the product page's buy bar) jump while scrolling on phones. */
+  overflow-x: clip;
 }
 
 /* ── Typography ──────────────────────────────────────────── */
@@ -542,12 +545,14 @@ ul, ol { list-style: none; }
    A tiny head script (ImageFadeScript) adds .img-fade to <html> and marks each
    <img> with data-loaded once it has loaded (or failed). Without JS nothing is
    hidden. Frames that hold photos show the skeleton tone until the image arrives. */
-html.img-fade img:not([data-loaded]) { opacity: 0; }
+/* Images open from a soft blur rather than popping in */
+html.img-fade img:not([data-loaded]) { opacity: 0; filter: blur(12px); }
 /* This rule outranks component classes, so it must carry the hover-zoom transform
    too; otherwise image zooms snap instead of easing. */
 html.img-fade img {
   transition:
     opacity var(--dur-slower) var(--ease-out),
+    filter var(--dur-slower) var(--ease-out),
     transform var(--dur-zoom) var(--ease-zoom);
 }
 .img-frame {
@@ -611,6 +616,8 @@ html.img-fade img {
   background-color: var(--overlay);
   z-index: var(--z-overlay);
   animation: fade-in var(--dur-slow) var(--ease-out);
+  /* A swipe on the dimmed page must not scroll it */
+  touch-action: none;
 }
 
 @keyframes fade-in {

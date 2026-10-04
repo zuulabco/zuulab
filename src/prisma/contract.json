@@ -8220,6 +8220,13 @@
                   "kind": "scalar"
                 }
               },
+              "images": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
               "isActive": {
                 "nullable": false,
                 "type": {
@@ -8358,6 +8365,9 @@
                 },
                 "imageUrl": {
                   "column": "image_url"
+                },
+                "images": {
+                  "column": "images"
                 },
                 "isActive": {
                   "column": "is_active"
@@ -22515,6 +22525,11 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "images": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
+                },
                 "is_active": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -29992,7 +30007,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "50b533fcf70cd97836b6b1b19becdffe72e09b7058483c7a6cad9c1cb9b01f48"
+    "storageHash": "024af94a5f6e25cb0cc7b808f62d90a5c5d551f5bcc0a08458676b98503a6cf5"
   },
   "execution": {
     "executionHash": "c0567e6d3146606d1ca48b11cb8eb7e15ff1a4a49de19a691c87dba7d3248bac",

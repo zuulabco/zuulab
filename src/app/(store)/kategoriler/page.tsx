@@ -1,15 +1,17 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
 import Image from 'next/image'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import { getCategories, getProducts } from '@/lib/services/products.service'
 import styles from './CategoriesPage.module.css'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Kategoriler',
   description:
-    'zuulab tasarım kategorilerini inceleyin: aydınlatmalar, figürler, masaüstü düzenleyiciler, dekorasyon ve daha fazlası.',
-}
+    'zuulab ürün kategorileri: 3D baskı aydınlatmalar, oyun ve eğlence, masaüstü organizerler, ev ve yaşam objeleri ve kişiye özel anahtarlıklar.',
+  path: '/kategoriler',
+})
 
 export default async function CategoriesPage() {
   const [allCategories, { items: products }] = await Promise.all([

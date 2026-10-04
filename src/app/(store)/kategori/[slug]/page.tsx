@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { pageTitle, socialTitle } from '@/lib/seo/title'
+import { pageMetadata } from '@/lib/seo/metadata'
+import { JsonLd, breadcrumbJsonLd, collectionPageJsonLd } from '@/lib/seo/jsonld'
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import ProductCatalogClient, {
-  ProductCatalogSkeleton,
+  ProductCatalogStatic,
 } from '../../urunler/ProductCatalogClient'
 import {
   getProductsByCategory,
@@ -31,16 +31,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params
   const category = await getCategoryBySlug(slug)
   if (!category) {
-    return { title: 'Kategori bulunamadı' }
+    return { title: 'Kategori bulunamadı', robots: { index: false } }
   }
 
-  const title = category.seoTitle || category.name
-  const description = category.seoDescription || category.description
-  return {
-    title: pageTitle(title),
-    description,
-    openGraph: { title: socialTitle(title), description },
-  }
+  return pageMetadata({
+    title: category.seoTitle || category.name,
+    description:
+      category.seoDescription ||
+      category.description ||
+      `zuulab ${category.name.toLocaleLowerCase('tr-TR')} modelleri: Bolu’da 3D baskıyla tasarlanıp üretilen özgün parçalar.`,
+    path: `/kategori/${category.slug}`,
+    images: category.image ? [category.image] : undefined,
+  })
 }
 
 export default async function CategoryPage({ params }: PageProps) {
@@ -61,38 +63,31 @@ export default async function CategoryPage({ params }: PageProps) {
     getCollections(),
   ])
 
-  // JSON-LD structured data for category page
-  const breadcrumbJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'zuulab',
-        item: 'https://zuulab.com',
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'ürünler',
-        item: 'https://zuulab.com/urunler',
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: category.name,
-        item: `https://zuulab.com/kategori/${category.slug}`,
-      },
-    ],
+  const catalog = {
+    products,
+    categories,
+    collections,
+    initialCategory: category.slug,
+    hideHeroIntro: true,
+    catalogTitle: category.name.toLocaleLowerCase('tr-TR'),
+    catalogDescription: category.description,
   }
 
   return (
     <>
-      {/* Structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      <JsonLd
+        data={[
+          collectionPageJsonLd({
+            name: category.name,
+            description: category.seoDescription || category.description,
+            path: `/kategori/${category.slug}`,
+            products,
+          }),
+          breadcrumbJsonLd([
+            { name: 'Ürünler', path: '/urunler' },
+            { name: category.name, path: `/kategori/${category.slug}` },
+          ]),
+        ]}
       />
 
       <div
@@ -107,22 +102,14 @@ export default async function CategoryPage({ params }: PageProps) {
           <Breadcrumbs
             items={[
               { label: 'ürünler', href: '/urunler' },
-              { label: category.name.toLowerCase() },
+              { label: category.name.toLocaleLowerCase('tr-TR') },
             ]}
           />
         </div>
 
         {/* Compact catalog for this category */}
-        <Suspense fallback={<ProductCatalogSkeleton />}>
-          <ProductCatalogClient
-            products={products}
-            categories={categories}
-            collections={collections}
-            initialCategory={category.slug}
-            hideHeroIntro={true}
-            catalogTitle={category.name.toLowerCase()}
-            catalogDescription={category.description}
-          />
+        <Suspense fallback={<ProductCatalogStatic {...catalog} />}>
+          <ProductCatalogClient {...catalog} />
         </Suspense>
       </div>
     </>

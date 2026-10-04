@@ -50,8 +50,8 @@ export default function IletisimClient() {
       <div>
         <div className={styles.contactChannel}>
           <span className={styles.contactChannelLabel}>e-posta</span>
-          <a href="mailto:info@zuulab.com" className={styles.contactChannelValue}>
-            info@zuulab.com
+          <a href="mailto:zuulab.co@gmail.com" className={styles.contactChannelValue}>
+            zuulab.co@gmail.com
           </a>
           <span className={styles.contactChannelNote}>
             Genel sorular ve sipariş bilgileri için
@@ -60,8 +60,8 @@ export default function IletisimClient() {
 
         <div className={styles.contactChannel}>
           <span className={styles.contactChannelLabel}>telefon</span>
-          <a href="tel:+905001234567" className={styles.contactChannelValue}>
-            +90 500 123 45 67
+          <a href="tel:+905334251495" className={styles.contactChannelValue}>
+            0 533 425 14 95
           </a>
           <span className={styles.contactChannelNote}>
             Hafta içi 09:00 – 18:00
@@ -71,7 +71,7 @@ export default function IletisimClient() {
         <div className={styles.contactChannel}>
           <span className={styles.contactChannelLabel}>atölye & üretim merkezi</span>
           <span className={styles.contactChannelValue}>
-            Kadıköy, İstanbul
+            Bolu, Türkiye
           </span>
           <span className={styles.contactChannelNote}>
             Ziyaret için önceden randevu alınız
@@ -81,12 +81,12 @@ export default function IletisimClient() {
         <div className={styles.contactChannel}>
           <span className={styles.contactChannelLabel}>instagram</span>
           <a
-            href="https://instagram.com/zuulab"
+            href="https://instagram.com/zuu.lab"
             target="_blank"
             rel="noopener noreferrer"
             className={styles.contactChannelValue}
           >
-            @zuulab
+            @zuu.lab
           </a>
           <span className={styles.contactChannelNote}>
             Ürün güncellemeleri ve atölye içerikleri
@@ -105,8 +105,8 @@ export default function IletisimClient() {
 
         <div className={styles.contactChannel} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <span className={styles.contactChannelLabel}>toptan & özel üretim</span>
-          <a href="mailto:info@zuulab.com" className={styles.contactChannelValue}>
-            info@zuulab.com
+          <a href="mailto:zuulab.co@gmail.com" className={styles.contactChannelValue}>
+            zuulab.co@gmail.com
           </a>
           <span className={styles.contactChannelNote}>
             Kurumsal ve toptan talepler için e-posta ile ulaşın

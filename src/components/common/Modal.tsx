@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import styles from './Modal.module.css'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 export interface ModalProps {
   isOpen: boolean
@@ -50,7 +51,9 @@ export default function Modal({
     }
   }, [isOpen, isRendered])
 
-  // Body scroll lock & Escape key
+  useBodyScrollLock(isRendered)
+
+  // Escape key
   useEffect(() => {
     if (!isRendered) return
 
@@ -60,13 +63,9 @@ export default function Modal({
       }
     }
 
-    const prevOverflow = document.body.style.overflow
-    const restoreOverflow = prevOverflow === 'hidden' ? '' : prevOverflow
-    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.body.style.overflow = restoreOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isRendered, closeOnEsc, onClose])

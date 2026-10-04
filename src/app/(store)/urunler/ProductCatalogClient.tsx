@@ -6,8 +6,9 @@ import { toProductListItem, type CatalogProduct, type CatalogCategory } from '@/
 import { CATALOG_COLORS, CATALOG_MATERIALS, getColorDef, extractMaterialSlug } from '@/config/catalog-filters'
 import ProductCard from '@/components/home/ProductCard'
 import Dropdown from '@/components/common/Dropdown'
-import GridDensity, { useGridColumns } from './GridDensity'
+import GridDensity, { GRID_COLUMNS_KEY, useGridColumns } from './GridDensity'
 import styles from './ProductCatalog.module.css'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 interface Props {
   products: CatalogProduct[]
@@ -48,7 +49,48 @@ function parsePriceBound(value: string | null): number | null {
   return Math.min(n, PRICE_LIMIT)
 }
 
-export default function ProductCatalogClient({
+/** The filter state lives in the URL; only reading it is needed here. */
+type ParamReader = Pick<URLSearchParams, 'get'>
+const NO_PARAMS: ParamReader = new URLSearchParams()
+
+/**
+ * The catalog with filters read from the URL. Reading the query string makes the
+ * page render on the client, so pages wrap this in <Suspense> with
+ * ProductCatalogStatic as the fallback: the server HTML then holds the full,
+ * unfiltered grid (heading, product links) for search engines and first paint.
+ */
+export default function ProductCatalogClient(props: Props) {
+  const searchParams = useSearchParams()
+  return <ProductCatalogView {...props} searchParams={searchParams} />
+}
+
+/** Query keys that change what the catalog shows (see the URL-derived state below). */
+const URL_STATE_KEYS = ['sort', 'category', 'collection', 'stock', 'minPrice', 'maxPrice', 'q', 'arama', 'colors', 'material']
+
+/**
+ * Runs while the server HTML is parsed, before the grid paints:
+ * - the saved column density (GridDensity) is applied, so the grid does not
+ *   re-flow from 4 columns once the real catalog takes over;
+ * - with a sort or filter in the URL the unfiltered grid would show first and then
+ *   jump to the shopper's choice, so it stays invisible (keeping its space).
+ */
+const PREPARE_STATIC_CATALOG = `(function(){var el=document.currentScript.parentNode;try{var n=+localStorage.getItem(${JSON.stringify(
+  GRID_COLUMNS_KEY
+)});if(n===3||n===5)el.style.setProperty('--cols',n)}catch(e){}var p=new URLSearchParams(location.search);if(${JSON.stringify(
+  URL_STATE_KEYS
+)}.some(function(k){return p.has(k)}))el.style.visibility='hidden'})()`
+
+/** The same catalog with no filters applied; renders on the server. */
+export function ProductCatalogStatic(props: Props) {
+  return (
+    <div style={{ display: 'contents' }}>
+      <script dangerouslySetInnerHTML={{ __html: PREPARE_STATIC_CATALOG }} />
+      <ProductCatalogView {...props} searchParams={NO_PARAMS} />
+    </div>
+  )
+}
+
+function ProductCatalogView({
   products,
   categories,
   initialCategory = 'all',
@@ -57,10 +99,10 @@ export default function ProductCatalogClient({
   catalogTitle,
   catalogDescription,
   collections,
-}: Props) {
+  searchParams,
+}: Props & { searchParams: ParamReader }) {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
   // ── URL-derived State (Single Source of Truth) ─────────────
@@ -259,34 +301,33 @@ export default function ProductCatalogClient({
   }
 
   // Handle escape key and body scroll lock for mobile drawer
+  useBodyScrollLock(mobileDrawerOpen)
+
   useEffect(() => {
     if (!mobileDrawerOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileDrawerOpen(false)
     }
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.body.style.overflow = prevOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [mobileDrawerOpen])
 
   // ── Filter and Sort Products ───────────────────────────────
   const filteredProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.toLocaleLowerCase('tr-TR')
 
     return products
       .filter((p) => {
         // Search query filter
         if (q) {
-          const matchName = p.name.toLowerCase().includes(q)
-          const matchSku = p.sku.toLowerCase().includes(q)
-          const matchCat = p.categoryName.toLowerCase().includes(q)
-          const matchMaterial = p.material ? p.material.toLowerCase().includes(q) : false
-          const matchShortDesc = p.shortDescription ? p.shortDescription.toLowerCase().includes(q) : false
-          const matchDesc = p.description ? p.description.toLowerCase().includes(q) : false
+          const matchName = p.name.toLocaleLowerCase('tr-TR').includes(q)
+          const matchSku = p.sku.toLocaleLowerCase('tr-TR').includes(q)
+          const matchCat = p.categoryName.toLocaleLowerCase('tr-TR').includes(q)
+          const matchMaterial = p.material ? p.material.toLocaleLowerCase('tr-TR').includes(q) : false
+          const matchShortDesc = p.shortDescription ? p.shortDescription.toLocaleLowerCase('tr-TR').includes(q) : false
+          const matchDesc = p.description ? p.description.toLocaleLowerCase('tr-TR').includes(q) : false
           if (!matchName && !matchSku && !matchCat && !matchMaterial && !matchShortDesc && !matchDesc) return false
         }
 
@@ -372,7 +413,7 @@ export default function ProductCatalogClient({
     if (!isCategoryPage && selectedCategory !== 'all') {
       const cat = categories.find((c) => c.slug === selectedCategory)
       pills.push({
-        label: cat ? cat.name.toLowerCase() : selectedCategory,
+        label: cat ? cat.name.toLocaleLowerCase('tr-TR') : selectedCategory,
         onRemove: () => updateUrl({ category: 'all' }),
       })
     }
@@ -380,7 +421,7 @@ export default function ProductCatalogClient({
     if (!isCollectionPage && selectedCollection !== 'all') {
       const col = collections.find((c) => c.slug === selectedCollection)
       pills.push({
-        label: col ? col.name.toLowerCase() : selectedCollection,
+        label: col ? col.name.toLocaleLowerCase('tr-TR') : selectedCollection,
         onRemove: () => updateUrl({ collection: 'all' }),
       })
     }
@@ -411,7 +452,7 @@ export default function ProductCatalogClient({
     selectedColors.forEach((slug) => {
       const def = getColorDef(slug)
       pills.push({
-        label: def ? def.label.toLowerCase() : slug,
+        label: def ? def.label.toLocaleLowerCase('tr-TR') : slug,
         onRemove: () => updateUrl({ colors: selectedColors.filter((c) => c !== slug) }),
       })
     })
@@ -937,7 +978,8 @@ export default function ProductCatalogClient({
             <div
               key={resultKey}
               className={`${styles.grid} ${styles.gridEnter}`}
-              style={{ ['--cols' as string]: gridColumns }}
+              // The server copy takes --cols from its wrapper (the saved density), see ProductCatalogStatic
+              style={searchParams === NO_PARAMS ? undefined : { ['--cols' as string]: gridColumns }}
             >
               {filteredProducts.map((p, index) => (
                 // Each card is named so a column change can animate it to its new place
@@ -1037,33 +1079,6 @@ export default function ProductCatalogClient({
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-/** Fallback skeleton component for Next.js Suspense boundary */
-export function ProductCatalogSkeleton() {
-  return (
-    <div className={styles.catalogRoot}>
-      <div className={styles.catalogHeader}>
-        <div className={styles.catalogTitleRow}>
-          <div>
-            <div style={{ width: 140, height: 32, background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', marginBottom: 8 }} />
-            <div style={{ width: 240, height: 16, background: 'var(--surface-2)', borderRadius: 'var(--radius-xs)' }} />
-          </div>
-        </div>
-      </div>
-      <div className={styles.grid}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className={styles.skeletonCard}>
-            <div className={styles.skeletonImg} />
-            <div className={styles.skeletonMeta}>
-              <div className={`${styles.skeletonLine} ${styles.skeletonLineShort}`} />
-              <div className={`${styles.skeletonLine} ${styles.skeletonLineTiny}`} />
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import Modal from '@/components/common/Modal'
 import { toast } from '@/store/toastStore'
 import styles from './ProductReviews.module.css'
 import { SkeletonLines } from '@/components/common/Skeleton'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 interface Props {
   productId: string
@@ -61,7 +62,9 @@ export default function ProductReviews({
   // Only members who bought the product may review it (checked again on submit)
   const [eligibility, setEligibility] = useState<'NOT_SIGNED_IN' | 'ELIGIBLE' | 'NOT_PURCHASED' | 'ALREADY_REVIEWED' | 'LOADING'>('LOADING')
 
-  // Escape key and scroll lock for review modal
+  useBodyScrollLock(modalOpen)
+
+  // Escape key for the review modal
   useEffect(() => {
     if (!modalOpen) return
 
@@ -71,12 +74,9 @@ export default function ProductReviews({
       }
     }
 
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.body.style.overflow = prevOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [modalOpen])
@@ -253,7 +253,7 @@ export default function ProductReviews({
               <div className={styles.reviewHeader}>
                 <div>
                   <div className={styles.reviewAuthorRow}>
-                    <strong className={styles.authorName}>{rev.userName.toLowerCase()}</strong>
+                    <strong className={styles.authorName}>{rev.userName.toLocaleLowerCase('tr-TR')}</strong>
                     {rev.isVerifiedBuy && (
                       <span className={styles.verifiedBadge}>
                         ✓ doğrulanmış alıcı
@@ -274,7 +274,7 @@ export default function ProductReviews({
                 </time>
               </div>
 
-              {rev.title && <h4 className={styles.reviewTitle}>{rev.title.toLowerCase()}</h4>}
+              {rev.title && <h4 className={styles.reviewTitle}>{rev.title.toLocaleLowerCase('tr-TR')}</h4>}
               <p className={styles.reviewBody}>{rev.body}</p>
             </article>
           ))
@@ -309,7 +309,7 @@ export default function ProductReviews({
         </div>
 
         <form onSubmit={handleSubmit} className={styles.form}>
-          <p className={styles.formProductName}>{productName.toLowerCase()}</p>
+          <p className={styles.formProductName}>{productName.toLocaleLowerCase('tr-TR')}</p>
 
           {submitError && (
             <div className={styles.submitError}>

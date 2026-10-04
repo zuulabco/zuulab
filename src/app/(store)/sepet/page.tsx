@@ -8,6 +8,7 @@ import CartPageClient from './CartPageClient'
 export const metadata: Metadata = {
   title: 'Sepetim',
   description: 'zuulab alışveriş sepetinizdeki 3d tasarım ürünlerini inceleyin, kupon uygulayın ve güvenle sipariş verin.',
+  robots: { index: false, follow: true },
 }
 
 export const dynamic = 'force-dynamic'

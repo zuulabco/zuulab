@@ -134,7 +134,7 @@ export default function ProductDetailsClient({ product }: Props) {
       </div>
 
       {/* ── 2. Product Title ─────────────────────────────── */}
-      <h1 className={styles.title}>{product.name.toLowerCase()}</h1>
+      <h1 className={styles.title}>{product.name.toLocaleLowerCase('tr-TR')}</h1>
 
       {/* ── 3. Short Description ─────────────────────────── */}
       <p className={styles.shortDesc}>{product.shortDescription}</p>
@@ -461,7 +461,7 @@ export default function ProductDetailsClient({ product }: Props) {
                     )}
                     {product.specifications.map((s, idx) => (
                       <tr key={idx}>
-                        <td>{s.name.toLowerCase()}</td>
+                        <td>{s.name.toLocaleLowerCase('tr-TR')}</td>
                         <td>{s.value}</td>
                       </tr>
                     ))}

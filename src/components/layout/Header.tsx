@@ -13,6 +13,7 @@ import CollectionMicroMotion from './CollectionMicroMotion'
 import { useAuthStore } from '@/store/authStore'
 import type { StoreNavigation } from '@/types/navigation'
 import styles from './Header.module.css'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 const DIRECT_COLLECTIONS = [
   { label: 'zuukids', href: '/koleksiyon/zuukids', slug: 'zuukids', accent: true },
@@ -78,14 +79,7 @@ export default function Header({ navigation }: { navigation: StoreNavigation }) 
   }, [mobileOpen, activeDropdown])
 
   // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [mobileOpen])
+  useBodyScrollLock(mobileOpen)
 
   const isCheckout = pathname === '/odeme'
 

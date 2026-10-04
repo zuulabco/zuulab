@@ -246,11 +246,11 @@ export default function CartPageClient({
 
                   <div className={styles.itemDetails}>
                     <Link href={`/urun/${item.slug}`} className={styles.itemName}>
-                      {item.name.toLowerCase()}
+                      {item.name.toLocaleLowerCase('tr-TR')}
                     </Link>
 
                     {item.variantLabel && (
-                      <span className={styles.itemVariant}>{item.variantLabel.toLowerCase()}</span>
+                      <span className={styles.itemVariant}>{item.variantLabel.toLocaleLowerCase('tr-TR')}</span>
                     )}
 
                     <span className={styles.itemUnitPrice}>{formatPrice(item.price)}</span>

@@ -39,6 +39,8 @@ export default function AdminEditProductPage() {
   const [sku, setSku] = useState('')
   const [barcode, setBarcode] = useState('')
   const [shortDescription, setShortDescription] = useState('')
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
   const [description, setDescription] = useState('')
 
   // Pricing
@@ -146,6 +148,8 @@ export default function AdminEditProductPage() {
           setSku(p.sku || '')
           setBarcode(p.barcode || '')
           setShortDescription(p.shortDescription || '')
+          setSeoTitle(p.seoTitle || '')
+          setSeoDescription(p.seoDescription || '')
           setDescription(p.description || '')
           setPrice(p.price ?? '')
           setCompareAtPrice(p.oldPrice ?? '')
@@ -255,6 +259,8 @@ export default function AdminEditProductPage() {
           slug,
           sku,
           shortDescription,
+          seoTitle: seoTitle.trim() || null,
+          seoDescription: seoDescription.trim() || null,
           description,
           price: Number(price),
           compareAtPrice: compareAtPrice !== '' ? Number(compareAtPrice) : null,
@@ -535,6 +541,47 @@ export default function AdminEditProductPage() {
                   className={styles.formTextarea}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Search engines */}
+          <div className={styles.formCard}>
+            <h2 className={styles.formCardTitle}>Arama motoru (SEO)</h2>
+
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="prod-seo-title">
+                SEO başlığı
+              </label>
+              <input
+                id="prod-seo-title"
+                type="text"
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                placeholder={name}
+                maxLength={120}
+                className={styles.formInput}
+              />
+              <span className={styles.formHelp}>
+                {seoTitle.length}/60 karakter. Boş bırakılırsa ürün adı kullanılır; sonuna &quot; · zuulab&quot; eklenir.
+              </span>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel} htmlFor="prod-seo-desc">
+                SEO açıklaması
+              </label>
+              <textarea
+                id="prod-seo-desc"
+                rows={3}
+                value={seoDescription}
+                onChange={(e) => setSeoDescription(e.target.value)}
+                placeholder={shortDescription}
+                maxLength={320}
+                className={styles.formTextarea}
+              />
+              <span className={styles.formHelp}>
+                {seoDescription.length}/155 karakter. Boş bırakılırsa kısa açıklama kullanılır.
+              </span>
             </div>
           </div>
 

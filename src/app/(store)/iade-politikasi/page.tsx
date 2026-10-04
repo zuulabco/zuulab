@@ -1,12 +1,15 @@
 import type { Metadata } from 'next'
+import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
 import Breadcrumbs from '@/components/common/Breadcrumbs'
 import styles from '../ContentPage.module.css'
 
-export const metadata: Metadata = {
-  title: 'İade ve Değişim Politikası',
-  description: '14 gün yasal cayma hakkı, online iade (RMA) adımları ve iade kargo süreci.',
-}
+export const metadata: Metadata = pageMetadata({
+  title: 'İade ve değişim politikası',
+  description:
+    'zuulab iade politikası: 14 gün cayma hakkı, ücretsiz iade kargo kodu, online iade (RMA) adımları ve ücret iadesinin kartınıza yansıma süresi.',
+  path: '/iade-politikasi',
+})
 
 export default function IadePolitikasiPage() {
   return (
