@@ -3,7 +3,7 @@ import { rateLimit } from '@/lib/security/rate-limit-response'
 import { authenticateRequest, getOrCreateGuestUser } from '@/lib/services/auth.service'
 import { checkoutInitiateSchema } from '@/lib/validations/checkout.schema'
 import { CheckoutError, createOrder, updateOrderStatus } from '@/lib/services/orders.service'
-import { cleanupExpiredReservations, initiatePayment } from '@/lib/services/payment/payment.service'
+import { cleanupExpiredReservations, initiateBankTransfer, initiatePayment } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { getPublicOrigin } from '@/lib/config/app-url'
 import {
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       items,
       email,
       checkoutKey,
+      paymentMethod,
     } = parsed.data
 
     let effectiveShippingAddress = {
@@ -114,7 +115,34 @@ export async function POST(request: Request) {
       email,
       checkoutKey,
       expectedTotal,
+      paymentMethod,
     })
+
+    // Lets this browser (including guests) see and pay the order it created.
+    const orderAccessCookie = {
+      name: ORDER_ACCESS_COOKIE_NAME,
+      value: createOrderAccessToken(order.orderNumber),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: ORDER_ACCESS_MAX_AGE,
+    }
+
+    // 3a. Havale/EFT: no provider session; the customer gets the bank details
+    if (paymentMethod === 'BANK_TRANSFER') {
+      const clientIp = getClientIp(new Headers(request.headers))
+      await initiateBankTransfer({ orderNumber: order.orderNumber, ipAddress: clientIp })
+      const response = NextResponse.json({
+        success: true,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        provider: 'BANK_TRANSFER',
+        redirectUrl: `/odeme/havale?order=${encodeURIComponent(order.orderNumber)}`,
+      })
+      response.cookies.set(orderAccessCookie)
+      return response
+    }
 
     // 3. Initiate Payment session with provider
     const clientIp = getClientIp(new Headers(request.headers))
@@ -153,16 +181,7 @@ export async function POST(request: Request) {
       provider: paymentSession.provider,
     })
 
-    // Lets this browser (including guests) retry payment for the order it created.
-    response.cookies.set({
-      name: ORDER_ACCESS_COOKIE_NAME,
-      value: createOrderAccessToken(order.orderNumber),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: ORDER_ACCESS_MAX_AGE,
-    })
+    response.cookies.set(orderAccessCookie)
 
     return response
   } catch (error: any) {

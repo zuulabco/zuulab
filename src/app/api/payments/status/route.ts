@@ -13,7 +13,8 @@ export const dynamic = 'force-dynamic'
  * callback updates and moves the customer on itself.
  *
  * Same authorization as payment retry: owner, admin, or the browser that created
- * the order (order-access cookie). Only the status is returned.
+ * the order (order-access cookie). Returns the status, plus what the havale/EFT
+ * page shows: payment method, amount and the payment deadline.
  */
 export async function GET(request: Request) {
   const limited = await rateLimit(request, 'paymentStatus')
@@ -43,7 +44,14 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(
-    { success: true, status: current.status, paymentStatus: current.paymentStatus },
+    {
+      success: true,
+      status: current.status,
+      paymentStatus: current.paymentStatus,
+      paymentMethod: current.paymentMethod,
+      totalAmount: current.totalAmount,
+      paymentExpiresAt: current.paymentExpiresAt,
+    },
     { headers: { 'Cache-Control': 'no-store' } }
   )
 }

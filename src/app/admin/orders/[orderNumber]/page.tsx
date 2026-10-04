@@ -352,6 +352,30 @@ export default function AdminOrderDetailPage() {
   }
 
   // Add Internal Note
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false)
+  const handleConfirmBankTransfer = async () => {
+    if (!canFetch) return
+    if (!window.confirm(`#${orderNumber} için havale/EFT ödemesinin hesaba geçtiğini onaylıyor musun? Sipariş onaylanır ve müşteriye e-posta gider.`)) return
+    setConfirmingTransfer(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderNumber}/bank-transfer`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message)
+        loadOrder()
+      } else {
+        toast.error(data.error || 'Ödeme onaylanamadı.')
+      }
+    } catch {
+      toast.error('Ödeme onaylanırken hata oluştu.')
+    } finally {
+      setConfirmingTransfer(false)
+    }
+  }
+
   const handleAddInternalNote = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!canFetch || !newNote.trim()) return
@@ -881,11 +905,11 @@ export default function AdminOrderDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Ödeme Yöntemi:</span>
-                <span style={{ fontWeight: 600 }}>Kredi / Banka Kartı</span>
+                <span style={{ fontWeight: 600 }}>{order.paymentMethod === 'BANK_TRANSFER' ? 'Havale / EFT' : 'Kredi / Banka Kartı'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Sağlayıcı:</span>
-                <span style={{ fontWeight: 600 }}>PayTR</span>
+                <span style={{ fontWeight: 600 }}>{order.paymentMethod === 'BANK_TRANSFER' ? 'Banka hesabı' : 'PayTR'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Ödeme Durumu:</span>
@@ -894,9 +918,27 @@ export default function AdminOrderDetailPage() {
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Tahsil Edilen:</span>
+                <span style={{ color: 'var(--text-muted)' }}>{order.paidAt ? 'Tahsil Edilen:' : 'Beklenen Tutar:'}</span>
                 <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatPrice(order.totalAmount)}</span>
               </div>
+              {order.paymentMethod === 'BANK_TRANSFER' && !order.paidAt && ['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes(order.status) && (
+                <>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    {order.status === 'PAYMENT_FAILED'
+                      ? '48 saatlik ödeme süresi doldu; ödeme yine de geldiyse onaylayabilirsin (stok yeniden düşülür).'
+                      : `Havale bekleniyor${order.paymentExpiresAt ? ` · son gün ${new Date(order.paymentExpiresAt).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}` : ''}. Tutar hesabına geçtiğinde onayla.`}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleConfirmBankTransfer}
+                    disabled={confirmingTransfer}
+                    style={{ marginTop: 4 }}
+                  >
+                    {confirmingTransfer ? 'onaylanıyor…' : 'havale ödemesi geldi'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

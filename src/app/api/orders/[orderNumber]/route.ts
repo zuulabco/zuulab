@@ -59,6 +59,8 @@ export async function GET(request: Request, { params }: Context) {
       orderNumber: order.orderNumber,
       status: order.status,
       paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      paymentExpiresAt: order.paymentExpiresAt,
       fulfillmentStatus: order.fulfillmentStatus,
       createdAt: order.createdAt,
       subtotal: order.subtotal,

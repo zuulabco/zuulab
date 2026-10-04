@@ -18,10 +18,26 @@ import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
+import { BANK_ACCOUNT } from '@/config/company'
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
 }
+
+const PAYMENT_OPTIONS = [
+  {
+    id: 'CARD' as const,
+    name: 'PayTR ile Güvenli Ödeme (Kredi / Banka Kartı)',
+    description: '256-bit SSL · 3D Secure Doğrulaması · BDDK Lisanslı',
+    note: 'Visa / Mastercard / Troy',
+  },
+  {
+    id: 'BANK_TRANSFER' as const,
+    name: 'Havale / EFT',
+    description: 'Banka hesabımıza gönderim · 48 saat içinde ödeme',
+    note: BANK_ACCOUNT.bank,
+  },
+]
 
 export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: CheckoutClientProps) {
   const router = useRouter()
@@ -59,6 +75,9 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
   // Shipping Method
   const [shippingMethod, setShippingMethod] = useState<'STANDARD' | 'EXPRESS'>('STANDARD')
+
+  // Payment method: card through PayTR, or havale/EFT confirmed by the shop
+  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'BANK_TRANSFER'>('CARD')
 
 
 
@@ -428,6 +447,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
           savedAddressId: selectedAddressId || undefined,
           expectedTotal: quote!.total,
           checkoutKey: checkoutKeyRef.current,
+          paymentMethod,
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -445,6 +465,12 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
           await refreshQuote()
         }
         throw new Error(data.error || 'Ödeme oturumu başlatılamadı.')
+      }
+
+      // 2. Havale/EFT: the page with the bank details
+      if (data.redirectUrl) {
+        router.push(data.redirectUrl)
+        return
       }
 
       // 2. Redirect to PayTR iframe checkout page
@@ -979,28 +1005,40 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                 <span className={styles.stepBadge} aria-hidden="true">03</span>
                 <h2 id="step-payment-heading" className={styles.stepTitle}>ödeme yöntemi</h2>
               </div>
-              <span className={styles.paymentMethodLabel}>kredi / banka kartı</span>
+              <span className={styles.paymentMethodLabel}>{paymentMethod === 'CARD' ? 'kredi / banka kartı' : 'havale / eft'}</span>
             </div>
 
-            {/* PayTR Payment Method Selector */}
             <div className={styles.shippingOptions} role="radiogroup" aria-label="Ödeme Yöntemi">
-              <div
-                className={`${styles.shippingCard} ${styles.shippingCardActive}`}
-                role="radio"
-                aria-checked="true"
-                tabIndex={0}
-              >
-                <div className={styles.shippingCardLeft}>
-                  <span className={`${styles.radioCircle} ${styles.radioCircleActive}`} aria-hidden="true" />
-                  <div className={styles.shippingInfo}>
-                    <span className={styles.shippingName}>PayTR ile Güvenli Ödeme (Kredi / Banka Kartı)</span>
-                    <span className={styles.shippingDesc}>256-bit SSL · 3D Secure Doğrulaması · BDDK Lisanslı</span>
+              {PAYMENT_OPTIONS.map((option) => {
+                const isSelected = paymentMethod === option.id
+                return (
+                  <div
+                    key={option.id}
+                    className={`${styles.shippingCard} ${isSelected ? styles.shippingCardActive : ''}`}
+                    onClick={() => setPaymentMethod(option.id)}
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Enter') {
+                        e.preventDefault()
+                        setPaymentMethod(option.id)
+                      }
+                    }}
+                  >
+                    <div className={styles.shippingCardLeft}>
+                      <span className={`${styles.radioCircle} ${isSelected ? styles.radioCircleActive : ''}`} aria-hidden="true" />
+                      <div className={styles.shippingInfo}>
+                        <span className={styles.shippingName}>{option.name}</span>
+                        <span className={styles.shippingDesc}>{option.description}</span>
+                      </div>
+                    </div>
+                    <div className={styles.shippingPrice}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{option.note}</span>
+                    </div>
                   </div>
-                </div>
-                <div className={styles.shippingPrice}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Visa / Mastercard / Troy</span>
-                </div>
-              </div>
+                )
+              })}
             </div>
 
             <div style={{
@@ -1021,9 +1059,15 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                     <circle cx="12" cy="15.75" r="1.25" fill="currentColor" stroke="none" />
                   </svg>
                 </span>
-                <span>
-                <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
-                </span>
+                {paymentMethod === 'CARD' ? (
+                  <span>
+                  <strong>Güvenli Ödeme:</strong> Siparişinizi onayladıktan sonra PayTR 3D Secure korumalı güvenli ödeme ekranına yönlendirileceksiniz. Kredi kartı bilgileriniz Zuulab sunucularına iletilmez ve doğrudan banka altyapısı üzerinden şifrelenerek işlenir.
+                  </span>
+                ) : (
+                  <span>
+                  <strong>Havale / EFT:</strong> Siparişinizi tamamladığınızda banka hesap bilgilerimiz ekranda gösterilir ve e-postanıza da gönderilir. Ürünleriniz 48 saat boyunca sizin için ayrılır; ödemeniz hesabımıza ulaşıp onaylandığında siparişiniz hazırlanıp kargoya teslim edilir.
+                  </span>
+                )}
               </p>
             </div>
 
@@ -1082,10 +1126,10 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                 className={styles.submitBtn}
               >
                 {loading ? (
-                  <span>ödeme işleniyor...</span>
+                  <span>{paymentMethod === 'CARD' ? 'ödeme işleniyor...' : 'sipariş oluşturuluyor...'}</span>
                 ) : (
                   <>
-                    <span>ödemeyi tamamla — {formatPrice(grandTotal)}</span>
+                    <span>{paymentMethod === 'CARD' ? 'ödemeyi tamamla' : 'siparişi tamamla'} — {formatPrice(grandTotal)}</span>
                     <span aria-hidden="true">→</span>
                   </>
                 )}
@@ -1094,7 +1138,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
             {/* Security Assurance */}
             <div className={styles.guarantees}>
-              <span>✓ 256-bit ssl şifreleme ve paytr 3d secure koruması</span>
+              {paymentMethod === 'CARD' && <span>✓ 256-bit ssl şifreleme ve paytr 3d secure koruması</span>}
               <span>✓ kişisel verileriniz 6698 sayılı kvkk kapsamında korunmaktadır</span>
             </div>
           </section>
@@ -1233,7 +1277,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
           disabled={loading || !canSubmit}
           className={styles.mobileBottomBtn}
         >
-          {loading ? 'işleniyor...' : 'ödemeyi tamamla →'}
+          {loading ? 'işleniyor...' : paymentMethod === 'CARD' ? 'ödemeyi tamamla →' : 'siparişi tamamla →'}
         </button>
       </div>
 

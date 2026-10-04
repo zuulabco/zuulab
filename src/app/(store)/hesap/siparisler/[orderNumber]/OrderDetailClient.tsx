@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
+import { BANK_ACCOUNT, formatIban } from '@/config/company'
 import Modal from '@/components/common/Modal'
 import styles from './OrderDetail.module.css'
 import { SkeletonLines, SkeletonList } from '@/components/common/Skeleton'
@@ -15,6 +16,8 @@ interface OrderDetail {
   orderNumber: string
   status: string
   paymentStatus: string
+  paymentMethod?: 'CARD' | 'BANK_TRANSFER'
+  paymentExpiresAt?: string | null
   fulfillmentStatus: string
   createdAt: string
   subtotal: number
@@ -271,6 +274,29 @@ export default function OrderDetailClient() {
           </Link>
         </div>
       </header>
+
+      {/* Havale/EFT still to be paid: the bank details again */}
+      {order.status === 'PAYMENT_PENDING' && order.paymentMethod === 'BANK_TRANSFER' && (
+        <section className={styles.transferBox} aria-label="Havale / EFT bilgileri">
+          <p className={styles.transferTitle}>ödemen bekleniyor · havale / eft</p>
+          <dl className={styles.transferList}>
+            <dt>banka</dt>
+            <dd>{BANK_ACCOUNT.bank}</dd>
+            <dt>alıcı</dt>
+            <dd>{BANK_ACCOUNT.holder}</dd>
+            <dt>iban</dt>
+            <dd className={styles.transferIban}>{formatIban(BANK_ACCOUNT.iban)}</dd>
+            <dt>tutar</dt>
+            <dd>{formatPrice(order.totalAmount)}</dd>
+          </dl>
+          <p className={styles.transferNote}>
+            {order.paymentExpiresAt
+              ? `ürünlerin ${new Date(order.paymentExpiresAt).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} tarihine kadar ayrıldı. `
+              : ''}
+            ödemen onaylandığında siparişin hazırlanıp kargoya teslim edilecek.
+          </p>
+        </section>
+      )}
 
       {/* Return Requests Timeline if active */}
       {orderReturns.length > 0 && (

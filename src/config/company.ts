@@ -60,7 +60,10 @@ export const SALES_TERMS = {
   madeToOrderDays: '2–5 iş günü',
   /** Legal ceiling for delivery (Mesafeli Sözleşmeler Yönetmeliği m.16) */
   maxDeliveryDays: 30,
-  paymentMethods: ['Kredi kartı ve banka kartı (PayTR güvenli ödeme altyapısı, 3D Secure)'],
+  paymentMethods: [
+    'Kredi kartı ve banka kartı (PayTR güvenli ödeme altyapısı, 3D Secure)',
+    'Havale / EFT (sipariş, ödeme 48 saat içinde hesabımıza ulaştığında onaylanır)',
+  ],
   invoice: 'e-Fatura / e-Arşiv fatura',
 
   withdrawalDays: 14,
@@ -73,6 +76,22 @@ export const SALES_TERMS = {
   /** Statutory liability for defective goods (6502 s. Kanun m.12) and minimum warranty period */
   warrantyYears: 2,
 } as const
+
+/**
+ * Account for havale/EFT orders: shown on the order's payment page and in the
+ * bank-details e-mail. The holder name must match the account exactly, since the
+ * customer's bank checks it.
+ */
+export const BANK_ACCOUNT = {
+  bank: 'Türkiye İş Bankası',
+  holder: 'Emrecan Yerlikaya',
+  iban: 'TR580006400000143002320605',
+} as const
+
+/** "TR58 0006 4000 …": the IBAN in groups of four, as banks print it */
+export function formatIban(iban: string): string {
+  return iban.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
+}
 
 /** Everyone the seller shares personal data with, for the KVKK notice */
 export const DATA_PROCESSORS = [

@@ -9,6 +9,7 @@ import { getPublicOrigin } from '@/lib/config/app-url'
 import { buildMerchantOid, PayTRPaymentProvider } from './paytr.provider'
 import type { PaymentProviderName, PaymentStatusName } from './payment.interface'
 import {
+  BANK_TRANSFER_HOLD_HOURS,
   PAYMENT_HOLD_MINUTES,
   findOrderByNumber,
   markOrderPaid,
@@ -129,6 +130,12 @@ export async function initiatePayment(params: {
     throw new Error('Sepet tutarı güncellendi. Lütfen yeni tutarı kontrol edip tekrar deneyin.')
   }
 
+  // The customer switched from havale/EFT to card: the transfer is no longer expected
+  const openTransfers = await db.orm.public.Payment.where({ orderId: order.id, provider: 'MANUAL', status: 'PENDING' }).all()
+  for (const p of openTransfers) {
+    await transitionPayment(p.id, ['PENDING'], 'CANCELLED')
+  }
+
   const previousAttempts = await db.orm.public.Payment
     .where({ orderId: order.id })
     .aggregate((a) => ({ n: a.count() }))
@@ -189,6 +196,105 @@ export async function initiatePayment(params: {
     attemptNumber,
     expiresAt: expiresAt.toISOString(),
   }
+}
+
+/**
+ * Havale/EFT: records a pending MANUAL payment for an order awaiting payment, keeps
+ * the stock for BANK_TRANSFER_HOLD_HOURS and mails the customer the bank details
+ * (the shop gets a heads-up too). No provider is involved; the money is matched by
+ * hand and confirmed with confirmBankTransfer. Calling it again for the same order
+ * returns the open transfer instead of starting a new one. A card session still open
+ * for the order (the customer switched method) is closed.
+ */
+export async function initiateBankTransfer(params: { orderNumber: string; ipAddress?: string }) {
+  const order = await findOrderByNumber(params.orderNumber)
+  if (!order) throw new Error('Ödeme başlatılacak sipariş bulunamadı.')
+  if (order.status !== 'PAYMENT_PENDING') {
+    throw new Error(`Bu sipariş için havale başlatılamaz. Mevcut durum: ${order.status}`)
+  }
+
+  const attempts = await db.orm.public.Payment
+    .where({ orderId: order.id })
+    .orderBy((p) => p.attemptNumber.desc())
+    .all()
+  const open = attempts.find((p) => p.provider === 'MANUAL' && p.status === 'PENDING')
+  if (open) {
+    return { paymentId: open.id, orderNumber: order.orderNumber, amount: order.totalAmount, expiresAt: order.paymentExpiresAt }
+  }
+
+  for (const p of attempts) {
+    if (p.status === 'PENDING') await transitionPayment(p.id, ['PENDING'], 'CANCELLED')
+  }
+
+  const expiresAt = new Date(Date.now() + BANK_TRANSFER_HOLD_HOURS * 3600_000)
+  await db.orm.public.Order.where({ id: order.id }).update({ paymentExpiresAt: toDbTimestamp(expiresAt) as never })
+  const created = await db.orm.public.Payment.create({
+    orderId: order.id,
+    provider: 'MANUAL',
+    attemptNumber: (attempts[0]?.attemptNumber ?? 0) + 1,
+    status: 'PENDING',
+    amount: dbNumeric(order.totalAmount),
+    currency: 'TRY',
+    ipAddress: params.ipAddress || null,
+    expiresAt: toDbTimestamp(expiresAt) as never,
+  })
+
+  await logAuditEvent({
+    action: 'PAYMENT_CREATED',
+    entity: 'Payment',
+    entityId: created.id,
+    metadata: { orderNumber: order.orderNumber, amount: order.totalAmount, method: 'BANK_TRANSFER' },
+  })
+
+  const paymentDeadline = expiresAt.toLocaleString('tr-TR', {
+    timeZone: 'Europe/Istanbul',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  createNotification({
+    orderNumber: order.orderNumber,
+    eventType: 'BANK_TRANSFER_AWAITING',
+    metadata: { paymentDeadline },
+  }).catch((err) => console.warn('[payment.service] BANK_TRANSFER_AWAITING notification failed:', err))
+  await sendNewOrderAlert(order.id, 'bank-transfer')
+
+  return { paymentId: created.id, orderNumber: order.orderNumber, amount: order.totalAmount, expiresAt: expiresAt.toISOString() }
+}
+
+/**
+ * The shop saw the havale/EFT arrive: confirms the order through the same path as a
+ * card payment (stock committed, coupon used, order CONFIRMED, customer and shop
+ * mails). Also works after the 48 hours lapsed: the stock is taken again, and an
+ * oversell is flagged as with a late card payment.
+ */
+export async function confirmBankTransfer(params: { orderNumber: string; confirmedBy: string }) {
+  const order = await findOrderByNumber(params.orderNumber)
+  if (!order) throw new Error('Sipariş bulunamadı.')
+  if (order.paidAt || !['PAYMENT_PENDING', 'PAYMENT_FAILED'].includes(order.status)) {
+    throw new Error('Bu siparişin ödemesi zaten alınmış ya da sipariş kapanmış.')
+  }
+  const row = await paymentQuery()
+    .where({ orderId: order.id, provider: 'MANUAL' })
+    .orderBy((p) => p.attemptNumber.desc())
+    .first()
+  if (!row || !['PENDING', 'CANCELLED'].includes(row.status)) {
+    throw new Error('Bu sipariş havale/EFT ile verilmemiş.')
+  }
+
+  const result = await handleSuccess(toStoredPayment(row), order, {
+    amount: order.totalAmount,
+    transactionRef: `havale:${params.confirmedBy}`,
+    rawPayload: { method: 'BANK_TRANSFER', confirmedBy: params.confirmedBy },
+  })
+  await logAuditEvent({
+    action: 'BANK_TRANSFER_CONFIRMED',
+    entity: 'Order',
+    entityId: order.orderNumber,
+    metadata: { confirmedBy: params.confirmedBy, amount: order.totalAmount },
+  })
+  return result
 }
 
 /**

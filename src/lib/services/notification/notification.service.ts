@@ -134,6 +134,7 @@ export async function createNotification(params: {
     returnReason: (params.metadata?.returnReason as string) || (params.templateData?.returnReason as string),
     refundAmount: (params.metadata?.refundAmount as number) || (params.templateData?.refundAmount as number),
     deliveryDate: new Date().toLocaleDateString('tr-TR'),
+    paymentDeadline: (params.metadata?.paymentDeadline as string) || undefined,
   })
 
   const now = new Date().toISOString()

@@ -20,6 +20,15 @@ import {
 /** How long a new order holds stock while the customer pays (PayTR session is 30 min). */
 export const PAYMENT_HOLD_MINUTES = 35
 
+/**
+ * How long a bank-transfer (havale/EFT) order holds stock while the money arrives.
+ * Two days covers a transfer sent after banking hours or over a weekend night;
+ * after that the order lapses like an unpaid card order and the stock is freed.
+ */
+export const BANK_TRANSFER_HOLD_HOURS = 48
+
+export type PaymentMethod = 'CARD' | 'BANK_TRANSFER'
+
 export interface CreateOrderPayload {
   userId: string
   /** True when a signed-in member places the order (not a guest checkout). */
@@ -57,6 +66,8 @@ export interface CreateOrderPayload {
   checkoutKey?: string
   /** Total the customer was shown; checkout is refused if the server total differs. */
   expectedTotal?: number
+  /** Bank transfer orders hold stock longer and get the bank details by e-mail instead of the order mail. */
+  paymentMethod?: PaymentMethod
 }
 
 export interface OrderStatusHistoryItem {
@@ -73,6 +84,8 @@ export interface StoredOrder {
   userId: string
   status: string
   paymentStatus: string
+  /** From the latest payment attempt: MANUAL payments are bank transfers */
+  paymentMethod: PaymentMethod
   fulfillmentStatus: string
   stockState: string
   channel: string
@@ -179,6 +192,7 @@ function withRelations() {
     .include('items')
     .include('statusHistory', (h) => h.orderBy((x) => x.createdAt.desc()))
     .include('user', (u) => u.select('id', 'email'))
+    .include('payments', (p) => p.select('provider', 'attemptNumber').orderBy((x) => x.attemptNumber.desc()).limit(1))
 }
 
 type OrderRow = Awaited<ReturnType<ReturnType<typeof withRelations>['all']>>[number]
@@ -192,6 +206,7 @@ function toStoredOrder(row: OrderRow): StoredOrder {
     userId: row.userId,
     status: row.status,
     paymentStatus: derivePaymentStatus(row.status, row.paidAt),
+    paymentMethod: row.payments?.[0]?.provider === 'MANUAL' ? 'BANK_TRANSFER' : 'CARD',
     fulfillmentStatus: deriveFulfillmentStatus(row.status),
     stockState: row.stockState,
     channel: row.channel || 'DIRECT',
@@ -397,6 +412,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     customerNote,
     checkoutKey,
     expectedTotal,
+    paymentMethod = 'CARD',
   } = payload
   const email = (payload.email || shippingAddress.email || '').trim().toLowerCase() || null
 
@@ -436,7 +452,8 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
   }
 
   const billing = billingSameAsShipping ? shippingAddress : billingAddress
-  const expiresAt = new Date(Date.now() + PAYMENT_HOLD_MINUTES * 60 * 1000)
+  const holdMs = paymentMethod === 'BANK_TRANSFER' ? BANK_TRANSFER_HOLD_HOURS * 3600_000 : PAYMENT_HOLD_MINUTES * 60_000
+  const expiresAt = new Date(Date.now() + holdMs)
 
   let orderNumber = ''
   for (let attempt = 0; ; attempt++) {
@@ -531,9 +548,12 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     metadata: { total: created.totalAmount, itemCount: created.items.length, shippingMethod },
   })
 
-  createNotification({ orderNumber, eventType: 'ORDER_CREATED' }).catch((err) => {
-    console.warn('[orders.service] Error sending ORDER_CREATED notification:', err)
-  })
+  // Bank transfer orders get the bank details mail instead (initiateBankTransfer)
+  if (paymentMethod !== 'BANK_TRANSFER') {
+    createNotification({ orderNumber, eventType: 'ORDER_CREATED' }).catch((err) => {
+      console.warn('[orders.service] Error sending ORDER_CREATED notification:', err)
+    })
+  }
 
   return created
 }

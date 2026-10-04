@@ -1,5 +1,6 @@
 import { renderEmailBase } from './email-base.template'
 import type { NotificationEventType } from '../notification.interface'
+import { BANK_ACCOUNT, formatIban } from '@/config/company'
 
 export interface OrderTemplateData {
   orderNumber: string
@@ -27,6 +28,8 @@ export interface OrderTemplateData {
   returnReason?: string
   refundAmount?: number
   replacementSku?: string
+  /** Bank transfer orders: when the unpaid order lapses, already formatted for display */
+  paymentDeadline?: string
 }
 
 export function generateEmailTemplate(
@@ -41,6 +44,8 @@ export function generateEmailTemplate(
       return renderPaymentSucceeded(data)
     case 'PAYMENT_FAILED':
       return renderPaymentFailed(data)
+    case 'BANK_TRANSFER_AWAITING':
+      return renderBankTransferAwaiting(data)
     case 'ORDER_PREPARING':
       return renderOrderPreparing(data)
     case 'SHIPMENT_CREATED':
@@ -155,11 +160,61 @@ function renderPaymentSucceeded(data: OrderTemplateData) {
       <br/>
       <strong>#${data.orderNumber}</strong> numaralı siparişinizin <strong>₺${data.totalAmount.toFixed(2)}</strong> tutarındaki ödemesi başarıyla onaylanmıştır.
     </p>
+    <p style="color: rgba(255,255,255,0.7);">
+      Siparişiniz atölyemizde hazırlanıp kargoya teslim edilecek; kargoya verildiğinde takip bilgisini e-postayla göndereceğiz.
+    </p>
     <a href="https://zuulab.com/hesap/siparisler/${data.orderNumber}" class="btn">
       Siparişimi İncele →
     </a>
   `
-  const text = `Merhaba ${data.customerName},\n#${data.orderNumber} numaralı siparişinizin ₺${data.totalAmount.toFixed(2)} tutarındaki ödemesi onaylandı.`
+  const text = `Merhaba ${data.customerName},\n#${data.orderNumber} numaralı siparişinizin ₺${data.totalAmount.toFixed(2)} tutarındaki ödemesi onaylandı.\nSiparişiniz hazırlanıp kargoya teslim edilecek; kargoya verildiğinde takip bilgisini e-postayla göndereceğiz.`
+  return { subject, html: renderEmailBase({ title: subject, contentHtml }).html, text }
+}
+
+function renderBankTransferAwaiting(data: OrderTemplateData) {
+  const subject = `Havale / EFT Bilgileri — #${data.orderNumber}`
+  const amount = `₺${data.totalAmount.toFixed(2)}`
+  const iban = formatIban(BANK_ACCOUNT.iban)
+  const row = (label: string, value: string) => `
+      <tr>
+        <td style="color: rgba(255,255,255,0.5); padding: 6px 0; width: 120px;">${label}</td>
+        <td style="font-weight: 600; color: #ffffff; padding: 6px 0;">${value}</td>
+      </tr>`
+  const contentHtml = `
+    <h1 style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 16px 0;">
+      Siparişiniz alındı, ödemenizi bekliyoruz
+    </h1>
+    <p>
+      Merhaba <strong>${data.customerName}</strong>,
+      <br/>
+      <strong>#${data.orderNumber}</strong> numaralı siparişinizin tutarını aşağıdaki hesaba havale veya EFT ile gönderebilirsiniz.
+    </p>
+    <div style="background-color: #0d0f12; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 16px; margin: 20px 0;">
+      <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+        ${row('Banka', BANK_ACCOUNT.bank)}
+        ${row('Alıcı', BANK_ACCOUNT.holder)}
+        ${row('IBAN', iban)}
+        ${row('Tutar', amount)}
+      </table>
+    </div>
+    <p style="color: rgba(255,255,255,0.7); font-size: 13px;">
+      Ürünleriniz ${data.paymentDeadline ? `<strong>${data.paymentDeadline}</strong> tarihine kadar` : '48 saat boyunca'} sizin için ayrıldı. Ödemeniz hesabımıza ulaşıp onaylandığında siparişiniz hazırlanıp kargoya teslim edilecek; onayı e-postayla bildireceğiz.
+    </p>
+    <a href="https://zuulab.com/hesap/siparisler/${data.orderNumber}" class="btn">
+      Siparişimi İncele →
+    </a>
+  `
+  const text = [
+    `Merhaba ${data.customerName},`,
+    `#${data.orderNumber} numaralı siparişinizin tutarını havale veya EFT ile gönderebilirsiniz.`,
+    '',
+    `Banka: ${BANK_ACCOUNT.bank}`,
+    `Alıcı: ${BANK_ACCOUNT.holder}`,
+    `IBAN: ${iban}`,
+    `Tutar: ${amount}`,
+    '',
+    `Ürünleriniz ${data.paymentDeadline ? `${data.paymentDeadline} tarihine kadar` : '48 saat boyunca'} sizin için ayrıldı. Ödemeniz onaylandığında siparişiniz hazırlanıp kargoya teslim edilecek.`,
+  ].join('\n')
   return { subject, html: renderEmailBase({ title: subject, contentHtml }).html, text }
 }
 

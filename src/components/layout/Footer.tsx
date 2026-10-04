@@ -113,6 +113,7 @@ export default async function Footer() {
           </p>
           <div className={styles.paymentBadges}>
             <span className={styles.payBadge}>PayTR</span>
+            <span className={styles.payBadge}>Havale / EFT</span>
             <span className={styles.payBadge}>3D Secure</span>
             <span className={styles.payBadge}>256-bit SSL</span>
           </div>

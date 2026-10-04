@@ -1,0 +1,60 @@
+/* Havale/EFT details: extends the receipt card of the success page */
+
+.value {
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  text-align: right;
+}
+
+.ibanRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3);
+  margin-top: var(--sp-1);
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.ibanRow > :first-child {
+  grid-column: 1 / -1;
+}
+
+.iban {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.copy {
+  height: 32px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.copy:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+}
+
+.note {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  margin: 0 auto var(--sp-6);
+  max-width: 420px;
+}

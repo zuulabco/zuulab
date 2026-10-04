@@ -4,6 +4,8 @@ export type NotificationEventType =
   | 'ORDER_CANCELLED'
   | 'PAYMENT_SUCCEEDED'
   | 'PAYMENT_FAILED'
+  /** Havale/EFT order placed: bank details and the payment deadline */
+  | 'BANK_TRANSFER_AWAITING'
   | 'ORDER_PREPARING'
   | 'SHIPMENT_CREATED'
   | 'ORDER_SHIPPED'

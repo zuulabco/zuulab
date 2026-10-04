@@ -23,8 +23,12 @@ const row = (label: string, value: string) =>
  * Tells the shop owner a paid order came in: who ordered, when, what. Called once
  * per order, right after the payment is confirmed (an abandoned checkout sends
  * nothing). Never throws: a failed alert must not affect the payment callback.
+ *
+ * `bank-transfer` is the heads-up for a havale/EFT order placed but not yet paid:
+ * same details, so the owner can match the incoming transfer and confirm it in the
+ * panel. The usual "Sipariş Geldi!" follows once it is confirmed.
  */
-export async function sendNewOrderAlert(orderId: string): Promise<void> {
+export async function sendNewOrderAlert(orderId: string, kind: 'paid' | 'bank-transfer' = 'paid'): Promise<void> {
   try {
     const to = storeInbox()
     if (!to) {
@@ -63,9 +67,13 @@ export async function sendNewOrderAlert(orderId: string): Promise<void> {
       .join('')
 
     const discount = Number(order.discountAmount)
-    const subject = `Sipariş Geldi! #${order.orderNumber} · ${formatPrice(Number(order.total))}`
+    const awaiting = kind === 'bank-transfer'
+    const subject = awaiting
+      ? `Havale Bekleniyor: #${order.orderNumber} · ${formatPrice(Number(order.total))}`
+      : `Sipariş Geldi! #${order.orderNumber} · ${formatPrice(Number(order.total))}`
     const contentHtml = `
-      <p style="font-size: 18px; color: #ffffff; margin: 0 0 16px;"><strong>Yeni sipariş: #${escapeHtml(order.orderNumber)}</strong></p>
+      <p style="font-size: 18px; color: #ffffff; margin: 0 0 16px;"><strong>${awaiting ? 'Havale/EFT ile yeni sipariş' : 'Yeni sipariş'}: #${escapeHtml(order.orderNumber)}</strong></p>
+      ${awaiting ? `<p style="margin: 0 0 16px;">Ödeme henüz gelmedi. <strong>${formatPrice(Number(order.total))}</strong> hesabına ulaştığında siparişi panelde açıp <strong>"havale ödemesi geldi"</strong> ile onayla; onaylanmayan sipariş 48 saat sonra düşer ve stok serbest kalır.</p>` : ''}
       <table style="font-size: 13px; border-collapse: collapse; margin-bottom: 8px;">
         ${row('Tarih', placedAt)}
         ${row('Müşteri', `${escapeHtml(order.shipToName)} <span style="color: rgba(255,255,255,0.5);">(${customerType})</span>`)}
@@ -89,14 +97,16 @@ export async function sendNewOrderAlert(orderId: string): Promise<void> {
     const { html } = renderEmailBase({
       title: subject,
       contentHtml,
-      footerHtml: '<div>Bu e-posta, sitenize ödemesi tamamlanmış yeni bir sipariş geldiğinde otomatik gönderilir.</div>',
+      footerHtml: awaiting
+        ? '<div>Bu e-posta, sitenize havale/EFT ile ödenecek yeni bir sipariş geldiğinde otomatik gönderilir.</div>'
+        : '<div>Bu e-posta, sitenize ödemesi tamamlanmış yeni bir sipariş geldiğinde otomatik gönderilir.</div>',
     })
     const result = await getEmailProvider().sendEmail({
       to,
       subject,
       html,
       replyTo: email !== '—' ? email : undefined,
-      idempotencyKey: `store-new-order:${order.orderNumber}`,
+      idempotencyKey: `${awaiting ? 'store-bank-transfer' : 'store-new-order'}:${order.orderNumber}`,
     })
     if (!result.success) console.error('[store-order-email] send failed:', order.orderNumber, result.error)
   } catch (err) {
