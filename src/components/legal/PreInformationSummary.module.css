@@ -1,0 +1,77 @@
+.box {
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-1);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.box summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.body {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.body h4 {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.body p {
+  margin: 0;
+}
+
+.body ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table td {
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.total td {
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: none;
+}
+
+.more {
+  margin-top: 10px !important;
+}
+
+.more a {
+  color: var(--text-primary);
+  text-decoration: underline;
+}

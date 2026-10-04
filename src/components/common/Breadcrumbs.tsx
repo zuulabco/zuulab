@@ -25,10 +25,16 @@ export default function Breadcrumbs({ items }: Props) {
 
           return (
             <li key={index} className={styles.item}>
-              {isLast || !item.href ? (
+              {isLast ? (
                 <span className={styles.current} aria-current="page">
                   {item.label}
                 </span>
+              ) : !item.href ? (
+                // A grouping step without its own page (e.g. "yasal", "kurumsal")
+                <>
+                  <span className={styles.link}>{item.label}</span>
+                  <span className={styles.separator} aria-hidden="true">/</span>
+                </>
               ) : (
                 <>
                   <Link href={item.href} className={styles.link}>

@@ -74,7 +74,7 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     sortOrder: 6,
     seo: {
       title: 'Ev & Yaşam — zuulab Estetik ve Fonksiyonel Tasarım Parçaları',
-      description: 'Biyo-bozunur PLA ile üretilmiş modern ev aksesuarları ve ergonomik tasarım ürünleri.',
+      description: 'Atölyemizde PLA ve PETG ile üretilen modern ev aksesuarları ve ergonomik tasarım ürünleri.',
     },
   },
   anahtarliklar: {

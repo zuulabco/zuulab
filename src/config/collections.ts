@@ -42,12 +42,12 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     logoNeedsDarkBg: false,
     logoWidth: 180,
     logoHeight: 94,
-    tagline: 'çocuklar için güvenli 3d tasarım evreni',
+    tagline: 'çocuklar için 3d tasarım evreni',
     editorialTitle: 'merakı besleyen, dokunarak öğrenilen formlar.',
     editorialStatement:
-      'çocukların hayal gücünü geliştiren, yuvarlatılmış güvenli kenarlara sahip, ftalat ve bpa içermeyen mısır nişastası bazlı pla biyo-polimer oyuncaklar ve montessori eğitim materyalleri.',
+      'çocukların hayal gücünü geliştiren, yuvarlatılmış kenarlı oyuncaklar ve montessori esinli eğitim materyalleri; bitki kaynaklı pla ile atölyemizde üretilir.',
     description:
-      'çocuklar için eğlenceli, güvenli ve renkli 3d baskı ürün dünyası. oyuncaklar, eğitim materyalleri ve yaratıcı masaüstü aksesuarlar.',
+      'çocuklar için eğlenceli ve renkli 3d baskı ürün dünyası. oyuncaklar, eğitim materyalleri ve yaratıcı masaüstü aksesuarlar.',
     heroImage: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?auto=format&fit=crop&w=1600&q=85',
     secondaryImage: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=1200&q=80',
     accentColor: '#eab828',
@@ -55,12 +55,12 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     featuredProductSlug: 'zuukids-vidali-sekil-eslestirme-ve-siralama-seti',
     pillars: [
       {
-        title: '100% biyo-çözünür pla',
-        description: 'gıda ile temasa uygun, çevre ve çocuk dostu doğal mısır nişastası bazlı biyo-polimer hammadde.',
+        title: 'bitki kaynaklı pla',
+        description: 'mısır nişastası gibi bitkisel hammaddelerden üretilen, kokusuz ve renk seçeneği bol bir malzeme.',
       },
       {
-        title: 'sıfır keskin kenar',
-        description: 'her model çocuk ergonomisine ve güvenliğine göre özel yumuşatılmış kenarlarla basılır.',
+        title: 'yumuşatılmış kenarlar',
+        description: 'modeller, küçük ellerin rahatça tutabilmesi için yuvarlatılmış kenarlarla tasarlanır; yaş önerisi ürün sayfasında yazar.',
       },
       {
         title: 'dokunarak öğrenme',
@@ -68,8 +68,8 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
       },
     ],
     seo: {
-      title: 'zuukids — güvenli ve yaratıcı çocuk ürünleri',
-      description: 'zuukids: çocuklar için biyo-bozunur pla oyuncaklar, montessori eğitim araçları ve renkli 3d tasarımlar.',
+      title: 'zuukids — yaratıcı ve eğitici çocuk ürünleri',
+      description: 'zuukids: çocuklar için 3d baskı oyuncaklar, montessori esinli eğitim araçları ve renkli tasarımlar.',
     },
   },
 
@@ -95,11 +95,11 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     pillars: [
       {
         title: 'katman katman üretim',
-        description: 'endüstriyel fdm yazıcılarımızda katman çizgileri pürüzsüzleştirilmiş mimari yüzeyler.',
+        description: 'bambu lab yazıcılarımızda ince katmanlarla basılan, temiz ve düzgün yüzeyler.',
       },
       {
-        title: 'manyetik modülerlik',
-        description: 'n52 neodimyum mıknatıslar ile dilediğiniz gibi birleşen ve ayrılan ergonomik modüller.',
+        title: 'işe yarayan tasarım',
+        description: 'masanızı düzenleyen, takılarınızı ve küçük eşyalarınızı derli toplu tutan pratik formlar.',
       },
       {
         title: 'dengeli ağırlık merkezi',
@@ -182,12 +182,12 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
         description: 'tasarımlarınıza gömme ya da kabartma 3d vektörel şirket logosu uygulaması.',
       },
       {
-        title: 'kademeli hacim indirimi',
-        description: '25, 50, 100 ve 500+ adet sipariş bantlarında otomatik birim fiyat avantajı.',
+        title: 'adede göre teklif',
+        description: 'toplu siparişlerde adet ve kişiselleştirmeye göre size özel fiyat teklifi hazırlanır.',
       },
       {
-        title: 'hızlı fiziksel numune',
-        description: 'seri üretime başlamadan önce 48 saat içinde kontrol numunesi onayı.',
+        title: 'numune ile onay',
+        description: 'istenirse seri üretime başlamadan önce örnek parça basılıp onayınıza sunulur.',
       },
     ],
     seo: {
@@ -216,12 +216,12 @@ export const COLLECTION_CONFIGS: Record<string, CollectionConfig> = {
     featuredProductSlug: 'kyoto-dusunen-insan-heykeli',
     pillars: [
       {
-        title: 'numaralandırılmış seri',
-        description: 'her obje sınırlı sayıda üretilir ve altında özgün seri numarası bulunur.',
+        title: 'sınırlı üretim',
+        description: 'her obje küçük partiler halinde, sınırlı sayıda üretilir.',
       },
       {
-        title: 'mat taş dokulu yüzey',
-        description: 'özel mineral katkılı polimer ile doğal taş hissi veren ağırlık ve mikrotekstür.',
+        title: 'özel yüzey dokusu',
+        description: 'katman yapısı ve baskı ayarlarıyla oluşturulan, dokunulmak istenen yüzeyler.',
       },
       {
         title: 'tek parça monolitik form',

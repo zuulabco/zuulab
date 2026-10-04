@@ -1,161 +1,127 @@
 import type { Metadata } from 'next'
-import { pageMetadata } from '@/lib/seo/metadata'
 import Link from 'next/link'
-import Breadcrumbs from '@/components/common/Breadcrumbs'
-import styles from '../ContentPage.module.css'
+import { pageMetadata } from '@/lib/seo/metadata'
+import { COMPANY, SALES_TERMS } from '@/config/company'
+import { Block, CorporatePage, CtaBand, Facts, Features, Hero, Steps } from '@/components/content/Corporate'
 
 export const metadata: Metadata = pageMetadata({
   title: 'Üretim süreci',
   description:
-    'zuulab’ın 5 aşamalı 3D baskı süreci: tasarım ve simülasyon, FDM katmanlı üretim, yüzey temizliği, kalite kontrol ve geri dönüştürülebilir paketleme.',
+    'Bir zuulab ürününün 5 adımlık yolculuğu: tasarım, dilimleme, Bambu Lab yazıcılarda PLA/PETG baskı, kalite kontrol ve paketleme.',
   path: '/uretim-sureci',
 })
 
-const STEPS = [
-  {
-    num: '01',
-    title: 'dijital tasarım & simülasyon',
-    desc:
-      'Her ürün, mukavemet ve ergonomi testlerinden geçirilerek parametrik CAD yazılımlarında 3 boyutlu olarak modellenir. Dilimleme (slicing) aşamasında en uygun dolgu (infill) geometrisi belirlenir.',
-    note: 'araç: parametrik cad, slicer / çıktı: .3mf, .gcode',
-  },
-  {
-    num: '02',
-    title: 'katman katman üretim (fdm / fff)',
-    desc:
-      'Yüksek hassasiyetli 0.4mm nozüllerle, 210°C sıcaklıkta eritilen biyo-polimer filament katman katman inşa edilir. Ürünün büyüklüğüne göre baskı süresi 4 ila 36 saat arasında değişir.',
-    note: 'nozül: 0.4 mm / malzeme: pla, petg',
-  },
-  {
-    num: '03',
-    title: 'yüzey temizliği & kürleme',
-    desc:
-      'Baskı tablasından alınan parça soğutulduktan sonra destek yapıları (supports) elle temizlenir. Yüzeydeki çapaklar giderilerek pürüzsüz doku sağlanır.',
-    note: 'süreç: elle temizlik, ısıl denge / süre: ürüne göre 15–45 dk',
-  },
-  {
-    num: '04',
-    title: 'boyutsal kontrol & kalite muayenesi',
-    desc:
-      'Kumpas ve ağırlık ölçümleriyle toleranslar kontrol edilir. Mukavemet testini başarıyla geçen ürünler tozdan arındırılarak ambalajlama istasyonuna iletilir.',
-    note: 'araç: dijital kumpas, hassas terazi / hata payı: ±0.2mm',
-  },
-  {
-    num: '05',
-    title: 'güvenli & geri dönüştürülebilir paketleme',
-    desc:
-      'Plastik baloncuklu naylon yerine biyolojik olarak parçalanabilir kraft kağıt ve özel koruyucu kutularla paketlenir. Aynı gün veya ertesi iş günü anlaşmalı kargoya verilir.',
-    note: 'kargo: sürat, yurtiçi / paket: kraft kağıt + biyobozunur dolgu',
-  },
-]
+const printerCount = COMPANY.printers.reduce((n, p) => n + p.count, 0)
 
-export default function UretimSureciPage() {
+export default function ProductionPage() {
   return (
-    <div className={`container ${styles.page}`}>
-      <div className={styles.breadcrumbRow}>
-        <Breadcrumbs items={[{ label: 'Üretim Süreci' }]} />
-      </div>
+    <CorporatePage slug="uretim-sureci">
+      <Hero
+        eyebrow="zuulab / üretim süreci"
+        title="fikirden elinize,"
+        muted="beş adım."
+        lead="Her zuulab ürünü Bolu’daki atölyemizde, siparişe göre ya da küçük partiler halinde üretilir. İşte bir parçanın tasarımdan kapınıza yolculuğu."
+      >
+        <Facts
+          items={[
+            { value: String(printerCount), label: '3d yazıcı' },
+            { value: COMPANY.materials.join(' · '), label: 'malzeme' },
+            { value: SALES_TERMS.stockDispatchDays.replace(' iş günü', ''), label: 'stoktan kargoya (iş günü)' },
+            { value: SALES_TERMS.madeToOrderDays.replace(' iş günü', ''), label: 'özel üretim (iş günü)' },
+          ]}
+        />
+      </Hero>
 
-      {/* ── Hero ──────────────────────────────────────────── */}
-      <header className={styles.pageHero}>
-        <span className={styles.heroEyebrow}>zuulab / üretim süreci</span>
-        <h1 className={styles.heroTitle}>
-          fikirden elinize, 5 adım.
-        </h1>
-        <p className={styles.heroLead}>
-          Her Zuulab nesnesi, dijital geometriden elle bitirilmiş fiziksel bir
-          esere dönüşene kadar 5 temel kalite aşamasından geçer.
-          Talep üzerine üretim — stok yok, israf yok.
-        </p>
-      </header>
+      <Block label="süreç" title="bir parçanın" muted="yolculuğu.">
+        <Steps
+          items={[
+            {
+              title: 'tasarım',
+              text: 'Ürünlerimizi bilgisayarda modelliyor, ilk örneği basıp gerçek kullanımda deniyoruz; ölçüsü, dengesi ve dokusu oturana kadar düzeltiyoruz. Özel üretimde gönderdiğiniz dosyayı ölçek, et kalınlığı ve baskıya uygunluk açısından kontrol ediyoruz.',
+            },
+            {
+              title: 'dilimleme ve hazırlık',
+              text: 'Model, yazıcının anlayacağı katmanlara bölünür. Baskı yönü, doluluk oranı, destek yapısı ve katman yüksekliği her ürün için ayrı ayarlanır; sağlamlık ile yüzey kalitesi arasında en iyi dengeyi ararız.',
+            },
+            {
+              title: 'baskı',
+              text: `Parça, Bambu Lab yazıcılarımızda seçilen malzeme ve renkle katman katman basılır. Ürünün boyutuna göre bir baskı birkaç saatten bir güne kadar sürebilir.`,
+            },
+            {
+              title: 'son işlem ve kontrol',
+              text: 'Destekler temizlenir, yüzey ve ölçüler kontrol edilir, parçalı ürünler monte edilip denenir. Lambalarda elektrik aksamı takılıp çalıştırılarak test edilir. Kusurlu parça yeniden basılır.',
+            },
+            {
+              title: 'paketleme ve kargo',
+              text: `Ürün koruyucu ambalajla paketlenir ve ${SALES_TERMS.carriers.join(' veya ')} ile yola çıkar. Stoktaki ürünler ${SALES_TERMS.stockDispatchDays}, sipariş üzerine üretilenler ${SALES_TERMS.madeToOrderDays} içinde kargoya verilir.`,
+            },
+          ]}
+        />
+      </Block>
 
-      {/* ── Teknik metrikler ───────────────────────────────── */}
-      <div className={styles.metricsRow}>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>3d</span>
-          <span className={styles.metricLabel}>katman katman baskı</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>4–36 saat</span>
-          <span className={styles.metricLabel}>ürüne göre baskı süresi</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>210°C</span>
-          <span className={styles.metricLabel}>nozül sıcaklığı</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>±0.2mm</span>
-          <span className={styles.metricLabel}>boyutsal tolerans</span>
-        </div>
-        <div className={styles.metric}>
-          <span className={styles.metricValue}>0 atık</span>
-          <span className={styles.metricLabel}>talep üzerine üretim</span>
-        </div>
-      </div>
+      <Block label="atölye" title="makineler ve" muted="malzemeler." tone="tinted">
+        <Features
+          items={[
+            {
+              title: 'yazıcılarımız',
+              text: (
+                <p>
+                  {COMPANY.printers.map((p) => `${p.count} × ${p.model}`).join(', ')}. Hızlı, hassas ve otomatik kalibrasyonlu
+                  FDM yazıcılar; aynı anda farklı ürünleri basabilmemizi sağlar.
+                </p>
+              ),
+            },
+            {
+              title: 'PLA',
+              text: 'Mısır nişastası gibi bitki kaynaklı hammaddelerden üretilen, kokusuz ve renk seçeneği bol bir malzeme. Dekor, lamba ve masaüstü ürünlerinde kullanırız. Yüksek sıcaklıktan (yaklaşık 50 °C üzeri) uzak tutulmalıdır.',
+            },
+            {
+              title: 'PETG',
+              text: 'PLA’ya göre darbeye, ısıya ve neme daha dayanıklıdır. Daha sağlam olması gereken, sık kullanılan veya mutfak/banyo gibi ortamlardaki parçalarda tercih ederiz.',
+            },
+            {
+              title: 'yakında',
+              text: 'Farklı doku ve dayanımdaki yeni malzemeleri deniyoruz; uygun olanları koleksiyonlarımıza ekledikçe ürün sayfalarında belirteceğiz.',
+            },
+          ]}
+        />
+      </Block>
 
-      {/* ── İki kolon: adımlar + bilgi ────────────────────── */}
-      <div className={styles.twoCol}>
-        {/* Sol: Üretim adımları */}
-        <div>
-          <div className={styles.sectionFirst}>
-            <span className={styles.sectionLabel}>aşamalar</span>
-          </div>
-          <ol className={styles.stepList} style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {STEPS.map((step) => (
-              <li key={step.num} className={styles.stepRow}>
-                <div className={styles.stepNum} aria-hidden>{step.num}</div>
-                <div className={styles.stepBody}>
-                  <h2 className={styles.stepTitle}>{step.title}</h2>
-                  <p className={styles.stepDesc}>{step.desc}</p>
-                  <span className={styles.stepNote}>{step.note}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
+      <Block label="bilmekte fayda var" title="3d baskının" muted="doğası.">
+        <Features
+          items={[
+            {
+              title: 'katman dokusu',
+              text: 'Yakından bakıldığında yüzeyde ince katman çizgileri görünür. Bu, üretim yönteminin doğal bir izidir ve her parçaya kendine özgü bir doku verir.',
+            },
+            {
+              title: 'renk tonları',
+              text: 'Filament partileri ve ekran ayarları nedeniyle renk tonu fotoğraftan küçük farklılık gösterebilir.',
+            },
+            {
+              title: 'bakım',
+              text: 'Nemli, yumuşak bir bezle silin. Bulaşık makinesi, sıcak su ve uzun süre doğrudan güneş ışığından uzak tutun.',
+            },
+            {
+              title: 'kişiye özel',
+              text: (
+                <p>
+                  Kendi modelinizi bastırmak isterseniz <Link href="/ozel-uretim">özel üretim</Link> sayfamıza göz atın.
+                </p>
+              ),
+            },
+          ]}
+        />
+      </Block>
 
-        {/* Sağ: Bilgi bloku */}
-        <aside>
-          <div className={styles.infoBlock}>
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>teknoloji</span>
-              <span className={styles.infoValue}>FDM (Fused Deposition Modeling)</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>birincil malzeme</span>
-              <span className={styles.infoValue}>Endüstriyel PLA+ (biyo-bozunur)</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>alternatif malzeme</span>
-              <span className={styles.infoValue}>PETG (geri dönüştürülebilir)</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>nozül çapı</span>
-              <span className={styles.infoValue}>0.4mm (standart)</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>paketleme</span>
-              <span className={styles.infoValue}>Kraft kağıt, biyobozunur dolgu</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>kargo</span>
-              <span className={styles.infoValue}>Sürat Kargo, Yurtiçi Kargo</span>
-            </div>
-            <div className={styles.infoSeparator} />
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>özel sipariş</span>
-              <Link href="/iletisim" className={styles.infoLink}>
-                özel boyut / renk talebi →
-              </Link>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </div>
+      <CtaBand title="atölyeden" muted="kapınıza." text="Koleksiyonlarımızı keşfedin ya da sorularınız için bize yazın.">
+        <Link href="/urunler" className="btn btn-primary">
+          ürünleri incele
+        </Link>
+        <Link href="/sss" className="btn btn-secondary">
+          sıkça sorulanlar
+        </Link>
+      </CtaBand>
+    </CorporatePage>
   )
 }

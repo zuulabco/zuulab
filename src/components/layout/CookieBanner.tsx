@@ -38,7 +38,7 @@ export default function CookieBanner() {
         <p className={styles.text}>
           Sitemizin çalışması için gerekli çerezleri (oturum, sepet ve favoriler) kullanıyoruz. İzin verirsen deneyimini
           iyileştirmek için analiz çerezlerini de kullanabiliriz.{' '}
-          <Link href="/gizlilik-politikasi#cerezler" className={styles.link}>
+          <Link href="/cerez-politikasi" className={styles.link}>
             Çerez politikası
           </Link>
         </p>

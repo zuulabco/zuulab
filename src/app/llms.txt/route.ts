@@ -2,6 +2,8 @@ import { getProducts, getCategories, getCollections } from '@/lib/services/produ
 import { getStoreSettings } from '@/lib/services/settings/store-settings.service'
 import { absoluteUrl, metaDescription, productSummary } from '@/lib/seo/metadata'
 import { BUSINESS } from '@/lib/seo/jsonld'
+import { COMPANY, SALES_TERMS } from '@/config/company'
+import { CORPORATE_PAGES, LEGAL_DOCS } from '@/lib/legal/documents'
 
 /**
  * /llms.txt (llmstxt.org): a plain-markdown map of the shop for AI assistants
@@ -35,10 +37,12 @@ export async function GET() {
     `- Konum: ${BUSINESS.locality}, Türkiye (kendi atölyesinde üretim)`,
     `- E-posta: ${BUSINESS.email}`,
     `- Telefon: ${BUSINESS.phoneDisplay} (hafta içi 09:00–18:00)`,
-    `- Kargo: ${shipping.carrier}, ${shipping.estimatedDelivery}; ücret ${tl(shipping.fee)}, ${tl(settings.freeShippingThreshold)} ve üzeri siparişlerde ücretsiz`,
+    `- Kargo: ${SALES_TERMS.carriers.join(' / ')}, kargoda ${shipping.estimatedDelivery}; ücret ${tl(shipping.fee)}, ${tl(settings.freeShippingThreshold)} ve üzeri siparişlerde ücretsiz`,
     '- İade: teslimden itibaren 14 gün cayma hakkı, ücretsiz iade kargo kodu (kişiye özel ürünler hariç)',
     '- Ödeme: kredi ve banka kartı (PayTR güvenli ödeme)',
-    '- Üretim: FDM 3D baskı; PLA+, PETG ve biyo-polimer malzemeler',
+    `- Üretim: kendi atölyesinde FDM 3D baskı (${COMPANY.printers.map((p) => `${p.count}× ${p.model}`).join(', ')}); malzemeler: ${COMPANY.materials.join(', ')}`,
+    `- Hazırlık: stoktaki ürünler ${SALES_TERMS.stockDispatchDays}, sipariş üzerine üretilenler ${SALES_TERMS.madeToOrderDays} içinde kargoda`,
+    `- Özel üretim: STL/3MF dosyanızı ${COMPANY.email} adresine gönderin; fiyat teklifi, ön ödeme, üretim ve kargo (${absoluteUrl('/ozel-uretim')})`,
     '',
     '## Koleksiyonlar',
     '',
@@ -66,15 +70,11 @@ export async function GET() {
     '',
     '## Kurumsal',
     '',
-    `- [Hakkımızda](${absoluteUrl('/hakkimizda')}): zuulab'ın hikayesi ve tasarım ilkeleri`,
-    `- [Üretim süreci](${absoluteUrl('/uretim-sureci')}): tasarımdan paketlemeye 5 aşamalı 3D baskı süreci`,
-    `- [İletişim](${absoluteUrl('/iletisim')}): sipariş, kişiye özel tasarım ve toptan üretim talepleri`,
+    ...CORPORATE_PAGES.map((p) => `- [${p.title}](${absoluteUrl(`/${p.slug}`)}): ${p.summary}`),
     '',
-    '## Politikalar',
+    '## Yasal belgeler',
     '',
-    `- [İade ve değişim politikası](${absoluteUrl('/iade-politikasi')})`,
-    `- [Gizlilik ve güvenlik politikası](${absoluteUrl('/gizlilik-politikasi')})`,
-    `- [Kullanım koşulları](${absoluteUrl('/kullanim-kosullari')})`,
+    ...LEGAL_DOCS.map((d) => `- [${d.title}](${absoluteUrl(`/${d.slug}`)}): ${d.summary}`),
     '',
   ]
 

@@ -47,77 +47,7 @@ export default function IletisimClient() {
   }
 
   return (
-    <div className={styles.contactLayout}>
-      {/* Sol: İletişim kanalları */}
-      <div>
-        <div className={styles.contactChannel}>
-          <span className={styles.contactChannelLabel}>e-posta</span>
-          <a href="mailto:zuulab.co@gmail.com" className={styles.contactChannelValue}>
-            zuulab.co@gmail.com
-          </a>
-          <span className={styles.contactChannelNote}>
-            Genel sorular ve sipariş bilgileri için
-          </span>
-        </div>
-
-        <div className={styles.contactChannel}>
-          <span className={styles.contactChannelLabel}>telefon</span>
-          <a href="tel:+905334251495" className={styles.contactChannelValue}>
-            0 533 425 14 95
-          </a>
-          <span className={styles.contactChannelNote}>
-            Hafta içi 09:00 – 18:00
-          </span>
-        </div>
-
-        <div className={styles.contactChannel}>
-          <span className={styles.contactChannelLabel}>atölye & üretim merkezi</span>
-          <span className={styles.contactChannelValue}>
-            Bolu, Türkiye
-          </span>
-          <span className={styles.contactChannelNote}>
-            Ziyaret için önceden randevu alınız
-          </span>
-        </div>
-
-        <div className={styles.contactChannel}>
-          <span className={styles.contactChannelLabel}>instagram</span>
-          <a
-            href="https://instagram.com/zuu.lab"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.contactChannelValue}
-          >
-            @zuu.lab
-          </a>
-          <span className={styles.contactChannelNote}>
-            Ürün güncellemeleri ve atölye içerikleri
-          </span>
-        </div>
-
-        <div className={styles.contactChannel}>
-          <span className={styles.contactChannelLabel}>destek talebi</span>
-          <Link href="/hesap/destek" className={styles.contactChannelValue}>
-            hesap / destek →
-          </Link>
-          <span className={styles.contactChannelNote}>
-            Mevcut siparişleriniz için doğrudan destek talebi açın
-          </span>
-        </div>
-
-        <div className={styles.contactChannel} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <span className={styles.contactChannelLabel}>toptan & özel üretim</span>
-          <a href="mailto:zuulab.co@gmail.com" className={styles.contactChannelValue}>
-            zuulab.co@gmail.com
-          </a>
-          <span className={styles.contactChannelNote}>
-            Kurumsal ve toptan talepler için e-posta ile ulaşın
-          </span>
-        </div>
-      </div>
-
-      {/* Sağ: İletişim formu */}
-      <div>
+    <div className={styles.contactForm}>
         <h2 className={styles.formTitle}>mesaj gönderin</h2>
 
         {submitted ? (
@@ -213,10 +143,13 @@ export default function IletisimClient() {
               >
                 {submitting ? 'gönderiliyor...' : 'gönder'}
               </button>
+              <p className={styles.formNote}>
+                Mesajınızdaki kişisel veriler yalnızca talebinizi yanıtlamak için{' '}
+                <Link href="/kvkk-aydinlatma-metni">KVKK aydınlatma metni</Link> kapsamında işlenir.
+              </p>
             </div>
           </form>
         )}
-      </div>
     </div>
   )
 }

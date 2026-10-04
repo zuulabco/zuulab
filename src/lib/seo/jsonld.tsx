@@ -1,4 +1,5 @@
 import { SITE_URL } from '@/lib/config/urls'
+import { COMPANY } from '@/config/company'
 import type { CatalogProduct } from '@/types/catalog'
 import type { SocialLink } from '@/lib/social/platforms'
 import { absoluteUrl, metaDescription } from './metadata'
@@ -12,12 +13,12 @@ import { BRAND } from './title'
 /** Public business facts. Keep in sync with the contact page and footer. */
 export const BUSINESS = {
   name: BRAND,
-  legalName: 'zuulab',
-  email: 'zuulab.co@gmail.com',
+  legalName: COMPANY.tradeName,
+  email: COMPANY.email,
   /** E.164, as schema.org and tel: links expect */
-  telephone: '+905334251495',
+  telephone: COMPANY.phoneE164,
   /** As printed on the contact page */
-  phoneDisplay: '0 533 425 14 95',
+  phoneDisplay: COMPANY.phoneDisplay,
   locality: 'Bolu',
   country: 'TR',
   description:

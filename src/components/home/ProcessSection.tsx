@@ -16,7 +16,7 @@ const STEPS = [
   },
   {
     title: 'özenli ambalaj',
-    desc: 'kalite kontrolünden geçen her parça, geri dönüştürülebilir eko-ambalajla aynı gün paketlenir.',
+    desc: 'kontrolden geçen her parça koruyucu ambalajla paketlenip kargoya verilir.',
   },
 ]
 
@@ -32,7 +32,7 @@ export default function ProcessSection() {
               <span className={styles.titleMuted}>4 adım.</span>
             </h2>
             <p className={styles.subtitle}>
-              zuulab, 3d baskıyı bir hobi değil; talep odaklı, sürdürülebilir ve endüstriyel bir üretim biçimi olarak ele alır.
+              zuulab, 3d baskıyı bir hobi değil; talep üzerine, özenli ve kontrollü bir üretim biçimi olarak ele alır.
             </p>
           </div>
 
@@ -55,13 +55,13 @@ export default function ProcessSection() {
               </div>
               <div className={styles.metricDivider} aria-hidden />
               <div className={styles.metric}>
-                <span className={styles.metricVal}>%100</span>
-                <span className={styles.metricLbl}>biyo-bozunur pla</span>
+                <span className={styles.metricVal}>4</span>
+                <span className={styles.metricLbl}>bambu lab yazıcı</span>
               </div>
               <div className={styles.metricDivider} aria-hidden />
               <div className={styles.metric}>
-                <span className={styles.metricVal}>0 atık</span>
-                <span className={styles.metricLbl}>talep üzerine üretim</span>
+                <span className={styles.metricVal}>pla · petg</span>
+                <span className={styles.metricLbl}>malzeme</span>
               </div>
             </div>
           </div>

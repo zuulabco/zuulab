@@ -17,6 +17,7 @@ import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
+import PreInformationSummary from '@/components/legal/PreInformationSummary'
 
 interface CheckoutClientProps {
   initialFreeShippingThreshold?: number
@@ -62,7 +63,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
 
   // Legal Consent Checkbox
-  const [agreementAccepted, setAgreementAccepted] = useState(true)
+  // The buyer must tick this themselves: a pre-ticked box is not valid consent
+  const [agreementAccepted, setAgreementAccepted] = useState(false)
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('')
@@ -1027,6 +1029,23 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
 
             {/* Legal Agreements Checkbox */}
             <div className={styles.agreementWrap}>
+              <PreInformationSummary
+                // Server prices when the quote has them, so lines and totals always agree
+                lines={items.map((it) => {
+                  const priced = quote?.lines.find((l) => l.productId === it.productId && l.variantId === it.variantId)
+                  return { ...it, price: priced?.unitPrice ?? it.price }
+                })}
+                subtotal={sub}
+                discount={discount + campaignDiscount}
+                shipping={effectiveShipping}
+                total={grandTotal}
+                buyer={{
+                  name: fullName,
+                  email,
+                  phone,
+                  address: [addressLine, neighborhood, district && city ? `${district} / ${city}` : city, postalCode].filter(Boolean).join(', '),
+                }}
+              />
               <label className={styles.checkboxLabel}>
                 <input
                   type="checkbox"
@@ -1038,11 +1057,11 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750 }: C
                   className={styles.checkboxInput}
                 />
                 <span className={styles.agreementText}>
-                  <Link href="/kullanim-kosullari" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
+                  <Link href="/on-bilgilendirme-formu" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
                     Ön bilgilendirme formunu
                   </Link>
                   {' '}ve{' '}
-                  <Link href="/kullanim-kosullari" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
+                  <Link href="/mesafeli-satis-sozlesmesi" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
                     mesafeli satış sözleşmesini
                   </Link>
                   {' '}okudum, kabul ediyorum.

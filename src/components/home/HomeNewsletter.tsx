@@ -105,8 +105,12 @@ export default function HomeNewsletter() {
                 />
                 <span>
                   {NEWSLETTER_CONSENT_TEXT}{' '}
-                  <Link href="/gizlilik-politikasi" className={styles.privacyLink}>
-                    gizlilik metni
+                  <Link href="/ticari-elektronik-ileti-onayi" className={styles.privacyLink}>
+                    onay metni
+                  </Link>
+                  {' · '}
+                  <Link href="/kvkk-aydinlatma-metni" className={styles.privacyLink}>
+                    kvkk aydınlatma metni
                   </Link>
                 </span>
               </label>

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { getProducts, getCategories, getCollections } from '@/lib/services/products.service'
 import { absoluteUrl } from '@/lib/seo/metadata'
+import { CORPORATE_PAGES, LEGAL_DOCS } from '@/lib/legal/documents'
 
 /**
  * sitemap.xml: every indexable storefront URL, from the live catalog.
@@ -44,11 +45,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .slice(0, 10)
         .map((url) => absoluteUrl(url)),
     })),
-    page('/hakkimizda'),
-    page('/uretim-sureci'),
-    page('/iletisim'),
-    page('/iade-politikasi'),
-    page('/gizlilik-politikasi'),
-    page('/kullanim-kosullari'),
+    ...CORPORATE_PAGES.map((p) => page(`/${p.slug}`)),
+    // Each legal document's version date is a real last-modified date
+    ...LEGAL_DOCS.map((d) => page(`/${d.slug}`, d.updated)),
   ]
 }

@@ -3,6 +3,8 @@ import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import FooterColumn from './FooterColumn'
 import { getActiveSocialLinks } from '@/lib/services/social.service'
 import { SOCIAL_PLATFORMS, SocialIcon } from '@/lib/social/platforms'
+import { COMPANY } from '@/config/company'
+import { CORPORATE_PAGES, LEGAL_DOCS } from '@/lib/legal/documents'
 import styles from './Footer.module.css'
 
 export default async function Footer() {
@@ -69,18 +71,22 @@ export default async function Footer() {
           {/* Kurumsal */}
           <FooterColumn title="kurumsal">
             <ul className={styles.links}>
-              <li><Link href="/hakkimizda">hakkımızda</Link></li>
-              <li><Link href="/uretim-sureci">üretim süreci</Link></li>
-              <li><Link href="/iletisim">iletişim</Link></li>
+              {CORPORATE_PAGES.map((p) => (
+                <li key={p.slug}>
+                  <Link href={`/${p.slug}`}>{p.label}</Link>
+                </li>
+              ))}
             </ul>
           </FooterColumn>
 
           {/* Yasal */}
           <FooterColumn title="yasal">
             <ul className={styles.links}>
-              <li><Link href="/gizlilik-politikasi">gizlilik politikası</Link></li>
-              <li><Link href="/kullanim-kosullari">kullanım koşulları</Link></li>
-              <li><Link href="/iade-politikasi">iade politikası</Link></li>
+              {LEGAL_DOCS.map((d) => (
+                <li key={d.slug}>
+                  <Link href={`/${d.slug}`}>{d.label}</Link>
+                </li>
+              ))}
             </ul>
           </FooterColumn>
         </div>
@@ -98,6 +104,12 @@ export default async function Footer() {
               © {year} zuulab. tüm hakları saklıdır.
             </p>
           </div>
+          {/* Seller identity (6563 s. Kanun); the full details are on /satici-bilgileri */}
+          <p className={styles.imprint}>
+            <Link href="/satici-bilgileri">{COMPANY.tradeName}</Link> · {COMPANY.district}/{COMPANY.city} ·{' '}
+            <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> · <a href={`tel:${COMPANY.phoneE164}`}>{COMPANY.phoneDisplay}</a> · KEP:{' '}
+            {COMPANY.kep}
+          </p>
           <div className={styles.paymentBadges}>
             <span className={styles.payBadge}>PayTR</span>
             <span className={styles.payBadge}>3D Secure</span>

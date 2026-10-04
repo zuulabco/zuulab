@@ -872,7 +872,7 @@ function ProductCatalogView({
               <>
                 <h1 className={styles.catalogTitle}>ürünler</h1>
                 <p className={styles.catalogSubtitle}>
-                  biyo-bozunur pla ile üretilmiş 3d tasarım objeleri
+                  atölyemizde 3d baskıyla üretilen tasarım objeleri
                 </p>
               </>
             ) : (
