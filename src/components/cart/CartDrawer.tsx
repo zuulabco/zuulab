@@ -38,8 +38,12 @@ export default function CartDrawer() {
   const { freeShippingThreshold, method: shippingMethodConfig } = useShippingConfig()
   const STANDARD_SHIPPING_FEE = shippingMethodConfig.price
 
+  // Whatever had focus when the drawer opened (cart button, an add-to-cart button)
+  const openerRef = useRef<HTMLElement | null>(null)
+
   useEffect(() => {
     if (isDrawerOpen) {
+      if (!isRendered) openerRef.current = document.activeElement as HTMLElement | null
       setIsRendered(true)
       setIsExiting(false)
     } else if (isRendered) {
@@ -47,7 +51,11 @@ export default function CartDrawer() {
       const timer = setTimeout(() => {
         setIsRendered(false)
         setIsExiting(false)
-        document.getElementById('cart-button')?.focus()
+        // Focus goes back without scrolling: focusing the sticky header's cart button
+        // made the browser jump to the top of the page
+        const opener = openerRef.current?.isConnected ? openerRef.current : document.getElementById('cart-button')
+        opener?.focus({ preventScroll: true })
+        openerRef.current = null
       }, 190) // match slideOut duration
       return () => clearTimeout(timer)
     }
@@ -75,7 +83,7 @@ export default function CartDrawer() {
     document.addEventListener('keydown', handleKeyDown)
 
     if (isDrawerOpen && !isExiting) {
-      setTimeout(() => closeBtnRef.current?.focus(), 50)
+      setTimeout(() => closeBtnRef.current?.focus({ preventScroll: true }), 50)
     }
 
     return () => {

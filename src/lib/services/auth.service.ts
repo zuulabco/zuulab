@@ -1,5 +1,6 @@
 import 'server-only'
 import { verifyAuthToken } from '@/lib/firebase-admin'
+import { isSignInFromEarlierDay } from '@/lib/auth/daily-session'
 import { db, isDatabaseConfigured } from '@/prisma/db'
 import { extractSessionCookie, verifySessionToken } from './session.service'
 
@@ -89,6 +90,11 @@ export async function authenticateRequest(
   const token = extractBearerToken(request)
   if (token) {
     const decoded = await verifyAuthToken(token)
+    // Sign-ins end at midnight (Türkiye): Firebase keeps refreshing the token, but its
+    // auth_time stays the moment the user logged in
+    if (decoded && decoded.uid && isSignInFromEarlierDay((decoded.auth_time || 0) * 1000)) {
+      return null
+    }
     if (decoded && decoded.uid) {
       return syncOrCreateUser({
         firebaseUid: decoded.uid,

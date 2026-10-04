@@ -74,7 +74,8 @@
 .navLink {
   font-size: 13px;
   font-weight: var(--weight-medium);
-  color: var(--text-muted);
+  /* A notch darker than --text-muted (#888886), still lighter than --text-secondary */
+  color: #6a6a68;
   padding: 8px var(--sp-3);
   position: relative;
   text-decoration: none;

@@ -632,13 +632,16 @@
   gap: var(--sp-3);
 }
 
+/* Whole-pixel sizes (16 − 2×2 border = 12, dot 8) and grid centering keep the dot
+   exactly in the middle; half-pixel borders rounded unevenly and pushed it off */
 .radioCircle {
-  width: 15px;
-  height: 15px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-full);
-  border: 1.5px solid var(--border-strong);
-  display: inline-block;
-  position: relative;
+  border: 2px solid var(--border-strong);
+  display: inline-grid;
+  place-items: center;
   flex-shrink: 0;
   transition: border-color var(--dur-fast) ease;
 }
@@ -649,11 +652,8 @@
 
 .radioCircleActive::after {
   content: '';
-  position: absolute;
-  top: 2.5px;
-  left: 2.5px;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
   background: var(--text-primary);
 }
