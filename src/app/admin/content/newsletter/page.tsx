@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import { SkeletonRows } from '@/components/common/Skeleton'
+import Modal from '@/components/common/Modal'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 import styles from '../../admin.module.css'
 
 interface Subscriber {
@@ -36,19 +38,54 @@ export default function AdminNewsletterPage() {
   const [filter, setFilter] = useState<'ALL' | Subscriber['status']>('ACTIVE')
   const [search, setSearch] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [toDelete, setToDelete] = useState<Subscriber | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  /** `silent`: background refresh — keeps the table and skips error toasts */
+  const load = useCallback(
+    (silent = false) => {
+      if (!canFetch) return
+      fetch('/api/admin/newsletter', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.success) throw new Error(d.error)
+          setRows(d.subscribers)
+          setCounts(d.counts)
+        })
+        .catch((e) => {
+          if (!silent) toast.error((e as Error).message || 'Abone listesi alınamadı.')
+        })
+        .finally(() => setLoading(false))
+    },
+    [token, canFetch]
+  )
 
   useEffect(() => {
-    if (!canFetch) return
-    fetch('/api/admin/newsletter', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.success) throw new Error(d.error)
-        setRows(d.subscribers)
-        setCounts(d.counts)
+    load()
+  }, [load])
+
+  // Live: new sign-ups and confirmations appear without a reload
+  useLiveRefresh(() => load(true), 15000, canFetch)
+
+  const confirmDelete = async () => {
+    if (!toDelete) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/newsletter?id=${encodeURIComponent(toDelete.id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch((e) => toast.error((e as Error).message || 'Abone listesi alınamadı.'))
-      .finally(() => setLoading(false))
-  }, [token, canFetch])
+      const d = await res.json().catch(() => ({}))
+      if (!d.success) throw new Error(d.error || 'Silinemedi.')
+      toast.success(`${d.email} listeden silindi${d.codeDisabled ? '; indirim kodu devre dışı bırakıldı' : ''}.`)
+      setToDelete(null)
+      load(true)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -136,18 +173,19 @@ export default function AdminNewsletterPage() {
               <th>Kayıt</th>
               <th>Onay</th>
               <th>İndirim kodu</th>
+              <th aria-label="İşlemler" />
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5}>
-                  <SkeletonRows rows={4} cols={5} />
+                <td colSpan={6}>
+                  <SkeletonRows rows={4} cols={6} />
                 </td>
               </tr>
             ) : shown.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
                   {rows.length === 0 ? 'Henüz bülten kaydı yok.' : 'Bu filtrede kayıt yok.'}
                 </td>
               </tr>
@@ -170,12 +208,47 @@ export default function AdminNewsletterPage() {
                       '—'
                     )}
                   </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      className={`${styles.btnGhost} ${styles.btnSm}`}
+                      onClick={() => setToDelete(r)}
+                      aria-label={`${r.email} kaydını sil`}
+                    >
+                      Sil
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {toDelete && (
+        <Modal isOpen onClose={() => !deleting && setToDelete(null)} ariaLabel="Aboneyi sil">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Aboneyi listeden sil</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              <strong>{toDelete.email}</strong> kaydı ve onay geçmişi kalıcı olarak silinecek
+              {toDelete.couponCode && !toDelete.couponUsed ? '; kullanılmamış indirim kodu devre dışı bırakılacak' : ''}. Bu işlem
+              geri alınamaz.
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+              Test kayıtları için uygundur. Gerçek bir abone ayrılmak istiyorsa e-postalardaki &quot;abonelikten çık&quot;
+              bağlantısını kullanması daha doğrudur; onay kaydı yasal olarak saklanmaya devam eder.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button type="button" className={styles.secondaryBtn} onClick={() => setToDelete(null)} disabled={deleting}>
+                Vazgeç
+              </button>
+              <button type="button" className={styles.dangerButton} onClick={confirmDelete} disabled={deleting}>
+                {deleting ? 'Siliniyor…' : 'Kalıcı olarak sil'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

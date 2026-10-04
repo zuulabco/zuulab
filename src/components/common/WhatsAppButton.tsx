@@ -1,19 +1,27 @@
-import { BUSINESS } from '@/lib/seo/jsonld'
+'use client'
+
+import { usePathname } from 'next/navigation'
+import { COMPANY } from '@/config/company'
 import styles from './WhatsAppButton.module.css'
 
 /** wa.me wants the number in international form without "+" */
-const CHAT_URL = `https://wa.me/${BUSINESS.telephone.replace(/\D/g, '')}?text=${encodeURIComponent('Merhaba zuulab, ')}`
+const CHAT_URL = `https://wa.me/${COMPANY.phoneE164.replace(/\D/g, '')}?text=${encodeURIComponent('Merhaba zuulab, ')}`
 
 /**
- * Round WhatsApp button pinned to the bottom-left corner. A plain link, so it
- * works the same for guests and signed-in customers: phones open the WhatsApp
- * app, computers WhatsApp Web.
+ * Round WhatsApp button pinned to the bottom-left corner of every store page. A
+ * plain link, so it works the same for guests and signed-in customers: phones open
+ * the WhatsApp app, computers WhatsApp Web. On phones it sits above the fixed
+ * bottom bars of the product and cart pages.
  */
+const PAGES_WITH_BOTTOM_BAR = [/^\/urun\//, /^\/sepet\/?$/]
+
 export default function WhatsAppButton() {
+  const pathname = usePathname() ?? ''
+  const raised = PAGES_WITH_BOTTOM_BAR.some((re) => re.test(pathname))
   return (
     <a
       href={CHAT_URL}
-      className={styles.button}
+      className={`${styles.button} ${raised ? styles.raised : ''}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp ile yazın"

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
@@ -8,6 +8,7 @@ import Modal from '@/components/common/Modal'
 import { getSupportStatusConfig } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 interface MessageItem {
   id: string
@@ -63,9 +64,10 @@ export default function AdminSupportPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const loadTickets = (selectIdAfterLoad?: string) => {
+  /** `silent`: background refresh — no spinner, no error toast, selection kept */
+  const loadTickets = (selectIdAfterLoad?: string, silent = false) => {
     if (!canFetch) return
-    setLoading(true)
+    if (!silent) setLoading(true)
 
     const url = statusFilter === 'ALL'
       ? '/api/admin/support'
@@ -80,7 +82,7 @@ export default function AdminSupportPage() {
           setTickets(data.tickets)
           if (selectIdAfterLoad) {
             selectTicket(selectIdAfterLoad)
-          } else if (!selectedTicket && data.tickets.length > 0) {
+          } else if (!silent && !selectedTicket && data.tickets.length > 0) {
             // Automatically select first ticket on desktop
             selectTicket(data.tickets[0].id)
           }
@@ -88,33 +90,49 @@ export default function AdminSupportPage() {
       })
       .catch((err) => {
         console.error(err)
-        addToast('Destek talepleri listelenirken hata oluştu.', 'error')
+        if (!silent) addToast('Destek talepleri listelenirken hata oluştu.', 'error')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!silent) setLoading(false)
+      })
   }
 
   useEffect(() => {
     loadTickets()
   }, [token, canFetch, statusFilter])
 
-  const selectTicket = (id: string) => {
+  /** The ticket on screen; a background refresh that lands after a switch is dropped */
+  const shownTicketId = useRef<string | null>(null)
+
+  const selectTicket = (id: string, silent = false) => {
     if (!canFetch) return
-    setTicketDetailsLoading(true)
+    if (!silent) {
+      shownTicketId.current = id
+      setTicketDetailsLoading(true)
+    }
     fetch(`/api/admin/support/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.ticket) {
+        if (data.success && data.ticket && shownTicketId.current === id) {
           setSelectedTicket(data.ticket)
         }
       })
       .catch((err) => {
         console.error(err)
-        addToast('Talep detayı yüklenemedi.', 'error')
+        if (!silent) addToast('Talep detayı yüklenemedi.', 'error')
       })
-      .finally(() => setTicketDetailsLoading(false))
+      .finally(() => {
+        if (!silent) setTicketDetailsLoading(false)
+      })
   }
+
+  // Live: new tickets and replies appear without a reload while this screen is open
+  useLiveRefresh(() => loadTickets(undefined, true), 10000, canFetch)
+  useLiveRefresh(() => {
+    if (selectedTicket) selectTicket(selectedTicket.id, true)
+  }, 5000, canFetch && Boolean(selectedTicket))
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()

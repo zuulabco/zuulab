@@ -42,4 +42,9 @@
     width: 52px;
     height: 52px;
   }
+
+  /* Above the product / cart page buy bar */
+  .raised {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
 }

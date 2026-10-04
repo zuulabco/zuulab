@@ -12,6 +12,7 @@ import {
 } from '@/lib/constants/admin-status'
 import styles from '../admin.module.css'
 import { SkeletonRows } from '@/components/common/Skeleton'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 interface OrderItem {
   productId: string
@@ -96,9 +97,10 @@ export default function AdminOrdersPage() {
     note: '',
   })
 
-  const loadOrders = useCallback(() => {
+  /** `silent`: background refresh — no spinner and no error toasts */
+  const loadOrders = useCallback((silent = false) => {
     if (!canFetch) return
-    setLoading(true)
+    if (!silent) setLoading(true)
 
     const params = new URLSearchParams()
     if (statusFilter !== 'ALL') params.set('status', statusFilter)
@@ -116,20 +118,25 @@ export default function AdminOrdersPage() {
         if (data.success && Array.isArray(data.orders)) {
           setOrders(data.orders)
           setTotal(data.total !== undefined ? data.total : data.orders.length)
-        } else {
+        } else if (!silent) {
           toast.error(data.error || 'Siparişler yüklenemedi.')
         }
       })
       .catch((err) => {
         console.error(err)
-        toast.error('Bağlantı hatası: Siparişler alınamadı.')
+        if (!silent) toast.error('Bağlantı hatası: Siparişler alınamadı.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!silent) setLoading(false)
+      })
   }, [token, canFetch, statusFilter, paymentFilter, channelFilter, search, currentPage, pageSize])
 
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  // Live: new orders and status changes appear without a reload while the list is open
+  useLiveRefresh(() => loadOrders(true), 20000, canFetch)
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()

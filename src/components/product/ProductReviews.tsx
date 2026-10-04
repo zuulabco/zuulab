@@ -120,11 +120,11 @@ export default function ProductReviews({
 
   const eligibilityNote =
     eligibility === 'NOT_SIGNED_IN'
-      ? 'değerlendirme yazmak için bu ürünü satın aldığınız hesapla giriş yapın.'
+      ? 'satın aldıysanız giriş yapıp değerlendirin.'
       : eligibility === 'NOT_PURCHASED'
-        ? 'yalnızca bu ürünü satın almış üyeler değerlendirme yazabilir.'
+        ? 'yalnızca satın alanlar değerlendirebilir.'
         : eligibility === 'ALREADY_REVIEWED'
-          ? 'bu ürün için değerlendirmeniz alındı, teşekkürler.'
+          ? 'değerlendirmeniz alındı, teşekkürler.'
           : null
 
   const handleOpenModal = () => {

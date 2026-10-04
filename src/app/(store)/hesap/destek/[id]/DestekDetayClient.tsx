@@ -8,6 +8,7 @@ import AccountNav from '@/components/account/AccountNav'
 import styles from '../Destek.module.css'
 import hesapStyles from '../../Hesap.module.css'
 import { SkeletonLines } from '@/components/common/Skeleton'
+import { useLiveRefresh } from '@/hooks/useLiveRefresh'
 
 interface MessageItem {
   id: string
@@ -52,7 +53,7 @@ function getStatusLabel(status: string): string {
 }
 
 /** How often an open ticket page checks for replies and status changes */
-const POLL_MS = 15000
+const POLL_MS = 5000
 
 /** Server errors carry a machine prefix ("TICKET_CLOSED: …"); customers see the sentence only */
 function readableError(message: string): string {
@@ -99,22 +100,9 @@ export default function DestekDetayClient({ ticketId }: { ticketId: string }) {
     loadTicket()
   }, [loadTicket])
 
-  // Live updates: while the page is visible, check for replies and status changes every
-  // 15s, and right away when the customer returns to the tab.
-  useEffect(() => {
-    if (!token) return
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') loadTicket(true)
-    }, POLL_MS)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') loadTicket(true)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [token, loadTicket])
+  // Live updates: new replies and status changes show up within a few seconds while the
+  // conversation is on screen (see useLiveRefresh).
+  useLiveRefresh(() => loadTicket(true), POLL_MS, Boolean(token))
 
   if (!mounted) return null
 

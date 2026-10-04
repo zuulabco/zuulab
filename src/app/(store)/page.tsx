@@ -11,7 +11,6 @@ import HomeFinalDiscovery from '@/components/home/HomeFinalDiscovery'
 import HomeNewsletter from '@/components/home/HomeNewsletter'
 import TextCtaSection from '@/components/home/TextCtaSection'
 import ScrollReveal from '@/components/common/ScrollReveal'
-import WhatsAppButton from '@/components/common/WhatsAppButton'
 import { blurDataUrl } from '@/lib/images/blur'
 import { getCategories, getProducts } from '@/lib/services/products.service'
 import { toProductListItem, type CatalogProduct } from '@/types/catalog'
@@ -190,7 +189,6 @@ export default async function HomePage() {
       <JsonLd data={[organizationJsonLd(socials), websiteJsonLd()]} />
       {/* The hero slides carry slogans (h2); the page heading names what the shop sells. */}
       <h1 className="sr-only">zuulab · 3D baskı tasarım objeleri, lambalar ve oyuncaklar</h1>
-      <WhatsAppButton />
       {slides.length > 0 && <HomeHero slides={slides} autoplay={content.hero.autoplay} interval={content.hero.interval} />}
 
       {sections.map((section, i) => {

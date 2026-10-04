@@ -335,3 +335,42 @@ export function subscribersToCsv(list: AdminSubscriber[]): string {
   }
   return lines.join('\n')
 }
+
+/**
+ * Removes a subscriber for good (e.g. test sign-ups). Their unused welcome code is
+ * switched off so it cannot be redeemed; a code already used on an order is left
+ * alone, since that order refers to it. The removal is written to the audit log.
+ *
+ * For real people who want to leave, prefer unsubscribing: it keeps the consent
+ * history the law asks us to be able to show.
+ */
+export async function adminDeleteSubscriber(id: string, adminEmail = 'system'): Promise<{ email: string; codeDisabled: boolean }> {
+  const row = await db.orm.public.NewsletterSubscriber.where({ id }).first()
+  if (!row) throw new NewsletterError('Abone bulunamadı.')
+
+  let codeDisabled = false
+  await db.transaction(async (tx) => {
+    await tx.orm.public.NewsletterSubscriber.where({ id }).delete()
+    if (row.couponId) {
+      const coupon = await tx.orm.public.Coupon.where({ id: row.couponId }).first()
+      if (coupon && coupon.currentUses === 0 && coupon.isActive) {
+        await tx.orm.public.Coupon.where({ id: coupon.id }).update({ isActive: false } as never)
+        codeDisabled = true
+      }
+    }
+  })
+
+  await logAuditEvent({
+    action: 'NEWSLETTER_SUBSCRIBER_DELETED',
+    entity: 'NewsletterSubscriber',
+    entityId: id,
+    metadata: { email: row.email, status: row.status, codeDisabled, by: adminEmail },
+  }).catch(() => {})
+  return { email: row.email, codeDisabled }
+}
+
+/** Subscription state of one address, for the signed-in member's newsletter box */
+export async function newsletterStatusFor(email: string): Promise<'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' | null> {
+  const row = await db.orm.public.NewsletterSubscriber.where({ email: normalizeEmail(email) }).first()
+  return (row?.status as 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' | undefined) ?? null
+}
