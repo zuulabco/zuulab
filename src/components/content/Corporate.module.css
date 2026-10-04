@@ -310,6 +310,20 @@
   border-color: #fff;
 }
 
+/* The global hovers are made for light backgrounds (dark fill / light fill), which
+   would hide the text on this dark band */
+.ctaActions :global(.btn-secondary:hover:not(:disabled)) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #fff;
+  color: #fff;
+}
+
+.ctaActions :global(.btn-primary:hover:not(:disabled)) {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.85);
+  color: #111110;
+}
+
 /* ── Other corporate pages ───────────────── */
 .pageNav {
   padding-block: var(--sp-12) var(--sp-16);
@@ -455,11 +469,20 @@ a.channel:hover {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   color: var(--text-muted);
-  transition: transform var(--dur-fast) ease;
+  transition: transform var(--dur-slow) var(--ease-editorial);
 }
 
 .faq[open] summary::after {
   transform: rotate(45deg);
+}
+
+/* FaqItem slides the item's height while opening and closing */
+.faq {
+  overflow: hidden;
+}
+
+.faq.faqClosing summary::after {
+  transform: none;
 }
 
 .faqAnswer {

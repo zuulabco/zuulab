@@ -104,10 +104,10 @@ export default async function Footer() {
               © {year} zuulab. tüm hakları saklıdır.
             </p>
           </div>
-          {/* Seller identity (6563 s. Kanun). E-mail and KEP addresses are on the linked
-              page rather than in every page's source, out of reach of address harvesters. */}
+          {/* Seller identity (6563 s. Kanun): the brand here; the full trade name, e-mail and KEP
+              address are on the linked page (out of reach of address harvesters). */}
           <p className={styles.imprint}>
-            <Link prefetch={false} href="/satici-bilgileri">{COMPANY.tradeName}</Link> · {COMPANY.district}/{COMPANY.city} ·{' '}
+            <Link prefetch={false} href="/satici-bilgileri">{COMPANY.brand}</Link> · {COMPANY.district}/{COMPANY.city} ·{' '}
             <a href={`tel:${COMPANY.phoneE164}`}>{COMPANY.phoneDisplay}</a> ·{' '}
             <Link prefetch={false} href="/satici-bilgileri">satıcı bilgileri ve iletişim</Link>
           </p>

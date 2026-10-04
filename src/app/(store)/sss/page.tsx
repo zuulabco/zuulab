@@ -5,6 +5,7 @@ import { JsonLd } from '@/lib/seo/jsonld'
 import { getShippingTerms } from '@/lib/legal/terms'
 import { COMPANY, SALES_TERMS } from '@/config/company'
 import { Block, CorporatePage, CtaBand, Hero } from '@/components/content/Corporate'
+import FaqItem from '@/components/content/FaqItem'
 import s from '@/components/content/Corporate.module.css'
 
 export const metadata: Metadata = pageMetadata({
@@ -149,17 +150,14 @@ export default async function FaqPage() {
           <div key={g.title} className={s.faqGroup}>
             <h2 className={s.faqGroupTitle}>{g.title}</h2>
             {g.items.map((f) => (
-              <details key={f.q} className={s.faq}>
-                <summary>{f.q}</summary>
-                <div className={s.faqAnswer}>
-                  <p>{f.a}</p>
-                  {f.link && (
-                    <p>
-                      <Link href={f.link.href}>{f.link.label} →</Link>
-                    </p>
-                  )}
-                </div>
-              </details>
+              <FaqItem key={f.q} question={f.q}>
+                <p>{f.a}</p>
+                {f.link && (
+                  <p>
+                    <Link href={f.link.href}>{f.link.label} →</Link>
+                  </p>
+                )}
+              </FaqItem>
             ))}
           </div>
         ))}

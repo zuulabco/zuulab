@@ -27,7 +27,7 @@ export default function SellerInfoPage() {
           body: (
             <KeyValue
               rows={[
-                ['Atölye', `${COMPANY.district} / ${COMPANY.city} (ziyaretçi kabul edilmemektedir)`],
+                ['Atölye', `${COMPANY.district} / ${COMPANY.city}`],
                 ['Sipariş', '7 gün 24 saat, www.zuulab.com üzerinden'],
                 ['Canlı destek', COMPANY.supportHours],
               ]}
