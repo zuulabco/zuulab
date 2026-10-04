@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
+import { uploadAdminImage } from '@/lib/media/admin-upload'
 import s from './ProductImagesEditor.module.css'
 
 /** Same ceiling as the server (catalog-admin MAX_PRODUCT_IMAGES) */
@@ -57,15 +58,11 @@ export default function ProductImagesEditor({
     const batch = images.slice(0, free)
     setUploading(batch.length)
     for (const file of batch) {
-      const form = new FormData()
-      form.append('file', file)
       try {
-        const res = await fetch('/api/admin/media/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-        const data = await res.json()
-        if (data.success && data.url) add([data.url])
-        else toast.error(data.error || `${file.name} yüklenemedi.`)
-      } catch {
-        toast.error(`${file.name} yüklenirken bağlantı hatası oluştu.`)
+        const { url } = await uploadAdminImage(file, token)
+        add([url])
+      } catch (err) {
+        toast.error((err as Error).message || `${file.name} yüklenemedi.`)
       }
       setUploading((n) => n - 1)
     }

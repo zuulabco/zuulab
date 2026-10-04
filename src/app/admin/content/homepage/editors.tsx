@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
+import { uploadAdminImage } from '@/lib/media/admin-upload'
 import {
   SECTION_TEMPLATES,
   type BannerSettings,
@@ -100,25 +101,20 @@ export function ImageField({
 
   const upload = async (file: File) => {
     setUploading(true)
-    const form = new FormData()
-    form.append('file', file)
     try {
-      const res = await fetch('/api/admin/media/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-      const d = await res.json()
-      if (d.success && d.url) {
-        onChange(d.url)
-        const tooNarrow = minWidth && d.width && d.width < minWidth
-        const tooCompressed = minWidth && d.bytes && d.width && d.bytes / (d.width * (d.height || d.width)) < 0.04
-        if (tooNarrow) {
-          toast.error(`Görsel yüklendi ama ${d.width} px genişliğinde; tam ekran banner için en az ${minWidth} px önerilir, aksi halde bulanık görünür.`)
-        } else if (tooCompressed) {
-          toast.error(`Görsel yüklendi ama çok sıkıştırılmış (${Math.round(d.bytes / 1024)} KB). Daha yüksek kalitede (JPG %90) dışa aktarıp tekrar yükleyin.`)
-        } else {
-          toast.success('Görsel yüklendi.')
-        }
-      } else toast.error(d.error || 'Görsel yüklenemedi.')
-    } catch {
-      toast.error('Görsel yüklenemedi.')
+      const d = await uploadAdminImage(file, token)
+      onChange(d.url)
+      const tooNarrow = minWidth && d.width && d.width < minWidth
+      const tooCompressed = minWidth && d.bytes && d.width && d.bytes / (d.width * (d.height || d.width)) < 0.04
+      if (tooNarrow) {
+        toast.error(`Görsel yüklendi ama ${d.width} px genişliğinde; tam ekran banner için en az ${minWidth} px önerilir, aksi halde bulanık görünür.`)
+      } else if (tooCompressed) {
+        toast.error(`Görsel yüklendi ama çok sıkıştırılmış (${Math.round(d.bytes / 1024)} KB). Daha yüksek kalitede (JPG %90) dışa aktarıp tekrar yükleyin.`)
+      } else {
+        toast.success('Görsel yüklendi.')
+      }
+    } catch (err) {
+      toast.error((err as Error).message || 'Görsel yüklenemedi.')
     } finally {
       setUploading(false)
       if (input.current) input.current.value = ''

@@ -29,7 +29,26 @@ const ALLOWED_MIME_TYPES = [
   'image/svg+xml',
 ]
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB, for uploads that pass through our server
+
+/**
+ * Direct browser uploads (signUpload) skip our server, so Vercel's ~4.5 MB request
+ * limit does not apply. The browser shrinks anything over Cloudinary's 10 MB image
+ * limit first (lib/media/admin-upload); this is the ceiling for what it may send.
+ */
+export const MAX_DIRECT_UPLOAD_BYTES = 20 * 1024 * 1024
+
+/** Formats Cloudinary accepts for a signed direct upload */
+const DIRECT_UPLOAD_FORMATS = 'jpg,jpeg,png,webp,gif,svg,avif'
+
+export interface SignedUpload {
+  cloudName: string
+  apiKey: string
+  timestamp: number
+  folder: string
+  allowedFormats: string
+  signature: string
+}
 
 export class CloudinaryService {
   private cloudName: string
@@ -102,9 +121,28 @@ export class CloudinaryService {
   }
 
   /**
+   * Signature for one direct upload from the admin's browser to Cloudinary: the file
+   * never passes through our server. Valid for Cloudinary's one-hour window, only for
+   * this folder and image formats. Null when Cloudinary is not configured.
+   */
+  signUpload(folder = 'zuulab-products'): SignedUpload | null {
+    if (!this.isConfigured) return null
+    const timestamp = Math.round(Date.now() / 1000)
+    // Cloudinary signs the parameters sorted by name, joined with &, plus the secret
+    const toSign = `allowed_formats=${DIRECT_UPLOAD_FORMATS}&folder=${folder}&timestamp=${timestamp}`
+    const signature = crypto.createHash('sha1').update(toSign + this.apiSecret).digest('hex')
+    return { cloudName: this.cloudName, apiKey: this.apiKey, timestamp, folder, allowedFormats: DIRECT_UPLOAD_FORMATS, signature }
+  }
+
+  /** True for an image this account serves: res.cloudinary.com/<our cloud>/image/upload/… */
+  isOwnAssetUrl(url: string): boolean {
+    return Boolean(this.cloudName) && url.startsWith(`https://res.cloudinary.com/${this.cloudName}/image/upload/`)
+  }
+
+  /**
    * Validates file upload parameters (MIME type and size limit)
    */
-  validateFile(fileType: string, sizeBytes: number): { valid: boolean; error?: string } {
+  validateFile(fileType: string, sizeBytes: number, maxBytes = MAX_FILE_SIZE_BYTES): { valid: boolean; error?: string } {
     if (!fileType || !ALLOWED_MIME_TYPES.includes(fileType.toLowerCase())) {
       return {
         valid: false,
@@ -112,10 +150,10 @@ export class CloudinaryService {
       }
     }
 
-    if (sizeBytes > MAX_FILE_SIZE_BYTES) {
+    if (sizeBytes > maxBytes) {
       return {
         valid: false,
-        error: `FILE_SIZE_EXCEEDED: Dosya boyutu sınırı aşıldı (Azami 5 MB, Yüklenen: ${(sizeBytes / (1024 * 1024)).toFixed(2)} MB).`,
+        error: `Dosya çok büyük (${(sizeBytes / (1024 * 1024)).toFixed(1)} MB). En fazla ${Math.round(maxBytes / (1024 * 1024))} MB yüklenebilir.`,
       }
     }
 

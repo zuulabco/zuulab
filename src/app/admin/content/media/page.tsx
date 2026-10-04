@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
+import { uploadAdminImage } from '@/lib/media/admin-upload'
 import Modal from '@/components/common/Modal'
 import styles from '../../admin.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
@@ -113,25 +114,14 @@ export default function AdminMediaPage() {
           return
         }
 
-        const formData = new FormData()
-        formData.append('file', selectedFile)
-
-        const res = await fetch('/api/admin/media/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
-
-        const data = await res.json()
-        if (data.success) {
+        try {
+          await uploadAdminImage(selectedFile, token)
           addToast('Dosya Cloudinary deposuna başarıyla yüklendi.', 'success')
           setIsModalOpen(false)
           setSelectedFile(null)
           loadMedia()
-        } else {
-          addToast(data.error || 'Dosya yüklenemedi.', 'error')
+        } catch (err) {
+          addToast((err as Error).message || 'Dosya yüklenemedi.', 'error')
         }
       } else {
         // URL Mode

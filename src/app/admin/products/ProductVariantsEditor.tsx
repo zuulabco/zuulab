@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
+import { uploadAdminImage } from '@/lib/media/admin-upload'
 import { PRESET_COLORS, isLight, presetFor, swatchBackground } from '@/lib/catalog/colors'
 import styles from '../admin.module.css'
 import v from './ProductVariantsEditor.module.css'
@@ -151,17 +152,12 @@ function useUpload() {
   const { token } = useAuthStore()
   return useCallback(
     async (file: File): Promise<string | null> => {
-      const form = new FormData()
-      form.append('file', file)
       try {
-        const res = await fetch('/api/admin/media/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form })
-        const d = await res.json()
-        if (d.success && d.url) return d.url as string
-        toast.error(d.error || 'Görsel yüklenemedi.')
-      } catch {
-        toast.error('Görsel yüklenemedi.')
+        return (await uploadAdminImage(file, token)).url
+      } catch (err) {
+        toast.error((err as Error).message || 'Görsel yüklenemedi.')
+        return null
       }
-      return null
     },
     [token]
   )
