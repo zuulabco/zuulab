@@ -530,7 +530,8 @@ export async function adminUpdateProduct(id: string, payload: Partial<AdminProdu
     const images = cleanImageList(payload.images)
     const alt = payload.name || existing.name
     await db.transaction(async (tx) => {
-      await tx.orm.public.ProductImage.where({ productId: id }).delete()
+      // delete() removes a single row; deleteAndCount() removes every match
+      await tx.orm.public.ProductImage.where({ productId: id }).deleteAndCount()
       for (let i = 0; i < images.length; i++) {
         await tx.orm.public.ProductImage.create({
           productId: id,
