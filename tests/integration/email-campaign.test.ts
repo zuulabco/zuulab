@@ -13,6 +13,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/services/admin.service', () => ({ logAuditEvent: vi.fn().mockResolvedValue(undefined) }))
 
+// Commercial e-mail is switched off unless COMMERCIAL_EMAIL_ENABLED is true; these tests exercise the sending code with a fake provider
+vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+
 interface Sent {
   to: string
   subject: string
@@ -99,6 +102,22 @@ describe('sending a campaign', () => {
     expect(sentMails[0]).toMatchObject({ to: 'admin@example.com', subject: '[TEST] Konu test' })
     expect((await counts(id)).counts.sent).toBe(0)
     await expect(svc.sendTestEmail(id, 'not-an-address')).rejects.toThrow()
+  })
+
+  it('while commercial e-mail is switched off nothing is sent to subscribers, yet a test mail to the admin still works', async () => {
+    vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'false')
+    try {
+      const id = await svc.saveCampaign(draft('kilitli'), undefined, 'a')
+      const audience = await svc.countAudience()
+      sentMails.length = 0
+      await expect(svc.sendCampaign(id, audience, 'a')).rejects.toThrow(/İYS/)
+      expect(sentMails).toHaveLength(0)
+      expect((await counts(id)).status).toBe('DRAFT') // nothing started, can be sent once it is switched on
+      await svc.sendTestEmail(id, 'admin@example.com') // only to the admin's own address
+      expect(sentMails).toHaveLength(1)
+    } finally {
+      vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+    }
   })
 
   it('sends to every confirmed subscriber with their own unsubscribe link, records each mail, and tolerates one failing', async () => {

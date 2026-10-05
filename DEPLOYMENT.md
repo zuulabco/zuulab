@@ -53,6 +53,7 @@ Neon PostgreSQL (Prisma ORM 8)
 | `MARKETPLACE_CREDENTIALS_KEY` | for marketplaces | 32 random bytes (`openssl rand -base64 32`); encrypts the marketplace API keys stored in the database. Changing it makes saved keys unreadable (re-enter them in the admin) |
 | `EMAIL_PROVIDER` | yes | `RESEND` in production (`MOCK` sends nothing) |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | yes | Resend key and verified sender |
+| `COMMERCIAL_EMAIL_ENABLED` | no (default off) | Master switch for commercial e-mail: newsletter campaigns and the automatic reminder / review mails are refused unless this is `true`. Keep it unset until İYS registration is done. Order, payment and shipping mails are not affected |
 | `RESEND_WEBHOOK_SECRET` | for campaign stats | Signing secret (`whsec_…`) of the Resend webhook that points at `/api/webhooks/resend`. Without it, newsletter campaigns still send but delivered / opened / clicked / bounced are not recorded |
 | `SUPPORT_INBOX_EMAIL` | yes | Receives new support tickets and contact-form messages |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | yes | Media uploads |

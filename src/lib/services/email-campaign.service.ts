@@ -7,6 +7,7 @@ import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import type { EmailSendOptions } from './notification/notification.interface'
 import { newsletterEnvelope } from './newsletter.service'
+import { COMMERCIAL_EMAIL_OFF_MESSAGE, commercialEmailEnabled } from '@/lib/email/policy'
 import {
   campaignInputSchema,
   campaignRates,
@@ -302,6 +303,7 @@ export interface SendResult {
  * single mail goes out (for example Resend is misconfigured) the campaign goes back to draft.
  */
 export async function sendCampaign(id: string, confirmRecipients: number, by: string): Promise<SendResult> {
+  if (!commercialEmailEnabled()) throw new CampaignError(COMMERCIAL_EMAIL_OFF_MESSAGE)
   const campaign = await getCampaign(id)
   const audience = await activeAudience()
   if (audience.length === 0) throw new CampaignError('Gönderilecek onaylı abone yok.')

@@ -13,6 +13,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/services/admin.service', () => ({ logAuditEvent: vi.fn().mockResolvedValue(undefined) }))
 
+// Commercial e-mail is switched off unless COMMERCIAL_EMAIL_ENABLED is true; these tests exercise the sending code with a fake provider
+vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+
 interface Sent {
   to: string
   subject: string
@@ -272,6 +275,23 @@ describe('running the automations', () => {
 
     await consent.withdrawEmailConsent(email('r1')) // the link in the mail
     expect(emails(await svc.findCandidates('review_request', later, 100))).not.toContain('r1')
+  })
+
+  it('while commercial e-mail is switched off nothing goes out even if an automation row says ACTIVE, and it cannot be switched on', async () => {
+    vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'false')
+    try {
+      const later = new Date(NOW.getTime() + 20 * 86_400_000) // a moment when a2/other orders would be eligible again
+      sentMails.length = 0
+      const result = await svc.runAutomations({ now: later })
+      expect(result.map((r) => r.state)).toEqual(['paused', 'paused'])
+      expect(sentMails).toHaveLength(0)
+      await expect(svc.setAutomationActive('abandoned_payment', true, 'test')).rejects.toThrow(/İYS/)
+      await svc.setAutomationActive('abandoned_payment', false, 'test') // switching off is always allowed
+      await svc.setAutomationActive('abandoned_payment', false, 'test')
+    } finally {
+      vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+      await svc.setAutomationActive('abandoned_payment', true, 'test') // back to what the next test expects
+    }
   })
 
   it('the numbers for the admin: what was sent, failed, and by which rule', async () => {

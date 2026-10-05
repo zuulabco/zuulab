@@ -14,6 +14,7 @@ import {
 import { countEligible, listAutomations, sendAutomationTest, setAutomationActive } from '@/lib/services/email-automation.service'
 import { AUTOMATIONS } from '@/lib/email/automations'
 import { consentCounts } from '@/lib/services/email-consent.service'
+import { commercialEmailEnabled } from '@/lib/email/policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,8 @@ export async function GET(request: Request) {
       provider: (process.env.EMAIL_PROVIDER || 'MOCK').toUpperCase(),
       /** Without the signing secret Resend's events (delivered, opened, clicked) are refused */
       webhookConfigured: Boolean(process.env.RESEND_WEBHOOK_SECRET?.trim()),
+      /** Master switch: off until İYS registration is done */
+      commercialEnabled: commercialEmailEnabled(),
     }
     return NextResponse.json({ success: true, ...overview, automations, consents, setup }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {

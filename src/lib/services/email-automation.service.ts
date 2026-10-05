@@ -8,6 +8,7 @@ import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import type { EmailSendOptions } from './notification/notification.interface'
 import { getSigningSecret } from './session.service'
+import { COMMERCIAL_EMAIL_OFF_MESSAGE, commercialEmailEnabled } from '@/lib/email/policy'
 import { countsByCampaign, emptyCounts, CampaignError } from './email-campaign.service'
 import {
   AUTOMATIONS,
@@ -98,6 +99,7 @@ export async function listAutomations(): Promise<AutomationSummary[]> {
 }
 
 export async function setAutomationActive(key: AutomationKey, active: boolean, by: string): Promise<void> {
+  if (active && !commercialEmailEnabled()) throw new CampaignError(COMMERCIAL_EMAIL_OFF_MESSAGE)
   const { id } = await ensureAutomation(key)
   await exec(
     db.raw.sql`UPDATE email_campaigns SET status = ${active ? 'ACTIVE' : 'PAUSED'}, updated_at = now() WHERE id = ${id}`.affectedCount().build()
@@ -283,7 +285,8 @@ export async function runAutomations({ now = new Date(), dryRun = false, limit =
   const results: AutomationRun[] = []
   for (const def of AUTOMATIONS) {
     const { id, active } = await ensureAutomation(def.key)
-    if (!active && !dryRun) {
+    // The master switch wins over a row that says ACTIVE: nothing commercial goes out while it is off
+    if ((!active || !commercialEmailEnabled()) && !dryRun) {
       results.push({ key: def.key, state: 'paused', eligible: 0, sent: 0, failed: 0 })
       continue
     }

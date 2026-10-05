@@ -165,6 +165,13 @@ texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-aut
   `/api/cron/email-automations` every 30 minutes from cron-job.org (`Authorization: Bearer <CRON_SECRET>`).
 - Automations reuse the campaign tables (`kind = AUTOMATION`), so Resend's webhook and the statistics work the same way.
 
+## Master switch for commercial e-mail
+
+`COMMERCIAL_EMAIL_ENABLED` (env, default off, `lib/email/policy.ts`). While it is not "true": `sendCampaign` refuses, an automation cannot be
+switched on and `runAutomations` treats every automation as paused even if its row says ACTIVE. Still working: order / payment /
+shipping mails (not commercial), previews, the sample and test mails an admin sends to their own address, all reports. Set it to
+`true` in Vercel once İYS registration is done and the consent texts are approved.
+
 ## Retention (privacy)
 
 `/api/cron/privacy-cleanup` (daily 02:30 UTC, `lib/services/privacy-retention.service.ts`): the browser identifiers kept with an order for

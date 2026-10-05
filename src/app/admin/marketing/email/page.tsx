@@ -9,7 +9,7 @@ import { fmtInt } from '../../analytics/charts'
 import type { EmailOverview, CampaignSummary } from '@/lib/services/email-campaign.service'
 import type { AutomationSummary } from '@/lib/services/email-automation.service'
 
-type Overview = EmailOverview & { automations: AutomationSummary[]; consents: { active: number; withdrawn: number; declined: number }; setup: { provider: string; webhookConfigured: boolean } }
+type Overview = EmailOverview & { automations: AutomationSummary[]; consents: { active: number; withdrawn: number; declined: number }; setup: { provider: string; webhookConfigured: boolean; commercialEnabled: boolean } }
 
 interface Form {
   id?: string
@@ -234,6 +234,13 @@ export default function EmailCenterPage() {
       {failure && <div className={s.alert}>{failure}</div>}
       {message && <div className={message.kind === 'ok' ? s.note : s.alert}>{message.text}</div>}
 
+      {data && !data.setup.commercialEnabled && (
+        <div className={s.alert}>
+          <strong>Ticari e-posta gönderimi kapalı.</strong> İYS kaydı tamamlanana kadar kampanya ve otomatik e-postalar gönderilmez; "Gönder" ve "Aç" düğmeleri çalışmaz.
+          Sipariş, ödeme ve kargo bilgilendirmeleri bundan etkilenmez, normal şekilde gider. Hazır olduğunuzda Vercel’de <code>COMMERCIAL_EMAIL_ENABLED=true</code>{' '}
+          tanımlayıp yeniden deploy edin. Önizleme ve "bana test gönder" çalışmaya devam eder.
+        </div>
+      )}
       {data && data.setup.provider !== 'RESEND' && (
         <div className={s.alert}>E-posta sağlayıcısı “{data.setup.provider}”: bu modda hiçbir e-posta gerçekten gönderilmez. Canlıda EMAIL_PROVIDER=RESEND olmalıdır.</div>
       )}
