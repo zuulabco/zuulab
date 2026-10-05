@@ -7,6 +7,7 @@ import {
   type GoogleApiErrorCode,
 } from '@/lib/google/service-account'
 import { SITE_URL } from '@/lib/config/urls'
+import type { AnalyticsPeriod } from '@/lib/analytics/period'
 
 /**
  * Reports for the admin's Analizler page: Google Analytics 4 (visitors, pages,
@@ -14,7 +15,7 @@ import { SITE_URL } from '@/lib/config/urls'
  *
  * Each report is its own request, so one that fails (a metric GA has no data for
  * yet, Search Console still verifying) leaves the rest of the page working.
- * Successful results are kept for 15 minutes per range; errors are not cached,
+ * Successful results are kept for 15 minutes per period; errors are not cached,
  * so a fixed setting shows up on the next load.
  */
 
@@ -24,8 +25,6 @@ const GSC_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly'
 const gaPropertyId = (process.env.GA4_PROPERTY_ID || '').replace(/\D/g, '')
 /** "sc-domain:zuulab.com" for a domain property, or the URL-prefix property's URL */
 const gscSite = (process.env.GSC_SITE_URL || '').trim()
-
-export type AnalyticsRange = 7 | 28 | 90
 
 export interface AnalyticsSetup {
   measurementId: boolean
@@ -78,9 +77,9 @@ function toRows(res: GaResponse): Row[] {
   })
 }
 
-async function gaReport(req: GaRequest, range: AnalyticsRange): Promise<Row[]> {
+async function gaReport(req: GaRequest, period: AnalyticsPeriod): Promise<Row[]> {
   const body = {
-    dateRanges: req.dateRanges ?? [{ startDate: `${range - 1}daysAgo`, endDate: 'today' }],
+    dateRanges: req.dateRanges ?? [{ startDate: period.start, endDate: period.end }],
     dimensions: req.dimensions?.map((name) => ({ name })),
     metrics: req.metrics.map((name) => ({ name })),
     ...(req.orderBy
@@ -131,9 +130,11 @@ export const TRACKED_EVENTS = [
   'sign_up',
 ]
 
-async function loadGa(range: AnalyticsRange) {
-  const current = { startDate: `${range - 1}daysAgo`, endDate: 'today', name: 'current' }
-  const previous = { startDate: `${range * 2 - 1}daysAgo`, endDate: `${range}daysAgo`, name: 'previous' }
+async function loadGa(period: AnalyticsPeriod) {
+  const current = { startDate: period.start, endDate: period.end, name: 'current' }
+  const previous = { startDate: period.previous.start, endDate: period.previous.end, name: 'previous' }
+  // A single day is drawn hour by hour
+  const trendBy = period.days === 1 ? 'hour' : 'date'
 
   const [kpis, trend, pages, channels, sources, devices, cities, products, events, clicks, hours, visitors, realtime] =
     await Promise.all([
@@ -143,22 +144,22 @@ async function loadGa(range: AnalyticsRange) {
             dateRanges: [current, previous],
             metrics: ['activeUsers', 'newUsers', 'sessions', 'screenPageViews', 'engagementRate', 'averageSessionDuration'],
           },
-          range
+          period
         )
       ),
       attempt(() =>
-        gaReport({ dimensions: ['date'], metrics: ['activeUsers', 'sessions', 'screenPageViews'], orderBy: { dimension: 'date' } }, range)
+        gaReport({ dimensions: [trendBy], metrics: ['activeUsers', 'sessions', 'screenPageViews'], orderBy: { dimension: trendBy } }, period)
       ),
       attempt(() =>
         gaReport(
           { dimensions: ['pagePath'], metrics: ['screenPageViews', 'activeUsers', 'averageSessionDuration'], orderBy: { metric: 'screenPageViews' }, limit: 15 },
-          range
+          period
         )
       ),
-      attempt(() => gaReport({ dimensions: ['sessionDefaultChannelGroup'], metrics: ['sessions', 'activeUsers'], orderBy: { metric: 'sessions' } }, range)),
-      attempt(() => gaReport({ dimensions: ['sessionSourceMedium'], metrics: ['sessions'], orderBy: { metric: 'sessions' }, limit: 10 }, range)),
-      attempt(() => gaReport({ dimensions: ['deviceCategory'], metrics: ['activeUsers'], orderBy: { metric: 'activeUsers' } }, range)),
-      attempt(() => gaReport({ dimensions: ['city'], metrics: ['activeUsers'], orderBy: { metric: 'activeUsers' }, limit: 10 }, range)),
+      attempt(() => gaReport({ dimensions: ['sessionDefaultChannelGroup'], metrics: ['sessions', 'activeUsers'], orderBy: { metric: 'sessions' } }, period)),
+      attempt(() => gaReport({ dimensions: ['sessionSourceMedium'], metrics: ['sessions'], orderBy: { metric: 'sessions' }, limit: 10 }, period)),
+      attempt(() => gaReport({ dimensions: ['deviceCategory'], metrics: ['activeUsers'], orderBy: { metric: 'activeUsers' } }, period)),
+      attempt(() => gaReport({ dimensions: ['city'], metrics: ['activeUsers'], orderBy: { metric: 'activeUsers' }, limit: 10 }, period)),
       attempt(() =>
         gaReport(
           {
@@ -167,11 +168,11 @@ async function loadGa(range: AnalyticsRange) {
             orderBy: { metric: 'itemsViewed' },
             limit: 15,
           },
-          range
+          period
         )
       ),
       attempt(() =>
-        gaReport({ dimensions: ['eventName'], metrics: ['eventCount', 'totalUsers'], dimensionFilter: inList('eventName', TRACKED_EVENTS) }, range)
+        gaReport({ dimensions: ['eventName'], metrics: ['eventCount', 'totalUsers'], dimensionFilter: inList('eventName', TRACKED_EVENTS) }, period)
       ),
       attempt(() =>
         gaReport(
@@ -182,11 +183,11 @@ async function loadGa(range: AnalyticsRange) {
             orderBy: { metric: 'eventCount' },
             limit: 20,
           },
-          range
+          period
         )
       ),
-      attempt(() => gaReport({ dimensions: ['hour'], metrics: ['activeUsers'], orderBy: { dimension: 'hour' } }, range)),
-      attempt(() => gaReport({ dimensions: ['newVsReturning'], metrics: ['activeUsers'] }, range)),
+      attempt(() => gaReport({ dimensions: ['hour'], metrics: ['activeUsers'], orderBy: { dimension: 'hour' } }, period)),
+      attempt(() => gaReport({ dimensions: ['newVsReturning'], metrics: ['activeUsers'] }, period)),
       attempt(async () => {
         const res = await googleApiPost<GaResponse>(
           `https://analyticsdata.googleapis.com/v1beta/properties/${gaPropertyId}:runRealtimeReport`,
@@ -206,13 +207,11 @@ interface GscResponse {
   rows?: Array<{ keys?: string[]; clicks: number; impressions: number; ctr: number; position: number }>
 }
 
-const isoDay = (daysAgo: number) => new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10)
-
-async function gscQuery(range: AnalyticsRange, dimensions: string[], rowLimit: number) {
+async function gscQuery(period: AnalyticsPeriod, dimensions: string[], rowLimit: number) {
   const res = await googleApiPost<GscResponse>(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(gscSite)}/searchAnalytics/query`,
     [GSC_SCOPE],
-    { startDate: isoDay(range), endDate: isoDay(0), dimensions, rowLimit, dataState: 'all' }
+    { startDate: period.start, endDate: period.end, dimensions, rowLimit, dataState: 'all' }
   )
   return (res.rows ?? []).map((r) => ({
     key: r.keys?.[0] ?? '',
@@ -223,12 +222,12 @@ async function gscQuery(range: AnalyticsRange, dimensions: string[], rowLimit: n
   }))
 }
 
-async function loadSearchConsole(range: AnalyticsRange) {
+async function loadSearchConsole(period: AnalyticsPeriod) {
   const [byDate, queries, pages, devices] = await Promise.all([
-    attempt(() => gscQuery(range, ['date'], 500)),
-    attempt(() => gscQuery(range, ['query'], 20)),
-    attempt(() => gscQuery(range, ['page'], 15)),
-    attempt(() => gscQuery(range, ['device'], 5)),
+    attempt(() => gscQuery(period, ['date'], 500)),
+    attempt(() => gscQuery(period, ['query'], 20)),
+    attempt(() => gscQuery(period, ['page'], 15)),
+    attempt(() => gscQuery(period, ['device'], 5)),
   ])
   return {
     byDate,
@@ -247,7 +246,7 @@ export type GaReport = Awaited<ReturnType<typeof loadGa>>
 export type GscReport = Awaited<ReturnType<typeof loadSearchConsole>>
 
 export interface AnalyticsReport {
-  range: AnalyticsRange
+  period: AnalyticsPeriod
   setup: AnalyticsSetup
   generatedAt: string
   ga: GaReport | null
@@ -255,7 +254,9 @@ export interface AnalyticsReport {
 }
 
 const TTL = 15 * 60_000
-const cache = new Map<AnalyticsRange, { at: number; report: AnalyticsReport }>()
+/** Keyed by "start:end"; custom spans make it grow, so the oldest entries are dropped */
+const cache = new Map<string, { at: number; report: AnalyticsReport }>()
+const CACHE_LIMIT = 40
 
 /** Errors that a settings change fixes (access, disabled API); these are never cached */
 const SETUP_ERRORS = new Set<GoogleApiErrorCode>(['not_configured', 'auth_failed', 'api_disabled', 'no_access'])
@@ -266,18 +267,23 @@ const hasErrors = (part: Record<string, unknown> | null) =>
     return Boolean(error && SETUP_ERRORS.has(error.code))
   })
 
-export async function getAnalyticsReport(range: AnalyticsRange, fresh = false): Promise<AnalyticsReport> {
-  const hit = cache.get(range)
+export async function getAnalyticsReport(period: AnalyticsPeriod, fresh = false): Promise<AnalyticsReport> {
+  const key = `${period.start}:${period.end}`
+  const hit = cache.get(key)
   if (!fresh && hit && Date.now() - hit.at < TTL) return hit.report
 
   const setup = analyticsSetup()
   const canCall = Boolean(setup.serviceAccount)
   const [ga, gsc] = await Promise.all([
-    canCall && setup.propertyId ? loadGa(range) : Promise.resolve(null),
-    canCall && setup.searchConsoleSite ? loadSearchConsole(range) : Promise.resolve(null),
+    canCall && setup.propertyId ? loadGa(period) : Promise.resolve(null),
+    canCall && setup.searchConsoleSite ? loadSearchConsole(period) : Promise.resolve(null),
   ])
-  const report: AnalyticsReport = { range, setup, generatedAt: new Date().toISOString(), ga, gsc }
+  const report: AnalyticsReport = { period, setup, generatedAt: new Date().toISOString(), ga, gsc }
   // Keep only clean results; a setup error must disappear as soon as it is fixed
-  if (!hasErrors(ga) && !hasErrors(gsc)) cache.set(range, { at: Date.now(), report })
+  if (!hasErrors(ga) && !hasErrors(gsc)) {
+    cache.delete(key)
+    cache.set(key, { at: Date.now(), report })
+    if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value!)
+  }
   return report
 }

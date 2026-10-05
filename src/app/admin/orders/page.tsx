@@ -66,7 +66,11 @@ export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [paymentFilter, setPaymentFilter] = useState('ALL')
   const [channelFilter, setChannelFilter] = useState('ALL')
-  const [search, setSearch] = useState('')
+  // ?search= (e.g. a customer picked in the quick search) pre-fills the box; the admin
+  // layout renders pages only in the browser, so window is there.
+  const [search, setSearch] = useState(() =>
+    typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('search') ?? ''
+  )
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 20
 

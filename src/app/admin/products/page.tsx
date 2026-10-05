@@ -72,6 +72,10 @@ export default function AdminProductsPage() {
     isOpen: false,
     product: null,
   })
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; product: ProductItem | null }>({
+    isOpen: false,
+    product: null,
+  })
   const [duplicateModal, setDuplicateModal] = useState<{ isOpen: boolean; product: ProductItem | null }>({
     isOpen: false,
     product: null,
@@ -202,6 +206,32 @@ export default function AdminProductsPage() {
       }
     } catch {
       toast.error('İşlem sırasında bağlantı hatası oluştu.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Permanent delete: the server refuses unless the product is archived and unsold
+  const confirmDelete = async () => {
+    if (!deleteModal.product || !canFetch) return
+    const prod = deleteModal.product
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/products/${prod.id}?permanent=1`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data.success) {
+        toast.success(`'${prod.name}' kalıcı olarak silindi.`)
+        setDeleteModal({ isOpen: false, product: null })
+        setSelectedIds((prev) => prev.filter((id) => id !== prod.id))
+        loadProducts()
+      } else {
+        toast.error(data.error || 'Ürün silinemedi.')
+      }
+    } catch {
+      toast.error('Silme sırasında bağlantı hatası oluştu.')
     } finally {
       setActionLoading(false)
     }
@@ -585,6 +615,17 @@ export default function AdminProductsPage() {
                           >
                             {prodStatus === 'ARCHIVED' ? 'Yayına Al' : 'Arşivle'}
                           </button>
+                          {prodStatus === 'ARCHIVED' && (
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => setDeleteModal({ isOpen: true, product: p })}
+                              className={`${styles.btn} ${styles.btnSm} ${styles.btnDanger}`}
+                              title="Arşivdeki ürünü kalıcı olarak sil"
+                            >
+                              Sil
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -646,6 +687,45 @@ export default function AdminProductsPage() {
               disabled={actionLoading}
             >
               {actionLoading ? 'İşleniyor...' : archiveModal.product?.status === 'ARCHIVED' ? 'Yayına Al' : 'Evet, Arşivle'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Permanent delete (archived products only) */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={() => !actionLoading && setDeleteModal({ isOpen: false, product: null })}
+        ariaLabel="Ürün silme onayı"
+        maxWidth={460}
+      >
+        <div style={{ padding: '8px 4px' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+            Ürünü kalıcı olarak sil
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 12px' }}>
+            <strong>'{deleteModal.product?.name}'</strong> ({deleteModal.product?.sku}) ürünü; fotoğrafları, varyantları,
+            yorumları ve koleksiyon bağlantılarıyla birlikte silinecek. Bu işlem geri alınamaz.
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 20px' }}>
+            Siparişlerde veya üretim kayıtlarında geçen ürünler, geçmiş bozulmasın diye silinemez; arşivde kalır.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={() => setDeleteModal({ isOpen: false, product: null })}
+              disabled={actionLoading}
+            >
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              onClick={confirmDelete}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Siliniyor...' : 'Evet, kalıcı olarak sil'}
             </button>
           </div>
         </div>

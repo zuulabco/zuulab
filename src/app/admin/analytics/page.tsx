@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import adminStyles from '../admin.module.css'
 import s from './Analytics.module.css'
 import { BarList, ColumnChart, LineChart, fmtInt, type BarRow } from './charts'
+import { EARLIEST_DAY, spanDays, todayInTurkey, shiftDay, type AnalyticsPeriod } from '@/lib/analytics/period'
+import AdminIcon from '../AdminIcon'
 
 // ── Report shape (see lib/services/analytics/google-analytics.service.ts) ──
 
@@ -19,7 +21,7 @@ interface GscRow {
   position: number
 }
 interface Report {
-  range: 7 | 28 | 90
+  period: AnalyticsPeriod
   generatedAt: string
   setup: { measurementId: boolean; propertyId: boolean; searchConsoleSite: string | null; serviceAccount: string | null }
   ga: Record<
@@ -29,11 +31,18 @@ interface Report {
   gsc: Record<'byDate' | 'queries' | 'pages' | 'devices', Result<GscRow[]>> | null
 }
 
-const RANGES = [
-  { value: 7, label: 'Son 7 gün' },
-  { value: 28, label: 'Son 28 gün' },
-  { value: 90, label: 'Son 90 gün' },
+const PRESETS = [
+  { value: 'today', label: 'Bugün' },
+  { value: '7', label: 'Son 7 gün' },
+  { value: '28', label: 'Son 28 gün' },
+  { value: '90', label: 'Son 90 gün' },
 ] as const
+
+/** What the admin picked: a preset, or a custom start–end (YYYY-MM-DD, both included) */
+type Selection = { preset: (typeof PRESETS)[number]['value'] } | { preset: 'custom'; start: string; end: string }
+
+const selectionQuery = (sel: Selection) =>
+  sel.preset === 'custom' ? `start=${sel.start}&end=${sel.end}` : `range=${sel.preset}`
 
 const CHANNELS: Record<string, string> = {
   Direct: 'Doğrudan',
@@ -70,6 +79,15 @@ const duration = (sec: number) => {
   const r = Math.round(sec % 60)
   return m > 0 ? `${m} dk ${r} sn` : `${r} sn`
 }
+const shortDay = (iso: string, withYear = false) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}) })
+/** "Bugün", "Son 28 gün" or "3 Eyl – 20 Eyl 2026 (18 gün)" */
+function periodLabel(p: Pick<AnalyticsPeriod, 'preset' | 'start' | 'end' | 'days'>): string {
+  if (p.preset === 'today') return 'Bugün'
+  if (p.preset !== 'custom') return `Son ${p.days} gün`
+  if (p.days === 1) return shortDay(p.start, true)
+  return `${shortDay(p.start, p.start.slice(0, 4) !== p.end.slice(0, 4))} – ${shortDay(p.end, true)} (${p.days} gün)`
+}
 const dayLabel = (yyyymmdd: string) => {
   const d = yyyymmdd.includes('-') ? new Date(yyyymmdd) : new Date(`${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`)
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
@@ -77,20 +95,21 @@ const dayLabel = (yyyymmdd: string) => {
 
 export default function AnalyticsPage() {
   const { token, canFetch } = useAuthStore()
-  const [range, setRange] = useState<7 | 28 | 90>(28)
+  const [selection, setSelection] = useState<Selection>({ preset: '28' })
   const [report, setReport] = useState<Report | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   /** Bumped by "Yenile": fetches again, skipping the 15-minute server cache */
   const [refreshes, setRefreshes] = useState(0)
   /** Which request the shown data answers; loading = the current one has not landed */
   const [loadedKey, setLoadedKey] = useState<string | null>(null)
-  const key = `${range}:${refreshes}`
+  const query = selectionQuery(selection)
+  const key = `${query}:${refreshes}`
   const loading = loadedKey !== key
 
   useEffect(() => {
     if (!canFetch) return
     let cancelled = false
-    fetch(`/api/admin/analytics?range=${range}${refreshes > 0 ? '&fresh=1' : ''}`, {
+    fetch(`/api/admin/analytics?${query}${refreshes > 0 ? '&fresh=1' : ''}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
@@ -105,12 +124,12 @@ export default function AnalyticsPage() {
         if (!cancelled) setFailure(e.message || 'Analiz verileri alınamadı.')
       })
       .finally(() => {
-        if (!cancelled) setLoadedKey(`${range}:${refreshes}`)
+        if (!cancelled) setLoadedKey(`${query}:${refreshes}`)
       })
     return () => {
       cancelled = true
     }
-  }, [canFetch, token, range, refreshes])
+  }, [canFetch, token, query, refreshes])
 
   const setupDone = report && report.setup.serviceAccount && report.setup.propertyId && report.setup.measurementId && report.setup.searchConsoleSite
   const setupErrors = report ? collectSetupErrors(report) : []
@@ -126,18 +145,19 @@ export default function AnalyticsPage() {
         </div>
         <div className={s.toolbar}>
           <div className={s.segmented} role="group" aria-label="Tarih aralığı">
-            {RANGES.map((r) => (
+            {PRESETS.map((r) => (
               <button
                 key={r.value}
                 type="button"
-                className={range === r.value ? s.segActive : s.seg}
-                aria-pressed={range === r.value}
-                onClick={() => setRange(r.value)}
+                className={selection.preset === r.value ? s.segActive : s.seg}
+                aria-pressed={selection.preset === r.value}
+                onClick={() => setSelection({ preset: r.value })}
               >
                 {r.label}
               </button>
             ))}
           </div>
+          <RangePicker selection={selection} onApply={(start, end) => setSelection({ preset: 'custom', start, end })} />
           <button type="button" className={s.refresh} onClick={() => setRefreshes((n) => n + 1)} disabled={loading} title="Google'dan yeniden çek">
             {loading ? 'Yükleniyor…' : 'Yenile'}
           </button>
@@ -150,12 +170,14 @@ export default function AnalyticsPage() {
 
       {loading && !report && <div className={s.loadingBlock}>Veriler Google’dan alınıyor…</div>}
 
-      {report?.ga && <GaSections ga={report.ga} range={report.range} />}
-      {report?.gsc && <GscSections gsc={report.gsc} />}
+      {report?.ga && <GaSections ga={report.ga} period={report.period} />}
+      {report?.gsc && <GscSections gsc={report.gsc} period={report.period} />}
 
       {report && (
         <p className={s.footnote}>
-          Son güncelleme: {new Date(report.generatedAt).toLocaleString('tr-TR')} · Veriler 15 dakikada bir yenilenir. Google
+          Gösterilen dönem: {periodLabel(report.period)}
+          {report.period.preset === 'today' ? ' (Türkiye saatiyle gece 00:00’dan bu yana)' : ''} · Son güncelleme:{' '}
+          {new Date(report.generatedAt).toLocaleString('tr-TR')} · Veriler 15 dakikada bir yenilenir. Google
           Analytics verileri yalnızca çerezlere izin veren ziyaretçileri kapsar; Search Console verileri 2–3 gün gecikmeli gelir.
         </p>
       )}
@@ -165,43 +187,60 @@ export default function AnalyticsPage() {
 
 // ── Google Analytics ─────────────────────────────────────────────────
 
-function GaSections({ ga, range }: { ga: NonNullable<Report['ga']>; range: number }) {
+function GaSections({ ga, period }: { ga: NonNullable<Report['ga']>; period: AnalyticsPeriod }) {
   const [metric, setMetric] = useState<'activeUsers' | 'sessions' | 'screenPageViews'>('activeUsers')
   const cur = ga.kpis.data?.find((r) => r.dateRange === 'current') ?? ga.kpis.data?.[0]
   const prev = ga.kpis.data?.find((r) => r.dateRange === 'previous')
   const events = new Map((ga.events.data ?? []).map((r) => [String(r.eventName), Number(r.eventCount)]))
 
   const metricLabels = { activeUsers: 'ziyaretçi', sessions: 'oturum', screenPageViews: 'görüntüleme' } as const
-  const trend = (ga.trend.data ?? []).map((r) => ({ label: dayLabel(String(r.date)), value: Number(r[metric]) }))
+  // One day is reported by hour: every hour so far (up to now when it is today), empty ones as 0
+  const singleDay = period.days === 1
+  const trendRows = ga.trend.data ?? []
+  const lastHour = period.end === todayInTurkey() ? new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/Istanbul' }) : '23'
+  const trend = singleDay
+    ? Array.from({ length: Number(lastHour) + 1 }, (_, h) => ({
+        label: `${String(h).padStart(2, '0')}:00`,
+        value: Number(trendRows.find((r) => Number(r.hour) === h)?.[metric] ?? 0),
+      }))
+    : trendRows.map((r) => ({ label: dayLabel(String(r.date)), value: Number(r[metric]) }))
 
   const hours = Array.from({ length: 24 }, (_, h) => Number((ga.hours.data ?? []).find((r) => Number(r.hour) === h)?.activeUsers ?? 0))
   const deviceTotal = (ga.devices.data ?? []).reduce((sum, r) => sum + Number(r.activeUsers), 0)
+
+  // Today is still running, so a % change against all of yesterday would mislead:
+  // show yesterday's figure instead.
+  const isToday = period.preset === 'today'
+  const compare = (key: string, format: (n: number) => string = fmtInt) =>
+    isToday
+      ? { hint: prev ? `dün tüm gün: ${format(Number(prev[key]))}` : undefined }
+      : { delta: delta(cur, prev, key) }
 
   return (
     <>
       <section className={s.kpis} aria-label="Özet">
         <Kpi label="Şu an sitede" value={ga.realtime.data !== null ? fmtInt(ga.realtime.data) : '—'} hint="son 30 dakika" live />
-        <Kpi label="Ziyaretçi (benzersiz)" value={num(cur, 'activeUsers')} delta={delta(cur, prev, 'activeUsers')} />
-        <Kpi label="Yeni ziyaretçi" value={num(cur, 'newUsers')} delta={delta(cur, prev, 'newUsers')} />
-        <Kpi label="Ziyaret (oturum)" value={num(cur, 'sessions')} delta={delta(cur, prev, 'sessions')} />
-        <Kpi label="Sayfa görüntüleme" value={num(cur, 'screenPageViews')} delta={delta(cur, prev, 'screenPageViews')} />
+        <Kpi label="Ziyaretçi (benzersiz)" value={num(cur, 'activeUsers')} {...compare('activeUsers')} />
+        <Kpi label="Yeni ziyaretçi" value={num(cur, 'newUsers')} {...compare('newUsers')} />
+        <Kpi label="Ziyaret (oturum)" value={num(cur, 'sessions')} {...compare('sessions')} />
+        <Kpi label="Sayfa görüntüleme" value={num(cur, 'screenPageViews')} {...compare('screenPageViews')} />
         <Kpi
           label="Etkileşim oranı"
           value={cur ? pct(Number(cur.engagementRate)) : '—'}
-          delta={delta(cur, prev, 'engagementRate')}
           hint="10 sn+ kalan veya etkileşen oturumlar"
+          {...compare('engagementRate', (n) => pct(n))}
         />
         <Kpi
           label="Ort. oturum süresi"
           value={cur ? duration(Number(cur.averageSessionDuration)) : '—'}
-          delta={delta(cur, prev, 'averageSessionDuration')}
+          {...compare('averageSessionDuration', duration)}
         />
       </section>
       {ga.kpis.error && <ReportNote error={ga.kpis.error} />}
 
       <Panel
-        title="Günlük trend"
-        subtitle={`Son ${range} gün`}
+        title={singleDay ? 'Saatlik trend' : 'Günlük trend'}
+        subtitle={singleDay ? `${periodLabel(period)} · Türkiye saati` : periodLabel(period)}
         action={
           <div className={s.segmentedSm} role="group" aria-label="Grafik ölçüsü">
             {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map((m) => (
@@ -266,9 +305,12 @@ function GaSections({ ga, range }: { ga: NonNullable<Report['ga']>; range: numbe
         </Panel>
       </div>
 
-      <Panel title="Günün saatlerine göre ziyaretçi" subtitle="En yoğun saatler (Türkiye saati)" error={ga.hours.error}>
-        <ColumnChart values={hours} labels={hours.map((_, h) => `${String(h).padStart(2, '0')}:00`)} unit="ziyaretçi" />
-      </Panel>
+      {/* A single day already has its hours in the trend above */}
+      {!singleDay && (
+        <Panel title="Günün saatlerine göre ziyaretçi" subtitle="En yoğun saatler (Türkiye saati)" error={ga.hours.error}>
+          <ColumnChart values={hours} labels={hours.map((_, h) => `${String(h).padStart(2, '0')}:00`)} unit="ziyaretçi" />
+        </Panel>
+      )}
 
       <div className={s.grid2}>
         <Panel title="En çok görüntülenen sayfalar" error={ga.pages.error}>
@@ -377,7 +419,7 @@ function Funnel({ counts }: { counts: Map<string, number> }) {
 
 // ── Search Console ───────────────────────────────────────────────────
 
-function GscSections({ gsc }: { gsc: NonNullable<Report['gsc']> }) {
+function GscSections({ gsc, period }: { gsc: NonNullable<Report['gsc']>; period: AnalyticsPeriod }) {
   const days = gsc.byDate.data ?? []
   const clicks = days.reduce((sum, d) => sum + d.clicks, 0)
   const impressions = days.reduce((sum, d) => sum + d.impressions, 0)
@@ -394,7 +436,11 @@ function GscSections({ gsc }: { gsc: NonNullable<Report['gsc']> }) {
       </section>
       {gsc.byDate.error && <ReportNote error={gsc.byDate.error} />}
 
-      <Panel title="Google’dan gelen tıklamalar" subtitle="Günlük">
+      {period.days <= 3 && period.end >= shiftDay(todayInTurkey(), -2) && (
+        <p className={s.note}>Search Console son 2–3 günün verisini gecikmeli verir; bu kısa dönem için Google arama verileri eksik ya da boş görünebilir.</p>
+      )}
+
+      <Panel title="Google’dan gelen tıklamalar" subtitle={`Günlük · ${periodLabel(period)}`}>
         <LineChart points={days.map((d) => ({ label: dayLabel(d.key), value: d.clicks }))} valueLabel="tıklama" />
       </Panel>
 
@@ -434,6 +480,121 @@ function GscTable({ rows, first }: { rows: GscRow[]; first: string }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── Custom date range ────────────────────────────────────────────────
+
+/**
+ * "Tarih aralığı": a button that opens a small box with start and end date fields
+ * (the browser's calendar) and shortcuts; Uygula loads that span.
+ */
+function RangePicker({ selection, onApply }: { selection: Selection; onApply: (start: string, end: string) => void }) {
+  const today = todayInTurkey()
+  const isCustom = selection.preset === 'custom'
+  const [open, setOpen] = useState(false)
+  const [start, setStart] = useState(isCustom ? selection.start : shiftDay(today, -6))
+  const [end, setEnd] = useState(isCustom ? selection.end : today)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  // Click outside or Esc closes the box
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const problem = !start || !end
+    ? 'Başlangıç ve bitiş tarihini seçin.'
+    : start > end
+      ? 'Başlangıç tarihi bitişten sonra olamaz.'
+      : end > today
+        ? 'Bitiş tarihi bugünden sonra olamaz.'
+        : start < EARLIEST_DAY
+          ? 'Bu tarihten önceki veriler yok.'
+          : null
+
+  const shortcuts: Array<{ label: string; start: string; end: string }> = [
+    { label: 'Dün', start: shiftDay(today, -1), end: shiftDay(today, -1) },
+    { label: 'Bu ay', start: `${today.slice(0, 8)}01`, end: today },
+    {
+      label: 'Geçen ay',
+      start: `${shiftDay(`${today.slice(0, 8)}01`, -1).slice(0, 8)}01`,
+      end: shiftDay(`${today.slice(0, 8)}01`, -1),
+    },
+    { label: 'Bu yıl', start: `${today.slice(0, 4)}-01-01`, end: today },
+  ]
+
+  const apply = (from = start, to = end) => {
+    onApply(from, to)
+    setOpen(false)
+  }
+
+  return (
+    <div className={s.rangePicker} ref={boxRef}>
+      <button
+        type="button"
+        className={isCustom ? s.rangeButtonActive : s.rangeButton}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => {
+          // Reopening starts from the span on screen
+          if (!open && isCustom) {
+            setStart(selection.start)
+            setEnd(selection.end)
+          }
+          setOpen((o) => !o)
+        }}
+      >
+        <AdminIcon name="today" size={14} />
+        {isCustom ? periodLabel({ ...selection, days: spanDays(selection.start, selection.end) }) : 'Tarih aralığı'}
+      </button>
+      {open && (
+        <div className={s.rangeBox} role="dialog" aria-label="Tarih aralığı seç">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!problem) apply()
+            }}
+          >
+            <div className={s.rangeFields}>
+              <label>
+                <span>Başlangıç</span>
+                <input type="date" value={start} min={EARLIEST_DAY} max={end || today} onChange={(e) => setStart(e.target.value)} required />
+              </label>
+              <label>
+                <span>Bitiş</span>
+                <input type="date" value={end} min={start || EARLIEST_DAY} max={today} onChange={(e) => setEnd(e.target.value)} required />
+              </label>
+            </div>
+            <div className={s.rangeShortcuts}>
+              {shortcuts.map((sc) => (
+                <button key={sc.label} type="button" onClick={() => apply(sc.start, sc.end)}>
+                  {sc.label}
+                </button>
+              ))}
+            </div>
+            {problem && start && end && <p className={s.rangeProblem}>{problem}</p>}
+            <div className={s.rangeActions}>
+              <button type="button" className={s.refresh} onClick={() => setOpen(false)}>
+                Vazgeç
+              </button>
+              <button type="submit" className={s.rangeApply} disabled={Boolean(problem)}>
+                Uygula
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

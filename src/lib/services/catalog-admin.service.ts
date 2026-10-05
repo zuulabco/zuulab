@@ -626,6 +626,52 @@ export async function adminRestoreProduct(id: string, adminEmail = 'system') {
 }
 
 /**
+ * Deletes a product for good. Only archived products can be deleted (archive first,
+ * as a safety step), and never one that was sold or produced: order lines and
+ * production orders point at it, and that history must stay readable.
+ * Images, variants, specs, collection links, favourites, stock alerts and campaign
+ * links go with it (cascade); its reviews and cart lines are removed here.
+ */
+export async function adminDeleteProduct(id: string, adminEmail = 'system') {
+  const existing = await db.orm.public.Product.where({ id }).first()
+  if (!existing) throw new Error('Silinecek ürün bulunamadı.')
+  if (existing.isActive) {
+    throw new CatalogValidationError('Yalnızca arşivdeki ürünler silinebilir. Önce ürünü arşivleyin.')
+  }
+
+  const [orders, production] = await Promise.all([
+    db.orm.public.OrderItem.where({ productId: id }).aggregate((a) => ({ n: a.count() })),
+    db.orm.public.ProductionOrder.where({ productId: id }).aggregate((a) => ({ n: a.count() })),
+  ])
+  if (orders.n > 0) {
+    throw new CatalogValidationError(
+      `Bu ürün ${orders.n} sipariş satırında geçiyor; sipariş ve fatura geçmişi bozulmasın diye silinemez. Arşivde kalabilir.`
+    )
+  }
+  if (production.n > 0) {
+    throw new CatalogValidationError(
+      `Bu ürünün ${production.n} üretim kaydı var; üretim geçmişi korunması için silinemez. Arşivde kalabilir.`
+    )
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.orm.public.Review.where({ productId: id }).deleteAndCount()
+    await tx.orm.public.CartItem.where({ productId: id }).deleteAndCount()
+    await tx.orm.public.Product.where({ id }).delete()
+  })
+
+  invalidateCatalog()
+  await logAuditEvent({
+    action: 'PRODUCT_DELETED',
+    entity: 'Product',
+    entityId: id,
+    metadata: { name: existing.name, sku: existing.sku, adminEmail },
+  })
+
+  return { success: true }
+}
+
+/**
  * Performs bulk actions on multiple products
  */
 export async function adminBulkProductActions(

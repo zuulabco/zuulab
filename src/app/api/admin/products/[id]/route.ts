@@ -4,6 +4,7 @@ import {
   adminGetProductById,
   adminUpdateProduct,
   adminArchiveProduct,
+  adminDeleteProduct,
 } from '@/lib/services/catalog-admin.service'
 
 interface Context {
@@ -57,10 +58,19 @@ export async function PUT(request: Request, { params }: Context) {
   }
 }
 
+/**
+ * Archives the product. With ?permanent=1 it deletes an already archived product
+ * for good (adminDeleteProduct says what blocks that).
+ */
 export async function DELETE(request: Request, { params }: Context) {
   try {
     const user = await requirePermission(request, 'PRODUCT_DELETE')
     const { id } = await params
+
+    if (new URL(request.url).searchParams.get('permanent') === '1') {
+      await adminDeleteProduct(id, user.email)
+      return NextResponse.json({ success: true, message: 'Ürün kalıcı olarak silindi.' })
+    }
 
     const archived = await adminArchiveProduct(id, user.email)
 
@@ -72,9 +82,10 @@ export async function DELETE(request: Request, { params }: Context) {
     })
   } catch (error: any) {
     const isForbidden = error.message?.includes('FORBIDDEN')
+    const isValidation = error.statusCode === 400 || error.isValidation
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: isForbidden ? 403 : 500 }
+      { status: isForbidden ? 403 : isValidation ? 400 : 500 }
     )
   }
 }

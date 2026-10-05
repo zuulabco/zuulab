@@ -2,121 +2,14 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { formatPrice } from '@/lib/utils'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import AuthModal from '@/components/auth/AuthModal'
 import styles from './admin.module.css'
 import AdminIcon from './AdminIcon'
+import AdminSearch from './AdminSearch'
+import { NAV_SECTIONS, type NavItem, type NavSection } from './nav'
 import { Skeleton, SkeletonPage } from '@/components/common/Skeleton'
-
-interface NavItem {
-  label: string
-  href: string
-  icon: string
-}
-
-interface NavSection {
-  id: string
-  /** No title: always shown, not collapsible */
-  title?: string
-  /** Collapsed until opened (rarely used groups) */
-  collapsedByDefault?: boolean
-  items: NavItem[]
-}
-
-/**
- * Admin navigation, grouped by the job being done. Labels say what the page is,
- * in sentence case; no decorative tags.
- */
-const NAV_SECTIONS: NavSection[] = [
-  {
-    id: 'general',
-    items: [
-      { label: 'Kontrol paneli', href: '/', icon: 'home' },
-      { label: 'Bugün', href: '/today', icon: 'today' },
-      { label: 'Analizler', href: '/analytics', icon: 'analytics' },
-    ],
-  },
-  {
-    id: 'sales',
-    title: 'Satış',
-    items: [
-      { label: 'Siparişler', href: '/orders', icon: 'orders' },
-      { label: 'İadeler', href: '/returns', icon: 'returns' },
-      { label: 'Ödemeler', href: '/payments', icon: 'payments' },
-      { label: 'Kuponlar', href: '/coupons', icon: 'coupons' },
-      { label: 'Kampanyalar', href: '/campaigns', icon: 'megaphone' },
-    ],
-  },
-  {
-    id: 'catalog',
-    title: 'Katalog',
-    items: [
-      { label: 'Ürünler', href: '/products', icon: 'products' },
-      { label: 'Kategoriler', href: '/categories', icon: 'categories' },
-      { label: 'Koleksiyonlar', href: '/collections', icon: 'collections' },
-      { label: 'Yorumlar', href: '/reviews', icon: 'reviews' },
-    ],
-  },
-  {
-    id: 'stock',
-    title: 'Stok ve üretim',
-    items: [
-      { label: 'Envanter', href: '/inventory', icon: 'inventory' },
-      { label: 'Malzemeler', href: '/inventory/materials', icon: 'swatch' },
-      { label: 'Üretim', href: '/production', icon: 'production' },
-      { label: 'Filament', href: '/materials', icon: 'filament' },
-    ],
-  },
-  {
-    id: 'marketplaces',
-    title: 'Pazaryerleri',
-    items: [
-      { label: 'Pazaryeri siparişleri', href: '/marketplaces/orders', icon: 'inbox' },
-      { label: 'Ürün eşleştirme', href: '/marketplaces/mappings', icon: 'link' },
-      { label: 'Mağazalar', href: '/marketplaces', icon: 'store' },
-    ],
-  },
-  {
-    id: 'customers',
-    title: 'Müşteriler',
-    items: [
-      { label: 'Müşteriler', href: '/customers', icon: 'customers' },
-      { label: 'Destek talepleri', href: '/support', icon: 'support' },
-    ],
-  },
-  {
-    id: 'fulfilment',
-    title: 'Kargo ve fatura',
-    items: [
-      { label: 'Kargo', href: '/shipping', icon: 'shipping' },
-      { label: 'e-Faturalar', href: '/invoices', icon: 'invoices' },
-    ],
-  },
-  {
-    id: 'content',
-    title: 'Vitrin',
-    collapsedByDefault: true,
-    items: [
-      { label: 'Ana sayfa', href: '/content/homepage', icon: 'layout' },
-      { label: 'Duyuru bandı', href: '/content/announcement', icon: 'announcement' },
-      { label: 'Sosyal medya', href: '/content/social', icon: 'share' },
-      { label: 'Bülten', href: '/content/newsletter', icon: 'mail' },
-      { label: 'Medya', href: '/content/media', icon: 'media' },
-    ],
-  },
-  {
-    id: 'system',
-    title: 'Sistem',
-    collapsedByDefault: true,
-    items: [
-      { label: 'Kullanıcılar ve roller', href: '/users', icon: 'users' },
-      { label: 'Bildirimler', href: '/notifications', icon: 'notifications' },
-      { label: 'Ayarlar', href: '/settings', icon: 'settings' },
-    ],
-  },
-]
 
 /** The nav item a path belongs to: the longest matching href wins (/marketplaces/orders over /marketplaces). */
 function activeItemFor(path: string): { section: NavSection; item: NavItem } | null {
@@ -177,38 +70,6 @@ export default function AdminLayout({
       return {}
     }
   })
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any>(null)
-  const [isSearching, setIsSearching] = useState(false)
-
-  // Searches as the admin types (debounced); stale answers are dropped
-  useEffect(() => {
-    const q = searchQuery.trim()
-    if (q.length < 2 || !canFetch) {
-      setSearchResults(null)
-      return
-    }
-    let isCancelled = false
-    const handle = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(q)}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        const data = await res.json().catch(() => ({}))
-        if (isCancelled) return
-        setSearchResults(data.success ? data : { error: data.error || 'Arama yapılamadı.' })
-      } catch {
-        if (!isCancelled) setSearchResults({ error: 'Arama sırasında bağlantı hatası oluştu.' })
-      } finally {
-        if (!isCancelled) setIsSearching(false)
-      }
-    }, 300)
-    return () => {
-      isCancelled = true
-      clearTimeout(handle)
-    }
-  }, [searchQuery, canFetch, token])
 
   useEffect(() => {
     let isCancelled = false
@@ -246,11 +107,9 @@ export default function AdminLayout({
     }
   }, [user, isCheckingSession, serverVerified, checkSession])
 
-  // Auto-close mobile drawer and search results on route change
+  // Auto-close mobile drawer on route change
   useEffect(() => {
     setMobileMenuOpen(false)
-    setSearchResults(null)
-    setSearchQuery('')
   }, [pathname])
 
   // Close mobile drawer on Escape key
@@ -258,21 +117,11 @@ export default function AdminLayout({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMobileMenuOpen(false)
-        setSearchResults(null)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
-
-  // Enter opens the first result (orders before products)
-  const handleGlobalSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    const firstOrder = searchResults?.orders?.[0]
-    const firstProduct = searchResults?.products?.[0]
-    if (firstOrder) router.push(`/admin/orders/${firstOrder.orderNumber}`)
-    else if (firstProduct) router.push(`/admin/products/${firstProduct.id}`)
-  }
 
   if (!mounted || isCheckingSession) {
     return (
@@ -473,78 +322,7 @@ export default function AdminLayout({
             </div>
           </div>
 
-          {/* Quick Search */}
-          <form onSubmit={handleGlobalSearch} style={{ position: 'relative', width: 260 }}>
-            <input
-              type="search"
-              aria-label="Yönetim panelinde ara"
-              placeholder="Hızlı ara: sipariş no, müşteri, ürün, SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input input-sm"
-              style={{ borderRadius: 'var(--radius-full)' }}
-            />
-            {(searchResults || isSearching) && searchQuery.trim().length >= 2 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '120%',
-                  right: 0,
-                  width: 300,
-                  background: 'var(--surface-0)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: 12,
-                  zIndex: 200,
-                  boxShadow: 'var(--shadow-lg)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-                  <span>Arama Sonuçları</span>
-                  <button type="button" onClick={() => setSearchResults(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11 }}>✕</button>
-                </div>
-                {isSearching && !searchResults && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>Aranıyor...</div>
-                )}
-                {searchResults?.error && (
-                  <div style={{ fontSize: 12, color: '#dc2626', padding: '6px 0' }}>{searchResults.error}</div>
-                )}
-                {searchResults?.orders?.length > 0 && (
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Siparişler</div>
-                    {searchResults.orders.map((o: any) => (
-                      <Link
-                        key={o.orderNumber}
-                        href={`/admin/orders/${o.orderNumber}`}
-                        onClick={() => setSearchResults(null)}
-                        style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
-                      >
-                        #{o.orderNumber} · {o.customerName} ({formatPrice(o.total)})
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {searchResults?.products?.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: 4 }}>Ürünler</div>
-                    {searchResults.products.map((p: any) => (
-                      <Link
-                        key={p.id}
-                        href={`/admin/products/${p.id}`}
-                        onClick={() => setSearchResults(null)}
-                        style={{ display: 'block', fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', padding: '4px 0' }}
-                      >
-                        {p.name} · {p.sku} (Stok: {p.stock})
-                      </Link>
-                    ))}
-                  </div>
-                )}
-                {searchResults && !searchResults.error && !searchResults.orders?.length && !searchResults.products?.length && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>Sonuç bulunamadı.</div>
-                )}
-              </div>
-            )}
-          </form>
+          <AdminSearch token={token} canFetch={canFetch} />
 
           <div className={styles.topbarRight}>
             <div className={styles.adminUserInfo}>

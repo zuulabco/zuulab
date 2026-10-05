@@ -609,3 +609,137 @@
     display: none;
   }
 }
+
+/* Custom date range */
+.rangePicker {
+  position: relative;
+}
+
+.rangeButton,
+.rangeButtonActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-0);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rangeButton:hover {
+  color: var(--text-primary);
+}
+
+.rangeButtonActive {
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+  border-color: var(--text-primary);
+}
+
+.rangeBox {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.rangeFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rangeFields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.rangeFields input {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  color-scheme: light dark;
+  min-width: 0;
+}
+
+.rangeShortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.rangeShortcuts button {
+  font: inherit;
+  font-size: var(--text-xs);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full, 999px);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rangeShortcuts button:hover {
+  color: var(--text-primary);
+}
+
+.rangeProblem {
+  margin: 10px 0 0;
+  font-size: var(--text-xs);
+  color: var(--danger, #c62828);
+}
+
+.rangeActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.rangeApply {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 7px 16px;
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--surface-0);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.rangeApply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .segmented {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .rangeBox {
+    left: 0;
+    right: auto;
+  }
+}
