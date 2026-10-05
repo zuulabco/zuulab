@@ -12,6 +12,9 @@ import { formatPrice } from '@/lib/utils'
 import { formatTrMobile, normalizeTrMobile } from '@/lib/validations/phone'
 import { matchProvince } from '@/lib/geo/tr-provinces'
 import CityInput, { cityError } from '@/components/forms/CityInput'
+import DistrictInput from '@/components/forms/DistrictInput'
+import PostalCodeInput from '@/components/forms/PostalCodeInput'
+import { districtError, matchDistrict, postalCodeError, suggestedPostalCode } from '@/lib/geo/tr-districts'
 import { calculateShipping } from '@/lib/services/shipping.service'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
@@ -78,7 +81,9 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
   const [city, setCity] = useState('')
   const [district, setDistrict] = useState('')
   const [neighborhood, setNeighborhood] = useState('')
-  const [postalCode, setPostalCode] = useState('34000')
+  const [postalCode, setPostalCode] = useState('')
+  /** The postal code we filled in for the chosen district; replaced when the district changes, left alone once the customer edits it */
+  const autoPostalRef = useRef<string | null>(null)
   const [addressLine, setAddressLine] = useState('')
   const [customerNote, setCustomerNote] = useState('')
   const [showNoteField, setShowNoteField] = useState(false)
@@ -148,7 +153,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
   const [modalCity, setModalCity] = useState('')
   const [modalDistrict, setModalDistrict] = useState('')
   const [modalAddressLine, setModalAddressLine] = useState('')
-  const [modalPostalCode, setModalPostalCode] = useState('34000')
+  const [modalPostalCode, setModalPostalCode] = useState('')
+  const modalAutoPostalRef = useRef<string | null>(null)
   const [modalIsDefault, setModalIsDefault] = useState(false)
   const [modalSaving, setModalSaving] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -213,7 +219,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
     setCity(addr.city)
     setDistrict(addr.district)
     setAddressLine(addr.addressLine1 + (addr.addressLine2 ? ` ${addr.addressLine2}` : ''))
-    setPostalCode(addr.postalCode || '34000')
+    setPostalCode(addr.postalCode || '')
+    autoPostalRef.current = null
     // Clear any inline field errors for address
     setFieldErrors((prev) => ({
       ...prev,
@@ -235,7 +242,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
     setModalCity(city || '')
     setModalDistrict(district || '')
     setModalAddressLine('')
-    setModalPostalCode(postalCode || '34000')
+    setModalPostalCode(postalCode || '')
+    modalAutoPostalRef.current = null
     setModalIsDefault(savedAddresses.length === 0)
     setModalError(null)
     setIsAddressModalOpen(true)
@@ -258,6 +266,16 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
       setModalError(modalCityError)
       return
     }
+    const modalDistrictError = districtError(modalCity, modalDistrict)
+    if (modalDistrictError) {
+      setModalError(modalDistrictError)
+      return
+    }
+    const modalPostalError = postalCodeError(modalPostalCode)
+    if (modalPostalError) {
+      setModalError(modalPostalError)
+      return
+    }
 
     setModalSaving(true)
     setModalError(null)
@@ -269,8 +287,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
         lastName: modalLastName.trim(),
         phone: modalPhone.trim(),
         city: matchProvince(modalCity) ?? modalCity,
-        district: modalDistrict.trim(),
-        postalCode: modalPostalCode.trim() || '34000',
+        district: matchDistrict(modalCity, modalDistrict) ?? modalDistrict.trim(),
+        postalCode: modalPostalCode.trim(),
         addressLine1: modalAddressLine.trim(),
         addressLine2: null,
         country: 'Türkiye',
@@ -412,8 +430,13 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
     if (cityProblem) {
       errors.city = cityProblem
     }
-    if (!district.trim()) {
-      errors.district = 'İlçe alanı zorunludur.'
+    const districtProblem = districtError(city, district)
+    if (districtProblem) {
+      errors.district = districtProblem
+    }
+    const postalProblem = postalCodeError(postalCode)
+    if (postalProblem) {
+      errors.postalCode = postalProblem
     }
     if (!addressLine.trim() || addressLine.trim().length < 8) {
       errors.addressLine = 'Lütfen cadde, sokak ve bina içeren açık adresinizi giriniz.'
@@ -815,6 +838,12 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                     onChange={(v) => {
                       setCity(v)
                       if (fieldErrors.city) setFieldErrors((p) => ({ ...p, city: '' }))
+                      // A district of the old province is not one of the new province: ask again (and drop the code we suggested for it)
+                      if (district && !matchDistrict(v, district)) {
+                        setDistrict('')
+                        if (postalCode && postalCode === autoPostalRef.current) setPostalCode('')
+                        autoPostalRef.current = null
+                      }
                     }}
                   />
                 </div>
@@ -823,26 +852,25 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   <label className={styles.label} htmlFor="checkout-district">
                     ilçe <span className={styles.reqMark}>*</span>
                   </label>
-                  <input
+                  <DistrictInput
                     id="checkout-district"
-                    type="text"
-                    required
-                    autoComplete="address-level2"
-                    placeholder="Kadıköy"
-                    className={`${styles.input} ${fieldErrors.district ? styles.inputErrorBorder : ''}`}
+                    city={city}
+                    inputClassName={`${styles.input} ${fieldErrors.district ? styles.inputErrorBorder : ''}`}
                     value={district}
-                    onChange={(e) => {
-                      setDistrict(e.target.value)
+                    error={fieldErrors.district}
+                    onChange={(v) => {
+                      setDistrict(v)
                       if (fieldErrors.district) setFieldErrors((p) => ({ ...p, district: '' }))
+                      // A real district of the province: suggest its postal code, unless the customer already typed their own
+                      const official = matchDistrict(city, v)
+                      const suggestion = official ? suggestedPostalCode(city, official) : null
+                      if (suggestion && (!postalCode || postalCode === autoPostalRef.current)) {
+                        setPostalCode(suggestion)
+                        autoPostalRef.current = suggestion
+                        if (fieldErrors.postalCode) setFieldErrors((p) => ({ ...p, postalCode: '' }))
+                      }
                     }}
-                    aria-invalid={Boolean(fieldErrors.district)}
-                    aria-describedby={fieldErrors.district ? 'checkout-district-error' : undefined}
                   />
-                  {fieldErrors.district && (
-                    <span id="checkout-district-error" className={styles.fieldErrorText} role="alert">
-                      {fieldErrors.district}
-                    </span>
-                  )}
                 </div>
 
                 <div className={styles.formGroup}>
@@ -863,15 +891,17 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   <label className={styles.label} htmlFor="checkout-postalCode">
                     posta kodu <span className={styles.reqMark}>*</span>
                   </label>
-                  <input
+                  <PostalCodeInput
                     id="checkout-postalCode"
-                    type="text"
-                    required
-                    autoComplete="postal-code"
-                    placeholder="34710"
-                    className={styles.input}
+                    city={city}
+                    district={district}
+                    inputClassName={`${styles.input} ${fieldErrors.postalCode ? styles.inputErrorBorder : ''}`}
                     value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
+                    error={fieldErrors.postalCode}
+                    onChange={(v) => {
+                      setPostalCode(v)
+                      if (fieldErrors.postalCode) setFieldErrors((p) => ({ ...p, postalCode: '' }))
+                    }}
                   />
                 </div>
 
@@ -1443,19 +1473,33 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                 id="modal-city"
                 inputClassName={styles.input}
                 value={modalCity}
-                onChange={setModalCity}
+                onChange={(v) => {
+                  setModalCity(v)
+                  if (modalDistrict && !matchDistrict(v, modalDistrict)) {
+                    setModalDistrict('')
+                    if (modalPostalCode && modalPostalCode === modalAutoPostalRef.current) setModalPostalCode('')
+                    modalAutoPostalRef.current = null
+                  }
+                }}
               />
             </div>
 
             <div className={styles.formGroup}>
               <label className={styles.label} htmlFor="modal-district">ilçe *</label>
-              <input
+              <DistrictInput
                 id="modal-district"
-                type="text"
-                required
-                className={styles.input}
+                city={modalCity}
+                inputClassName={styles.input}
                 value={modalDistrict}
-                onChange={(e) => setModalDistrict(e.target.value)}
+                onChange={(v) => {
+                  setModalDistrict(v)
+                  const official = matchDistrict(modalCity, v)
+                  const suggestion = official ? suggestedPostalCode(modalCity, official) : null
+                  if (suggestion && (!modalPostalCode || modalPostalCode === modalAutoPostalRef.current)) {
+                    setModalPostalCode(suggestion)
+                    modalAutoPostalRef.current = suggestion
+                  }
+                }}
               />
             </div>
 
@@ -1472,14 +1516,14 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="modal-postalCode">posta kodu</label>
-              <input
+              <label className={styles.label} htmlFor="modal-postalCode">posta kodu *</label>
+              <PostalCodeInput
                 id="modal-postalCode"
-                type="text"
-                placeholder="34000"
-                className={styles.input}
+                city={modalCity}
+                district={modalDistrict}
+                inputClassName={styles.input}
                 value={modalPostalCode}
-                onChange={(e) => setModalPostalCode(e.target.value)}
+                onChange={setModalPostalCode}
               />
             </div>
 

@@ -31,11 +31,11 @@ describe('Turkish provinces', () => {
     expect(matchProvince(input)).toBeNull()
   })
 
-  it('empty field lists all 81, the five largest first, then A–Z', () => {
+  it('empty field lists all 81, the four largest first, then A–Z', () => {
     const all = suggestProvinces('')
     expect(all).toHaveLength(81)
-    expect(all.slice(0, 5)).toEqual(['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya'])
-    expect(all.slice(5, 8)).toEqual(['Adana', 'Adıyaman', 'Afyonkarahisar'])
+    expect(all.slice(0, 4)).toEqual(['İstanbul', 'Ankara', 'İzmir', 'Bursa'])
+    expect(all.slice(4, 7)).toEqual(['Adana', 'Adıyaman', 'Afyonkarahisar'])
     expect(new Set(all).size).toBe(81)
   })
 

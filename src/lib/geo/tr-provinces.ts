@@ -56,9 +56,9 @@ export function matchProvince(value: string | null | undefined): TrProvince | nu
 }
 
 // Most populous first: what most customers are looking for before they type anything
-const POPULAR: TrProvince[] = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya']
+const POPULAR: TrProvince[] = ['İstanbul', 'Ankara', 'İzmir', 'Bursa']
 
-/** All 81 for an empty field: the five largest first, then the rest A–Z. */
+/** All 81 for an empty field: the four largest first, then the rest A–Z. */
 export const PROVINCES_POPULAR_FIRST: readonly TrProvince[] = [
   ...POPULAR,
   ...TR_PROVINCES.filter((p) => !POPULAR.includes(p)),

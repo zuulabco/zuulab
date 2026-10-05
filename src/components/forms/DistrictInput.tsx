@@ -1,49 +1,40 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { matchProvince, suggestProvinces } from '@/lib/geo/tr-provinces'
+import { DISTRICT_INVALID_MESSAGE, DISTRICT_NEEDS_CITY_MESSAGE, districtsOf, matchDistrict, suggestDistricts } from '@/lib/geo/tr-districts'
 import styles from './CityInput.module.css'
 
-interface CityInputProps {
+interface DistrictInputProps {
   id: string
+  /** The province chosen above; the districts offered (and accepted) are the ones of this province */
+  city: string
   value: string
   onChange: (value: string) => void
-  /** Class of the surrounding form's text inputs, so the field matches them. */
   inputClassName?: string
   /** Error from the parent's submit check; shown instead of the field's own. */
   error?: string
   placeholder?: string
 }
 
-export const CITY_INVALID_MESSAGE = 'Geçerli bir il adı yazın ve listeden seçin.'
-export const CITY_REQUIRED_MESSAGE = 'İl alanı zorunludur.'
-
-/** Error for a city field, or '' when it holds a real province. */
-export function cityError(value: string): string {
-  if (!value.trim()) return CITY_REQUIRED_MESSAGE
-  return matchProvince(value) ? '' : CITY_INVALID_MESSAGE
-}
-
 /**
- * Province field: free typing with suggestions from all 81 provinces (accent- and
- * case-insensitive, e.g. "izmir" → İzmir). Leaving the field snaps a recognised
- * name to its official spelling and flags anything that is not a province.
+ * District field: after a province is chosen it offers that province's districts (A–Z, narrowing as you type,
+ * accent- and case-insensitive) and only accepts one of them, so a wrong district cannot be sent. Leaving the
+ * field snaps a recognised name to its official spelling and flags anything else.
  */
-export default function CityInput({ id, value, onChange, inputClassName = '', error, placeholder = 'il yazın, ör. İstanbul' }: CityInputProps) {
+export default function DistrictInput({ id, city, value, onChange, inputClassName = '', error, placeholder }: DistrictInputProps) {
   const listId = useId()
   const errorId = `${id}-error`
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const [touchedError, setTouchedError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const hasDistricts = districtsOf(city).length > 0
 
-  const options = open ? suggestProvinces(value) : []
+  const options = open ? suggestDistricts(city, value) : []
+  const shownError = error || touchedError
 
-  // Long list (all 81 when empty): keep the keyboard-highlighted row in view
   useEffect(() => {
     if (active >= 0) document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: 'nearest' })
   }, [active, listId])
-  const shownError = error || touchedError
 
   const choose = (name: string) => {
     onChange(name)
@@ -56,12 +47,12 @@ export default function CityInput({ id, value, onChange, inputClassName = '', er
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (!open) setOpen(true)
-      setActive((i) => Math.min(i + 1, suggestProvinces(value).length - 1))
+      setActive((i) => Math.min(i + 1, suggestDistricts(city, value).length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActive((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter' && open && active >= 0 && options[active]) {
-      // Pick the highlighted province instead of submitting the form
+      // Pick the highlighted district instead of submitting the form
       e.preventDefault()
       choose(options[active])
     } else if (e.key === 'Escape' && open) {
@@ -75,19 +66,22 @@ export default function CityInput({ id, value, onChange, inputClassName = '', er
     setOpen(false)
     setActive(-1)
     if (!value.trim()) return // "required" is reported by the submit check
-    const match = matchProvince(value)
+    if (!hasDistricts) {
+      setTouchedError(DISTRICT_NEEDS_CITY_MESSAGE)
+      return
+    }
+    const match = matchDistrict(city, value)
     if (match) {
       if (match !== value) onChange(match)
       setTouchedError('')
     } else {
-      setTouchedError(CITY_INVALID_MESSAGE)
+      setTouchedError(DISTRICT_INVALID_MESSAGE)
     }
   }
 
   return (
     <div className={styles.wrap}>
       <input
-        ref={inputRef}
         id={id}
         type="text"
         role="combobox"
@@ -98,9 +92,9 @@ export default function CityInput({ id, value, onChange, inputClassName = '', er
         aria-invalid={Boolean(shownError)}
         aria-describedby={shownError ? errorId : undefined}
         aria-required="true"
-        autoComplete="address-level1"
+        autoComplete="address-level2"
         className={inputClassName}
-        placeholder={placeholder}
+        placeholder={placeholder ?? (hasDistricts ? 'ilçe seçin veya yazın' : 'önce il seçin')}
         value={value}
         onChange={(e) => {
           onChange(e.target.value)
@@ -132,6 +126,11 @@ export default function CityInput({ id, value, onChange, inputClassName = '', er
             </li>
           ))}
         </ul>
+      )}
+      {open && !hasDistricts && (
+        <span className={styles.error} role="status">
+          {DISTRICT_NEEDS_CITY_MESSAGE}
+        </span>
       )}
       {shownError && (
         <span id={errorId} className={styles.error} role="alert">

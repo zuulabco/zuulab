@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import AccountNav from '@/components/account/AccountNav'
@@ -8,6 +8,9 @@ import AccountHeader from '@/components/account/AccountHeader'
 import { formatTrMobile } from '@/lib/validations/phone'
 import { matchProvince } from '@/lib/geo/tr-provinces'
 import CityInput, { cityError } from '@/components/forms/CityInput'
+import DistrictInput from '@/components/forms/DistrictInput'
+import PostalCodeInput from '@/components/forms/PostalCodeInput'
+import { districtError, matchDistrict, postalCodeError, suggestedPostalCode } from '@/lib/geo/tr-districts'
 import Modal from '@/components/common/Modal'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Adresler.module.css'
@@ -44,7 +47,11 @@ export default function AdreslerClient() {
   const [city, setCity] = useState('')
   const [cityProblem, setCityProblem] = useState('')
   const [district, setDistrict] = useState('')
-  const [postalCode, setPostalCode] = useState('34000')
+  const [districtProblem, setDistrictProblem] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [postalProblem, setPostalProblem] = useState('')
+  /** The postal code we filled in for the chosen district; replaced when the district changes, left alone once the customer edits it */
+  const autoPostalRef = useRef<string | null>(null)
   const [addressLine1, setAddressLine1] = useState('')
   const [addressLine2, setAddressLine2] = useState('')
   const [isDefault, setIsDefault] = useState(false)
@@ -112,7 +119,10 @@ export default function AdreslerClient() {
     setCity('')
     setCityProblem('')
     setDistrict('')
-    setPostalCode('34000')
+    setDistrictProblem('')
+    setPostalCode('')
+    setPostalProblem('')
+    autoPostalRef.current = null
     setAddressLine1('')
     setAddressLine2('')
     setIsDefault(addresses.length === 0)
@@ -128,7 +138,10 @@ export default function AdreslerClient() {
     setCity(addr.city)
     setCityProblem('')
     setDistrict(addr.district)
+    setDistrictProblem('')
     setPostalCode(addr.postalCode)
+    setPostalProblem('')
+    autoPostalRef.current = null
     setAddressLine1(addr.addressLine1)
     setAddressLine2(addr.addressLine2 || '')
     setIsDefault(addr.isDefault)
@@ -142,6 +155,16 @@ export default function AdreslerClient() {
       setCityProblem(problem)
       return
     }
+    const dProblem = districtError(city, district)
+    if (dProblem) {
+      setDistrictProblem(dProblem)
+      return
+    }
+    const pProblem = postalCodeError(postalCode)
+    if (pProblem) {
+      setPostalProblem(pProblem)
+      return
+    }
     setSaving(true)
 
     const payload = {
@@ -150,7 +173,7 @@ export default function AdreslerClient() {
       lastName,
       phone,
       city: matchProvince(city) ?? city,
-      district,
+      district: matchDistrict(city, district) ?? district,
       postalCode,
       addressLine1,
       addressLine2: addressLine2 || null,
@@ -410,18 +433,36 @@ export default function AdreslerClient() {
               onChange={(v) => {
                 setCity(v)
                 setCityProblem('')
+                // A district of the old province is not one of the new province: ask again
+                if (district && !matchDistrict(v, district)) {
+                  setDistrict('')
+                  if (postalCode && postalCode === autoPostalRef.current) setPostalCode('')
+                  autoPostalRef.current = null
+                }
               }}
             />
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>ilçe *</label>
-            <input
-              type="text"
-              required
-              className={styles.input}
+            <label className={styles.label} htmlFor="address-district">ilçe *</label>
+            <DistrictInput
+              id="address-district"
+              city={city}
+              inputClassName={styles.input}
               value={district}
-              onChange={(e) => setDistrict(e.target.value)}
+              error={districtProblem}
+              onChange={(v) => {
+                setDistrict(v)
+                setDistrictProblem('')
+                // A real district of the province: suggest its postal code, unless the customer already typed their own
+                const official = matchDistrict(city, v)
+                const suggestion = official ? suggestedPostalCode(city, official) : null
+                if (suggestion && (!postalCode || postalCode === autoPostalRef.current)) {
+                  setPostalCode(suggestion)
+                  autoPostalRef.current = suggestion
+                  setPostalProblem('')
+                }
+              }}
             />
           </div>
 
@@ -437,13 +478,18 @@ export default function AdreslerClient() {
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>posta kodu *</label>
-            <input
-              type="text"
-              required
-              className={styles.input}
+            <label className={styles.label} htmlFor="address-postalCode">posta kodu *</label>
+            <PostalCodeInput
+              id="address-postalCode"
+              city={city}
+              district={district}
+              inputClassName={styles.input}
               value={postalCode}
-              onChange={(e) => setPostalCode(e.target.value)}
+              error={postalProblem}
+              onChange={(v) => {
+                setPostalCode(v)
+                setPostalProblem('')
+              }}
             />
           </div>
 
