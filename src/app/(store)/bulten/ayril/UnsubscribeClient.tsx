@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import styles from '../Bulten.module.css'
 
-export default function UnsubscribeClient({ token }: { token: string }) {
+export default function UnsubscribeClient({ token, message }: { token: string; message?: string }) {
   const [state, setState] = useState<'idle' | 'working' | 'done' | 'error'>(token ? 'idle' : 'error')
 
   const unsubscribe = async () => {
@@ -13,7 +13,7 @@ export default function UnsubscribeClient({ token }: { token: string }) {
       const res = await fetch('/api/newsletter/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, message }),
       })
       setState(res.ok ? 'done' : 'error')
     } catch {

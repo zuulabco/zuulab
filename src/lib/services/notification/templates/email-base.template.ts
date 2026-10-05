@@ -112,6 +112,7 @@ export function renderEmailBase(params: BaseEmailParams): {
   </style>
 </head>
 <body>
+  ${params.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${params.preheader}</div>` : ''}
   <div class="wrapper">
     <div class="container">
       <div class="header">

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
  * Opening the link does nothing by itself (mail scanners open links); the button
  * does. Mail apps' own one-click unsubscribe posts to /api/newsletter/unsubscribe.
  */
-export default async function NewsletterUnsubscribePage({ searchParams }: { searchParams: Promise<{ t?: string }> }) {
-  const { t } = await searchParams
-  return <UnsubscribeClient token={String(t ?? '')} />
+export default async function NewsletterUnsubscribePage({ searchParams }: { searchParams: Promise<{ t?: string; m?: string }> }) {
+  const { t, m } = await searchParams
+  return <UnsubscribeClient token={String(t ?? '')} message={String(m ?? '')} />
 }

@@ -69,6 +69,8 @@ export interface EmailSendOptions {
   /** Extra headers, e.g. List-Unsubscribe for newsletters. */
   headers?: Record<string, string>
   idempotencyKey?: string
+  /** Provider tags (Resend: shown back on webhook events), e.g. the campaign a mail belongs to */
+  tags?: Array<{ name: string; value: string }>
 }
 
 export interface EmailSendResult {
@@ -80,5 +82,11 @@ export interface EmailSendResult {
 export interface EmailProvider {
   readonly providerName: string
   sendEmail(options: EmailSendOptions): Promise<EmailSendResult>
+  /**
+   * Sends up to 100 mails in one request, one result per mail in the same order. Providers
+   * without a batch endpoint leave it out and the caller sends one by one. A failed request
+   * fails every mail in it.
+   */
+  sendBatch?(items: EmailSendOptions[], idempotencyKey?: string): Promise<EmailSendResult[]>
   normalizeError(error: unknown): string
 }

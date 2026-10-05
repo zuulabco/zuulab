@@ -53,6 +53,7 @@ Neon PostgreSQL (Prisma ORM 8)
 | `MARKETPLACE_CREDENTIALS_KEY` | for marketplaces | 32 random bytes (`openssl rand -base64 32`); encrypts the marketplace API keys stored in the database. Changing it makes saved keys unreadable (re-enter them in the admin) |
 | `EMAIL_PROVIDER` | yes | `RESEND` in production (`MOCK` sends nothing) |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | yes | Resend key and verified sender |
+| `RESEND_WEBHOOK_SECRET` | for campaign stats | Signing secret (`whsec_…`) of the Resend webhook that points at `/api/webhooks/resend`. Without it, newsletter campaigns still send but delivered / opened / clicked / bounced are not recorded |
 | `SUPPORT_INBOX_EMAIL` | yes | Receives new support tickets and contact-form messages |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | yes | Media uploads |
 | `CRON_SECRET` | yes | Bearer token for `/api/cron/*` |
@@ -92,6 +93,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261004T0924_variant_images` — several photos per variant (`product_variants.images`)
    - `20261005T1329_order_marketing_attribution` — `orders.marketing_consent`, `anonymous_id`, `attribution` (checkout marketing context, all nullable)
    - `20261005T1615_marketing_events` — `marketing_events`: the shop's own event log for internal analytics (new table only)
+   - `20261005T1712_email_campaigns` — `email_campaigns`, `email_messages`, `email_webhook_events`: newsletter campaigns, one row per mail with its Resend status, handled webhook deliveries (new tables only)
 
 ---
 

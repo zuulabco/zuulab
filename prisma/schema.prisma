@@ -2657,3 +2657,64 @@ model MarketingEvent {
   @@index([anonymousId])
   @@map("marketing_events")
 }
+
+// ─────────────────────────────────────────────────────────────
+// E-MAIL CAMPAIGNS (Resend): what was sent to whom and what happened to it
+// ─────────────────────────────────────────────────────────────
+/// A newsletter campaign written in the admin. DRAFT until sent; SENDING while the mails go out
+/// (a second click cannot start it again); SENT afterwards. `content` is plain structured text
+/// (heading, paragraphs, optional button), never raw HTML, so the shop's template stays intact.
+model EmailCampaign {
+  id             String         @id @default(cuid())
+  name           String
+  subject        String
+  preheader      String?
+  content        Json
+  status         String         @default("DRAFT")
+  createdBy      String?        @map("created_by")
+  recipientCount Int            @default(0) @map("recipient_count")
+  sentAt         DateTime?      @map("sent_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  messages       EmailMessage[]
+
+  @@index([status, createdAt])
+  @@map("email_campaigns")
+}
+
+/// One mail to one subscriber. The Resend webhook fills in delivered / opened / clicked / bounced.
+model EmailMessage {
+  id             String        @id @default(cuid())
+  campaignId     String        @map("campaign_id")
+  subscriberId   String?       @map("subscriber_id")
+  email          String
+  resendId       String?       @unique @map("resend_id")
+  status         String        @default("QUEUED")
+  error          String?
+  sentAt         DateTime?     @map("sent_at")
+  deliveredAt    DateTime?     @map("delivered_at")
+  firstOpenedAt  DateTime?     @map("first_opened_at")
+  openCount      Int           @default(0) @map("open_count")
+  firstClickedAt DateTime?     @map("first_clicked_at")
+  clickCount     Int           @default(0) @map("click_count")
+  bouncedAt      DateTime?     @map("bounced_at")
+  complainedAt   DateTime?     @map("complained_at")
+  unsubscribedAt DateTime?     @map("unsubscribed_at")
+  lastEvent      String?       @map("last_event")
+  lastEventAt    DateTime?     @map("last_event_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  campaign       EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([email])
+  @@map("email_messages")
+}
+
+/// Webhook deliveries already handled (Resend, via Svix, retries): the id makes a repeat a no-op.
+model EmailWebhookEvent {
+  id         String   @id
+  type       String
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@map("email_webhook_events")
+}

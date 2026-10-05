@@ -51,7 +51,8 @@ export function generateWelcomeCode(): string {
 const newToken = () => randomBytes(24).toString('base64url')
 
 const confirmUrl = (token: string) => `${SITE_URL}/bulten/onay?t=${encodeURIComponent(token)}`
-const unsubscribeUrl = (token: string) => `${SITE_URL}/bulten/ayril?t=${encodeURIComponent(token)}`
+const unsubscribeUrl = (token: string, messageId?: string) =>
+  `${SITE_URL}/bulten/ayril?t=${encodeURIComponent(token)}${messageId ? `&m=${encodeURIComponent(messageId)}` : ''}`
 
 function newsletterFrom(): string | undefined {
   return process.env.NEWSLETTER_FROM_EMAIL || undefined
@@ -61,9 +62,24 @@ function replyTo(): string | undefined {
   return process.env.SUPPORT_INBOX_EMAIL || undefined
 }
 
-const footer = (token: string) => `
+const footer = (token: string, messageId?: string) => `
   <div>Bu e-postayı zuulab bültenine kayıt olduğunuz için aldınız.</div>
-  <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token)}">Bültenden ayrıl</a></div>`
+  <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token, messageId)}">Bültenden ayrıl</a></div>`
+
+/**
+ * What every newsletter mail needs besides its content: the footer with the unsubscribe link, the
+ * one-click List-Unsubscribe headers, sender and reply-to. The message id (a campaign mail) is
+ * carried in the links so the unsubscribe can be counted against that campaign.
+ */
+export function newsletterEnvelope(token: string, messageId?: string) {
+  const oneClick = `${SITE_URL}/api/newsletter/unsubscribe?t=${encodeURIComponent(token)}${messageId ? `&m=${encodeURIComponent(messageId)}` : ''}`
+  return {
+    footerHtml: footer(token, messageId),
+    headers: { 'List-Unsubscribe': `<${oneClick}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    from: newsletterFrom(),
+    replyTo: replyTo(),
+  }
+}
 
 async function sendNewsletterMail(params: { to: string; subject: string; contentHtml: string; token: string; key: string }): Promise<boolean> {
   const { html } = renderEmailBase({ title: params.subject, contentHtml: params.contentHtml, footerHtml: footer(params.token) })
@@ -269,7 +285,7 @@ export async function confirmNewsletter(token: string): Promise<ConfirmResult> {
   }
 }
 
-export async function unsubscribeNewsletter(token: string): Promise<{ ok: boolean; email?: string }> {
+export async function unsubscribeNewsletter(token: string, messageId?: string): Promise<{ ok: boolean; email?: string }> {
   if (!token || token.length > 64) return { ok: false }
   const sub = await db.orm.public.NewsletterSubscriber.where({ token }).first()
   if (!sub) return { ok: false }
@@ -278,6 +294,12 @@ export async function unsubscribeNewsletter(token: string): Promise<{ ok: boolea
       status: 'UNSUBSCRIBED',
       unsubscribedAt: toDbTimestamp(),
     } as never)
+  }
+  // Counted against the campaign mail it was clicked from (first time only; only that subscriber's own mail)
+  if (messageId && messageId.length <= 64) {
+    await db.runtime().execute(
+      db.raw.sql`UPDATE email_messages SET unsubscribed_at = now() WHERE id = ${messageId} AND email = ${sub.email} AND unsubscribed_at IS NULL`.affectedCount().build()
+    ).catch((err: unknown) => console.warn('[newsletter] could not record the unsubscribe on the campaign mail:', err))
   }
   return { ok: true, email: sub.email }
 }

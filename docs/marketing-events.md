@@ -114,6 +114,27 @@ Admin page `/marketing/products`, API `GET /api/admin/insights/products`. Code: 
   less than half the shop's rate; a product sold only to visitors we cannot follow is not called weak) and **high sales,
   low traffic** (converting at twice the shop's rate or more while few people see it).
 
+## E-mail center (Phase 8)
+
+Admin page `/marketing/email`, API `/api/admin/email`, Resend webhook `/api/webhooks/resend`. Code:
+`lib/email/campaign.ts` (rules), `lib/services/email-campaign.service.ts`.
+
+- **Campaigns** are plain structured text (heading, paragraphs, optional button), escaped into the shop's own template, so
+  no markup or script can be injected and the unsubscribe footer is always there. Button links must be https.
+- **Audience:** subscribers whose address is confirmed (`ACTIVE`). Every mail carries its own unsubscribe link (page and
+  one-click `List-Unsubscribe`); the message id is in the link so an unsubscribe is counted against that mail.
+- **Sending:** a test mail goes to one address and is not recorded. A campaign is sent once (`DRAFT -> SENDING` is one
+  conditional update). The admin confirms the recipient count on screen, and that number must still match when the send
+  starts. Mails go out in groups of 50 through Resend's batch endpoint (the account allows 2 requests per second). If not a
+  single mail goes out the campaign returns to draft so it can be retried.
+- **Statistics** come from the Resend webhook (Svix-signed, secret `RESEND_WEBHOOK_SECRET`, 5-minute replay window, each
+  delivery handled once): delivered, opened, clicked, bounced, complained. A permanent bounce or a spam complaint
+  unsubscribes the address. An event for a mail we do not know is ignored, unless it is tagged as a campaign mail, then
+  Resend is asked to retry. Opens are an estimate (mail apps that preload images count as opens).
+- **Resend setup (once):** webhook URL `https://<site>/api/webhooks/resend` with the events `email.delivered`,
+  `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`; and open / click tracking enabled
+  for the sending domain.
+
 ## Adding a destination
 
 Implement `Destination` (`id`, `consent`, `accepts`, `send`), register it on `browserDispatcher`

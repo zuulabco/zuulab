@@ -94,6 +94,53 @@ export class ResendEmailProvider implements EmailProvider {
     }
   }
 
+  /** Resend's batch endpoint: up to 100 mails per request, one rate-limit slot instead of 100 */
+  async sendBatch(items: EmailSendOptions[], idempotencyKey?: string): Promise<EmailSendResult[]> {
+    const failAll = (error: string) => items.map(() => ({ success: false, error }))
+    if (items.length === 0) return []
+    if (items.length > 100) return failAll('Resend toplu gönderimi en fazla 100 e-posta kabul eder.')
+    if (!this.apiKey) {
+      if (process.env.NODE_ENV === 'production' || process.env.EMAIL_PROVIDER === 'RESEND') {
+        throw new Error('RESEND_CONFIGURATION_ERROR: RESEND_API_KEY ortam değişkeni tanımlanmamış.')
+      }
+      return items.map((_, i) => ({ success: true, providerMessageId: `sim_resend_${Date.now()}_${i}` }))
+    }
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 20000)
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+        },
+        body: JSON.stringify(
+          items.map((o) => ({
+            from: o.from || this.defaultFrom,
+            to: [o.to],
+            subject: o.subject,
+            html: o.html,
+            ...(o.text ? { text: o.text } : {}),
+            ...(o.replyTo ? { reply_to: o.replyTo } : {}),
+            ...(o.headers ? { headers: o.headers } : {}),
+            ...(o.tags?.length ? { tags: o.tags } : {}),
+          }))
+        ),
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+      const json = (await res.json().catch(() => ({}))) as { data?: Array<{ id?: string }>; message?: string }
+      if (!res.ok) return failAll(json.message || `Resend API Error (HTTP ${res.status})`)
+      const ids = json.data ?? []
+      return items.map((_, i) =>
+        ids[i]?.id ? { success: true, providerMessageId: ids[i].id } : { success: false, error: 'Resend bu e-posta için kimlik döndürmedi.' }
+      )
+    } catch (err: unknown) {
+      return failAll(this.normalizeError(err))
+    }
+  }
+
   normalizeError(error: unknown): string {
     if (typeof error === 'string') return error
     if (error && typeof error === 'object' && 'message' in error) {

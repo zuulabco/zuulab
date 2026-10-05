@@ -9,11 +9,13 @@ import { unsubscribeNewsletter } from '@/lib/services/newsletter.service'
 export async function POST(request: Request) {
   const url = new URL(request.url)
   let token = url.searchParams.get('t') || ''
+  let messageId = url.searchParams.get('m') || ''
   if (!token) {
     const body = await request.json().catch(() => ({}))
     token = typeof body.token === 'string' ? body.token : ''
+    messageId = typeof body.message === 'string' ? body.message : ''
   }
-  const result = await unsubscribeNewsletter(token)
+  const result = await unsubscribeNewsletter(token, messageId || undefined)
   if (!result.ok) {
     return NextResponse.json({ success: false, error: 'Bağlantı geçersiz ya da süresi dolmuş.' }, { status: 404 })
   }
