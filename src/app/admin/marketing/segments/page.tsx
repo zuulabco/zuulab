@@ -107,7 +107,7 @@ export default function SegmentsPage() {
           <h1 className={adminStyles.pageTitle}>Müşteri grupları</h1>
           <p className={adminStyles.pageSubtitle}>
             Müşterilerinizi ve ziyaretçilerinizi davranışlarına göre gruplar. E-posta gönderebileceğiniz kişi sayısı, yalnızca
-            ticari e-posta izni vermiş olanları sayar.
+            ticari e-posta izni vermiş olanları sayar. Bir satıra tıklayınca kişileri ve ayarları açılır.
           </p>
         </div>
       </header>
@@ -122,7 +122,7 @@ export default function SegmentsPage() {
               <thead>
                 <tr>
                   <th>Grup</th>
-                  <th className={s.num}>Kişi</th>
+                  <th className={s.num}>Kişi sayısı</th>
                   <th className={s.num}>E-posta atılabilir</th>
                   <th />
                 </tr>
@@ -131,16 +131,16 @@ export default function SegmentsPage() {
                 {data.definitions.map((d) => {
                   const c = counts.get(d.key)
                   return (
-                    <tr key={d.key} style={selected === d.key ? { background: 'var(--surface-1)' } : undefined}>
+                    <tr key={d.key} onClick={() => open(d.key)} style={{ cursor: 'pointer', ...(selected === d.key ? { background: 'var(--surface-1)' } : {}) }}>
                       <td className={s.pathCell} style={{ whiteSpace: 'normal' }}>
-                        <strong>{d.label}</strong>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8em' }}>{d.description}</div>
+                        <strong style={{ fontSize: 'var(--text-sm)' }}>{d.label}</strong>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)', marginTop: 2 }}>{d.description}</div>
                       </td>
                       <td className={s.num}>{c ? fmtInt(c.total) : '—'}</td>
                       <td className={s.num}>{d.kind === 'visitors' ? 'tanımsız ziyaretçi' : c ? fmtInt(c.reachable) : '—'}</td>
                       <td className={s.num}>
                         <button type="button" className={s.seg} onClick={() => open(d.key)}>
-                          {selected === d.key ? 'Açık' : 'Ayrıntı'}
+                          {selected === d.key ? 'Açık ↓' : 'Aç →'}
                         </button>
                       </td>
                     </tr>

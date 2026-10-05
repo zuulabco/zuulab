@@ -9,6 +9,7 @@ import { BarList, LineChart, fmtInt } from '../analytics/charts'
 import { changeOf } from '@/lib/analytics/seo'
 import type { InternalMetrics, InternalReport } from '@/lib/services/analytics/internal-analytics.service'
 import type { SeoReport } from '@/lib/services/analytics/seo-report.service'
+import type { AttributionReport } from '@/lib/services/meta-attribution.service'
 
 type Range = 'today' | '7' | '28' | '90'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -52,6 +53,59 @@ function Kpi({
         hint && <span className={s.kpiHint}>{hint}</span>
       )}
     </div>
+  )
+}
+
+/** Ad spend against what the shop itself sold. Quietly absent when Meta is not connected or does not answer. */
+function AdsSnapshot({ range, token }: { range: Range; token: string | null }) {
+  const [report, setReport] = useState<AttributionReport | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    fetch(`/api/admin/meta/attribution?range=${range}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => !cancelled && setReport(d.success ? d.report : null))
+      .catch(() => !cancelled && setReport(null))
+    return () => {
+      cancelled = true
+    }
+  }, [range, token])
+  if (!report) return null
+  const t = report.result.totals
+  const roas = (n: number | null) => (n === null ? '—' : n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+  return (
+    <section className={s.panel} style={{ marginBottom: 16 }}>
+      <div className={s.panelHead}>
+        <div>
+          <h2 className={s.panelTitle}>Reklamlar</h2>
+          <p className={s.panelSub}>Meta reklamına harcadığınız para ve sitenizin kendi ölçtüğü satış.</p>
+        </div>
+        <Link href="/marketing/meta/sales" className={s.seg}>
+          Ayrıntı
+        </Link>
+      </div>
+      <div className={s.kpis} style={{ padding: '0 1rem 1rem', marginBottom: 0 }}>
+        <div className={s.kpi}>
+          <span className={s.kpiLabel}>Reklam harcaması</span>
+          <span className={s.kpiValue}>{money2(t.spend)}</span>
+        </div>
+        <div className={s.kpi}>
+          <span className={s.kpiLabel}>Reklamdan gelen satış</span>
+          <span className={s.kpiValue}>{money2(t.revenue)}</span>
+          <span className={s.kpiHint}>{fmtInt(t.orders)} sipariş (sipariş kayıtlarından)</span>
+        </div>
+        <div className={s.kpi}>
+          <span className={s.kpiLabel}>Gerçek ROAS</span>
+          <span className={s.kpiValue}>{roas(t.realRoas)}</span>
+          <span className={s.kpiHint}>harcanan her 1 ₺ için satış</span>
+        </div>
+        <div className={s.kpi}>
+          <span className={s.kpiLabel}>Meta’nın söylediği ROAS</span>
+          <span className={s.kpiValue}>{roas(t.metaRoas)}</span>
+          <span className={s.kpiHint}>Meta’nın kendi hesabı</span>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -209,6 +263,8 @@ export default function MarketingOverviewPage() {
               hint="sepete ekleyip almayanlar"
             />
           </section>
+
+          <AdsSnapshot range={range} token={canFetch ? token : null} />
 
           {cur.orders > 0 && cur.trackedOrderShare !== null && cur.trackedOrderShare < 1 && (
             <p className={s.note}>

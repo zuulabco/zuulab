@@ -4,6 +4,8 @@ export interface NavItem {
   icon: string
   /** Other words the quick search finds this page by (Turkish letters optional) */
   keywords?: string
+  /** Pages that belong to this item, shown as tabs on each of them (the first is the item's own page). The item stays highlighted on all of them. */
+  tabs?: Array<{ label: string; href: string; keywords?: string }>
 }
 
 export interface NavSection {
@@ -28,21 +30,6 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    id: 'marketing',
-    title: 'Pazarlama',
-    items: [
-      { label: 'Genel bakış', href: '/marketing', icon: 'megaphone', keywords: 'pazarlama özet ciro dönüşüm huni sepet terk ziyaretçi reklam roas marketing' },
-      { label: 'Ürün performansı', href: '/marketing/products', icon: 'products', keywords: 'ürün analitik görüntülenme sepete ekleme satış dönüşüm en çok satan fırsat product' },
-      { label: 'Müşteri grupları', href: '/marketing/segments', icon: 'customers', keywords: 'segment müşteri grubu kitle ilk alışveriş tekrar yüksek harcama sepet terk hedef kitle audience' },
-      { label: 'Meta reklamları', href: '/marketing/meta', icon: 'megaphone', keywords: 'meta facebook instagram reklam kampanya reklam seti bütçe ads' },
-      { label: 'Reklam raporu', href: '/marketing/meta/report', icon: 'analytics', keywords: 'meta reklam rapor harcama roas ctr cpc cpm erişim gösterim satın alma performans' },
-      { label: 'Reklam → satış', href: '/marketing/meta/sales', icon: 'analytics', keywords: 'attribution reklam satış roas gerçek sipariş kampanya utm fbclid meta atıf' },
-      { label: 'E-posta', href: '/marketing/email', icon: 'mail', keywords: 'bülten kampanya e-posta resend gönderim abone açılma tıklama newsletter email' },
-      { label: 'Analitik', href: '/analytics', icon: 'analytics', keywords: 'analizler google analytics rapor istatistik grafik analytics ziyaretçi tıklama' },
-      { label: 'SEO', href: '/seo', icon: 'analytics', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },
-    ],
-  },
-  {
     id: 'sales',
     title: 'Satış',
     items: [
@@ -61,6 +48,38 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Kategoriler', href: '/categories', icon: 'categories', keywords: 'kategori category' },
       { label: 'Koleksiyonlar', href: '/collections', icon: 'collections', keywords: 'koleksiyon collection seri' },
       { label: 'Yorumlar', href: '/reviews', icon: 'reviews', keywords: 'yorum değerlendirme puan review' },
+    ],
+  },
+  {
+    id: 'marketing',
+    title: 'Pazarlama',
+    collapsedByDefault: true,
+    items: [
+      { label: 'Genel bakış', href: '/marketing', icon: 'pulse', keywords: 'pazarlama özet ciro dönüşüm huni sepet terk ziyaretçi reklam roas marketing' },
+      {
+        label: 'Reklamlar',
+        href: '/marketing/meta',
+        icon: 'target',
+        keywords: 'meta facebook instagram reklam kampanya reklam seti bütçe ads',
+        tabs: [
+          { label: 'Reklamlarım', href: '/marketing/meta' },
+          { label: 'Reklam raporu', href: '/marketing/meta/report', keywords: 'meta reklam rapor harcama roas ctr cpc cpm erişim gösterim satın alma performans' },
+          { label: 'Gerçek satış', href: '/marketing/meta/sales', keywords: 'reklam satış attribution roas gerçek sipariş kampanya utm fbclid meta atıf' },
+        ],
+      },
+      { label: 'E-posta', href: '/marketing/email', icon: 'mail', keywords: 'bülten kampanya e-posta resend gönderim abone açılma tıklama otomasyon newsletter email' },
+      { label: 'Müşteri grupları', href: '/marketing/segments', icon: 'segments', keywords: 'segment müşteri grubu kitle ilk alışveriş tekrar yüksek harcama sepet terk hedef kitle audience' },
+      {
+        label: 'Site analizi',
+        href: '/analytics',
+        icon: 'analytics',
+        keywords: 'analizler google analytics rapor istatistik grafik analytics ziyaretçi tıklama',
+        tabs: [
+          { label: 'Ziyaretçiler', href: '/analytics', keywords: 'analizler google analytics rapor istatistik grafik ziyaretçi tıklama' },
+          { label: 'Google arama', href: '/seo', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },
+          { label: 'Ürün performansı', href: '/marketing/products', keywords: 'ürün analitik görüntülenme sepete ekleme satış dönüşüm en çok satan fırsat product' },
+        ],
+      },
     ],
   },
   {

@@ -8,6 +8,7 @@ import s from '../analytics/Analytics.module.css'
 import { LineChart, fmtInt } from '../analytics/charts'
 import { changeOf, countryName, pageKind, pathOfUrl, type GscRow, type SeoRow } from '@/lib/analytics/seo'
 import type { SeoReport } from '@/lib/services/analytics/seo-report.service'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 type Range = '7' | '28' | '90'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -203,6 +204,7 @@ export default function SeoPage() {
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
           <h1 className={adminStyles.pageTitle}>SEO</h1>

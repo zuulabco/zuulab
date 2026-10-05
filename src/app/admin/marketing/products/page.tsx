@@ -8,6 +8,7 @@ import { BarList, fmtInt } from '../../analytics/charts'
 import { changeOf } from '@/lib/analytics/seo'
 import type { ProductRow } from '@/lib/analytics/product-insights'
 import type { ProductReport } from '@/lib/services/analytics/product-analytics.service'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 type Range = 'today' | '7' | '28' | '90'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -105,6 +106,7 @@ export default function ProductAnalyticsPage() {
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
           <h1 className={adminStyles.pageTitle}>Ürün performansı</h1>

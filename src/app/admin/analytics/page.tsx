@@ -7,6 +7,7 @@ import s from './Analytics.module.css'
 import { BarList, ColumnChart, LineChart, fmtInt, type BarRow } from './charts'
 import { EARLIEST_DAY, spanDays, todayInTurkey, shiftDay, type AnalyticsPeriod } from '@/lib/analytics/period'
 import AdminIcon from '../AdminIcon'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 // ── Report shape (see lib/services/analytics/google-analytics.service.ts) ──
 
@@ -136,6 +137,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
           <h1 className={adminStyles.pageTitle}>Analizler</h1>

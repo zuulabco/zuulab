@@ -2,6 +2,20 @@ import React from 'react'
 
 /** Line icons for the admin navigation (24px grid, stroke follows text colour). */
 const PATHS: Record<string, React.ReactNode> = {
+  pulse: <path d="M3 12h4l2.5-7 5 14 2.5-7H21" />,
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.2" />
+    </>
+  ),
+  segments: (
+    <>
+      <path d="M12 3a9 9 0 1 0 9 9h-9z" />
+      <path d="M15 3.5A9 9 0 0 1 20.5 9H15z" />
+    </>
+  ),
   analytics: (
     <>
       <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />

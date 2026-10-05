@@ -1,12 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import adminStyles from '../../../admin.module.css'
 import s from '../../../analytics/Analytics.module.css'
 import { fmtInt } from '../../../analytics/charts'
 import type { AttributionReport } from '@/lib/services/meta-attribution.service'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 type Range = 'today' | '7' | '28' | '90'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -67,12 +67,13 @@ export default function MetaSalesPage() {
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
           <h1 className={adminStyles.pageTitle}>Reklam → gerçek satış</h1>
           <p className={adminStyles.pageSubtitle}>
             Reklama harcadığınız para ile sitenizin kendi ölçtüğü ziyaret ve siparişler yan yana. Satış rakamı <strong>sipariş kayıtlarından</strong>{' '}
-            gelir; Meta’nın söylediği ayrıca gösterilir. <Link href="/marketing/meta/report">Meta raporu →</Link>
+            gelir; Meta’nın söylediği ayrıca gösterilir.
           </p>
         </div>
         <div className={s.toolbar}>
@@ -184,12 +185,8 @@ export default function MetaSalesPage() {
             </div>
           </section>
 
-          <section className={s.panel} style={{ marginTop: '1.5rem' }}>
-            <div className={s.panelHead}>
-              <div>
-                <h2 className={s.panelTitle}>Satışlar neden “kampanyası belirlenemeyen” satırına düşüyor?</h2>
-              </div>
-            </div>
+          <details className={s.panel} style={{ marginTop: '1.5rem' }}>
+            <summary style={{ cursor: 'pointer', padding: '14px 16px', fontWeight: 600 }}>Satışlar neden “kampanyası belirlenemeyen” satırına düşüyor? (nasıl düzeltilir)</summary>
             <div style={{ padding: '0 1rem 1rem', fontSize: '0.85rem', lineHeight: 1.6 }}>
               <p>
                 Bir siparişi kampanyaya bağlamak için ziyaretçinin geldiği bağlantıda kampanya etiketi (utm) olmalı. Bu panelden oluşturulan reklamlara
@@ -205,7 +202,7 @@ export default function MetaSalesPage() {
                 yazılır. Meta aynı satışı daha geniş sayabildiği için sizin rakamınızın biraz düşük çıkması beklenir.
               </p>
             </div>
-          </section>
+          </details>
         </>
       )}
     </div>

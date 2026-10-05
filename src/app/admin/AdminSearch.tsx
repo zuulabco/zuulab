@@ -20,7 +20,13 @@ interface ServerGroup {
 
 const PAGES = [
   ...NAV_SECTIONS.flatMap((section) =>
-    section.items.map((item) => ({ ...item, sectionTitle: section.title ?? '', isAction: false }))
+    section.items.flatMap((item) => [
+      { ...item, sectionTitle: section.title ?? '', isAction: false },
+      // pages shown as tabs inside an item are pages of their own for the search
+      ...(item.tabs ?? [])
+        .filter((t) => t.href !== item.href)
+        .map((t) => ({ label: t.label, href: t.href, icon: item.icon, keywords: `${t.keywords ?? ''} ${item.label}`, sectionTitle: section.title ?? '', isAction: false })),
+    ])
   ),
   ...QUICK_ACTIONS.map((item) => ({ ...item, sectionTitle: 'İşlem', isAction: true })),
 ]

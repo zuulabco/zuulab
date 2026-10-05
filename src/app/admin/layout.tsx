@@ -13,14 +13,17 @@ import { Skeleton, SkeletonPage } from '@/components/common/Skeleton'
 
 /** The nav item a path belongs to: the longest matching href wins (/marketplaces/orders over /marketplaces). */
 function activeItemFor(path: string): { section: NavSection; item: NavItem } | null {
-  let best: { section: NavSection; item: NavItem } | null = null
+  let best: { section: NavSection; item: NavItem; matched: string } | null = null
   for (const section of NAV_SECTIONS) {
     for (const item of section.items) {
-      const matches = item.href === '/' ? path === '/' : path === item.href || path.startsWith(`${item.href}/`)
-      if (matches && (!best || item.href.length > best.item.href.length)) best = { section, item }
+      const hrefs = [item.href, ...(item.tabs?.map((t) => t.href) ?? [])]
+      for (const href of hrefs) {
+        const matches = href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`)
+        if (matches && (!best || href.length > best.matched.length)) best = { section, item, matched: href }
+      }
     }
   }
-  return best
+  return best && { section: best.section, item: best.item }
 }
 
 const NAV_STATE_KEY = 'zuulab-admin-nav'
@@ -206,7 +209,8 @@ export default function AdminLayout({
   const normalizedCurrentPath = pathname.replace(/^\/admin/, '') || '/'
   const active = activeItemFor(normalizedCurrentPath)
   const isSectionOpen = (section: NavSection) =>
-    !section.title || section.id === active?.section.id || (navState[section.id] ?? !section.collapsedByDefault)
+    // The group of the page you are on is open until you close it yourself
+    !section.title || (navState[section.id] ?? (section.id === active?.section.id || !section.collapsedByDefault))
   const toggleSection = (id: string, open: boolean) => {
     setNavState((prev) => {
       const next = { ...prev, [id]: !open }
@@ -262,7 +266,6 @@ export default function AdminLayout({
                     aria-expanded={open}
                     aria-controls={`nav-${section.id}`}
                     onClick={() => toggleSection(section.id, open)}
-                    disabled={section.id === active?.section.id}
                   >
                     <span>{section.title}</span>
                     <span className={`${styles.navChevron} ${open ? styles.navChevronOpen : ''}`}>

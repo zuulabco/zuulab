@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import adminStyles from '../../../admin.module.css'
@@ -9,6 +8,7 @@ import { LineChart, fmtInt } from '../../../analytics/charts'
 import { changeOf } from '@/lib/analytics/seo'
 import type { InsightLevel } from '@/lib/meta-ads/insights'
 import type { InsightsReport } from '@/lib/services/meta-ads.service'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 type Range = 'today' | '7' | '28' | '90'
 const RANGES: Array<{ value: Range; label: string }> = [
@@ -27,16 +27,57 @@ const tl = (n: number | null, digits = 2) => (n === null ? '—' : `${n.toLocale
 const pct = (n: number | null) => (n === null ? '—' : `%${(n * 100).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}`)
 const roas = (n: number | null) => (n === null ? '—' : n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 
-function Change({ current, previous }: { current: number | null; previous: number | null }) {
+/** `lowerBetter`: a rise is bad news (costs), so it is shown red */
+function Change({ current, previous, lowerBetter = false }: { current: number | null; previous: number | null; lowerBetter?: boolean }) {
   if (current === null || previous === null) return null
   const c = changeOf(current, previous)
   if (c === null || Math.abs(c) < 0.005) return null
   return (
-    <span className={c > 0 ? s.deltaUp : s.deltaDown} style={{ marginLeft: 6 }}>
+    <span className={(c > 0) !== lowerBetter ? s.deltaUp : s.deltaDown} style={{ marginLeft: 6 }}>
       {c > 0 ? '▲' : '▼'} %{(Math.abs(c) * 100).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}
     </span>
   )
 }
+
+type M = InsightsReport['current']
+interface Kpi {
+  label: string
+  hint: string
+  lowerBetter?: boolean
+  read: (c: M, p: M) => [string, number | null, number | null]
+}
+const GROUPS: Array<{ title: string; sub: string; items: Kpi[] }> = [
+  {
+    title: 'Ne kadar harcandı, kime ulaştı?',
+    sub: 'Reklamlara giden para ve reklamı gören kişiler.',
+    items: [
+      { label: 'Harcama', hint: 'Seçilen aralıkta reklama giden toplam para', read: (c, p) => [tl(c.spend), c.spend, p.spend] },
+      { label: 'Gösterim', hint: 'Reklamın toplam kaç kez ekrana geldiği', read: (c, p) => [fmtInt(c.impressions), c.impressions, p.impressions] },
+      { label: 'Erişim', hint: 'Reklamı gören farklı kişi sayısı', read: (c, p) => [fmtInt(c.reach), c.reach, p.reach] },
+    ],
+  },
+  {
+    title: 'Ne kadar ilgi çekti?',
+    sub: 'Reklamı görenlerin sitenize gelmesi ve bunun maliyeti.',
+    items: [
+      { label: 'Siteye tıklama', hint: 'Reklamdan sitenize giden tıklama sayısı', read: (c, p) => [fmtInt(c.linkClicks), c.linkClicks, p.linkClicks] },
+      { label: 'Tıklama oranı (CTR)', hint: 'Reklamı görenlerin yüzde kaçı tıkladı', read: (c, p) => [pct(c.ctr), c.ctr, p.ctr] },
+      { label: 'Tıklama başına maliyet (CPC)', hint: 'Bir tıklama için ödediğiniz ortalama tutar (düşük iyi)', lowerBetter: true, read: (c, p) => [tl(c.cpc), c.cpc, p.cpc] },
+      { label: '1000 gösterim maliyeti (CPM)', hint: 'Reklamı 1000 kez göstermenin maliyeti (düşük iyi)', lowerBetter: true, read: (c, p) => [tl(c.cpm), c.cpm, p.cpm] },
+    ],
+  },
+  {
+    title: 'Ne sattı? (Meta’ya göre)',
+    sub: 'Bu rakamlar Meta’nın kendi hesabıdır. Siparişlerinizle karşılaştırması “Gerçek satış” sekmesinde.',
+    items: [
+      { label: 'Sepete ekleme', hint: 'Reklamdan gelenlerin sepete attığı ürün sayısı', read: (c, p) => [fmtInt(c.addToCart), c.addToCart, p.addToCart] },
+      { label: 'Ödemeye başlama', hint: 'Ödeme sayfasına geçenler', read: (c, p) => [fmtInt(c.initiateCheckout), c.initiateCheckout, p.initiateCheckout] },
+      { label: 'Satın alma', hint: 'Meta’nın reklama bağladığı sipariş sayısı', read: (c, p) => [fmtInt(c.purchases), c.purchases, p.purchases] },
+      { label: 'Satış tutarı', hint: 'Bu siparişlerin toplam tutarı', read: (c, p) => [tl(c.purchaseValue), c.purchaseValue, p.purchaseValue] },
+      { label: 'ROAS', hint: 'Harcanan her 1 ₺ için getirilen satış (3 = 1 ₺ ile 3 ₺ satış)', read: (c, p) => [roas(c.roas), c.roas, p.roas] },
+    ],
+  },
+]
 
 export default function MetaReportPage() {
   const { token, canFetch } = useAuthStore()
@@ -71,12 +112,12 @@ export default function MetaReportPage() {
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
           <h1 className={adminStyles.pageTitle}>Meta reklam raporu</h1>
           <p className={adminStyles.pageSubtitle}>
-            Reklamlarınızın harcaması ve sonuçları. Satış ve ROAS rakamları <strong>Meta’nın kendi hesabıdır</strong>; gerçek siparişlerinizle
-            birebir aynı olmayabilir. <Link href="/marketing/meta">Reklamları yönet →</Link> · <Link href="/marketing/meta/sales">Gerçek satış →</Link>
+            Reklamlarınız ne kadar harcadı, kaç kişiye ulaştı, kaç tıklama aldı. Sağ üstten tarih aralığını değiştirebilirsiniz; oklar bir önceki aynı uzunluktaki dönemle karşılaştırır.
           </p>
         </div>
         <div className={s.toolbar}>
@@ -95,30 +136,27 @@ export default function MetaReportPage() {
 
       {cur && prev && report && (
         <>
-          <div className={s.kpis}>
-            {[
-              { label: 'Harcama', v: tl(cur.spend), c: [cur.spend, prev.spend] as const },
-              { label: 'Gösterim', v: fmtInt(cur.impressions), c: [cur.impressions, prev.impressions] as const },
-              { label: 'Erişim', v: fmtInt(cur.reach), c: [cur.reach, prev.reach] as const },
-              { label: 'Bağlantı tıklaması', v: fmtInt(cur.linkClicks), c: [cur.linkClicks, prev.linkClicks] as const },
-              { label: 'Tıklama oranı (CTR)', v: pct(cur.ctr), c: [cur.ctr, prev.ctr] as const },
-              { label: 'Tıklama başı maliyet (CPC)', v: tl(cur.cpc), c: [cur.cpc, prev.cpc] as const },
-              { label: '1000 gösterim maliyeti (CPM)', v: tl(cur.cpm), c: [cur.cpm, prev.cpm] as const },
-              { label: 'Sepete ekleme', v: fmtInt(cur.addToCart), c: [cur.addToCart, prev.addToCart] as const },
-              { label: 'Ödemeye başlama', v: fmtInt(cur.initiateCheckout), c: [cur.initiateCheckout, prev.initiateCheckout] as const },
-              { label: 'Satın alma', v: fmtInt(cur.purchases), c: [cur.purchases, prev.purchases] as const },
-              { label: 'Dönüşüm değeri', v: tl(cur.purchaseValue), c: [cur.purchaseValue, prev.purchaseValue] as const },
-              { label: 'ROAS', v: roas(cur.roas), c: [cur.roas, prev.roas] as const },
-            ].map((k) => (
-              <div key={k.label} className={s.kpi}>
-                <span className={s.kpiLabel}>{k.label}</span>
-                <span className={s.kpiValue}>
-                  {k.v}
-                  <Change current={k.c[0]} previous={k.c[1]} />
-                </span>
+          {GROUPS.map((g) => (
+            <div key={g.title} style={{ marginBottom: 8 }}>
+              <h2 className={s.panelTitle} style={{ margin: '0 0 2px' }}>{g.title}</h2>
+              <p className={s.panelSub} style={{ margin: '0 0 10px' }}>{g.sub}</p>
+              <div className={s.kpis}>
+                {g.items.map((k) => {
+                  const [value, a, b] = k.read(cur, prev)
+                  return (
+                    <div key={k.label} className={s.kpi}>
+                      <span className={s.kpiLabel}>{k.label}</span>
+                      <span className={s.kpiValue}>
+                        {value}
+                        <Change current={a} previous={b} lowerBetter={k.lowerBetter} />
+                      </span>
+                      <span className={s.kpiHint}>{k.hint}</span>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
 
           <section className={s.panel}>
             <div className={s.panelHead}>

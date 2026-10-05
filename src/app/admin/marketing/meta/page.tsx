@@ -6,6 +6,7 @@ import adminStyles from '../../admin.module.css'
 import s from '../../analytics/Analytics.module.css'
 import type { MetaCampaign, MetaSetup } from '@/lib/services/meta-ads.service'
 import type { CtaValue, Gender, Objective, PlacementValue } from '@/lib/meta-ads/builders'
+import SectionTabs from '@/app/admin/SectionTabs'
 
 interface Data {
   setup: MetaSetup
@@ -94,18 +95,21 @@ export default function MetaAdsPage() {
     if (typed?.trim().toLocaleUpperCase('tr-TR') !== 'YAYINLA') return
     void post({ action: 'set-status', id, status: 'ACTIVE', confirm: true }, 'Yayına alındı.')
   }
-  const pause = (id: string) => void post({ action: 'set-status', id, status: 'PAUSED' }, 'Duraklatıldı.')
+  const pause = (id: string, name: string) => {
+    if (!window.confirm(`"${name}" duraklatılacak ve reklam gösterimi duracak. Devam edilsin mi?`)) return
+    void post({ action: 'set-status', id, status: 'PAUSED' }, 'Duraklatıldı.')
+  }
 
   const setup = data?.setup
 
   return (
     <div className={adminStyles.pageContainer}>
+      <SectionTabs />
       <header className={adminStyles.pageHeader}>
         <div>
-          <h1 className={adminStyles.pageTitle}>Meta reklamları</h1>
+          <h1 className={adminStyles.pageTitle}>Reklamlarım</h1>
           <p className={adminStyles.pageSubtitle}>
-            Facebook ve Instagram reklamlarını buradan oluşturun. Her yeni kampanya, reklam seti ve reklam <strong>duraklatılmış</strong> açılır;
-            yayına almak ayrı bir onay ister.
+            Facebook ve Instagram reklamlarınız. Buradan açtığınız her şey önce <strong>duraklatılmış</strong> durur; yayına almak için onay yazmanız gerekir.
           </p>
         </div>
       </header>
@@ -114,26 +118,32 @@ export default function MetaAdsPage() {
       {notice && <div className={s.alert} style={{ background: 'var(--surface-1)', color: 'var(--text-primary)' }}>{notice}</div>}
       {!data && !failure && <div className={s.loadingBlock}>Veriler yükleniyor…</div>}
 
-      {setup && (
-        <section className={s.panel}>
-          <div className={s.panelHead}>
-            <div>
-              <h2 className={s.panelTitle}>Bağlantı</h2>
-              <p className={s.panelSub}>
-                {!setup.configured
-                  ? 'Meta reklam hesabı bağlı değil (META_ADS_ACCESS_TOKEN, META_AD_ACCOUNT_ID).'
-                  : setup.problem
-                    ? setup.problem
-                    : `${setup.account?.name} · ${setup.account?.status} · ${setup.account?.currency} · bugüne kadar harcanan ${money(setup.account?.spentToDate ?? 0)}`}
-              </p>
-            </div>
+      {setup && !setup.configured && <div className={s.alert}>Meta reklam hesabı bağlı değil. Vercel’de META_ADS_ACCESS_TOKEN ve META_AD_ACCOUNT_ID tanımlı olmalı.</div>}
+      {setup?.problem && <div className={s.alert}>{setup.problem}</div>}
+      {setup?.account && (
+        <div className={s.kpis}>
+          <div className={s.kpi}>
+            <span className={s.kpiLabel}>Reklam hesabı</span>
+            <span className={s.kpiValue} style={{ fontSize: 'var(--text-lg)' }}>{setup.account.name}</span>
+            <span className={s.kpiHint}>{setup.account.status} · {setup.account.currency}</span>
           </div>
-          <ul style={{ padding: '0 1rem 1rem', margin: 0, fontSize: '0.85rem', listStyle: 'none' }}>
-            <li>{setup.pixel.configured ? (setup.pixel.inAccount === false ? '⚠️ Pixel kimliği bu reklam hesabında bulunamadı.' : '✓ Pixel bağlı.') : '⚠️ Pixel kimliği tanımlı değil.'}</li>
-            <li>{setup.pageConfigured ? '✓ Facebook sayfası tanımlı.' : '⚠️ Reklam oluşturmak için META_PAGE_ID (Facebook sayfa kimliği) eklenmeli.'}</li>
-            <li>✓ Günlük bütçe güvenlik sınırı: {money(setup.maxDailyBudget)}</li>
-          </ul>
-        </section>
+          <div className={s.kpi}>
+            <span className={s.kpiLabel}>Bugüne kadar harcanan</span>
+            <span className={s.kpiValue}>{money(setup.account.spentToDate)}</span>
+            <span className={s.kpiHint}>Hesabın açıldığı günden beri</span>
+          </div>
+          <div className={s.kpi}>
+            <span className={s.kpiLabel}>Günlük bütçe sınırı</span>
+            <span className={s.kpiValue}>{money(setup.maxDailyBudget)}</span>
+            <span className={s.kpiHint}>Bundan yüksek bütçe girilemez</span>
+          </div>
+        </div>
+      )}
+      {setup?.account && setup.pixel.inAccount === false && <div className={s.alert}>Pixel kimliği bu reklam hesabında bulunamadı; satış ölçümü çalışmayabilir.</div>}
+      {setup?.account && !setup.pageConfigured && (
+        <div className={s.alert}>
+          Yeni <strong>reklam</strong> oluşturabilmek için Facebook sayfa kimliği gerekli (Vercel’de META_PAGE_ID). Kampanya ve reklam seti oluşturma şimdi de çalışır.
+        </div>
       )}
 
       {data && data.setup.configured && !data.setup.problem && (
@@ -142,7 +152,7 @@ export default function MetaAdsPage() {
             <div className={s.panelHead}>
               <div>
                 <h2 className={s.panelTitle}>Kampanyalar</h2>
-                <p className={s.panelSub}>Yayındaki bir öğeyi buradan duraklatabilirsiniz. Yayına almak için onay yazmanız gerekir.</p>
+                <p className={s.panelSub}>Kampanya → reklam seti → reklam sırasıyla. Duraklat ve Yayına al düğmeleri o satırı etkiler.</p>
               </div>
             </div>
             {data.campaigns.length === 0 ? (
@@ -168,19 +178,25 @@ export default function MetaAdsPage() {
             )}
           </section>
 
-          <CampaignForm busy={busy} data={data} post={post} />
-          <AdSetForm busy={busy} data={data} post={post} />
-          <AdForm busy={busy} data={data} post={post} />
+          <details className={s.panel} style={{ marginTop: '1.5rem' }}>
+            <summary style={{ cursor: 'pointer', padding: '14px 16px', fontWeight: 600, fontSize: 'var(--text-base)' }}>＋ Yeni reklam oluştur</summary>
+            <p className={s.panelSub} style={{ padding: '0 1rem 8px' }}>
+              Sırayla doldurun: önce kampanya, sonra onun reklam seti, sonra reklam. Her adımda önce “Meta’ya doğrulat” ile deneyebilirsiniz; bu hiçbir şey oluşturmaz.
+            </p>
+            <CampaignForm busy={busy} data={data} post={post} />
+            <AdSetForm busy={busy} data={data} post={post} />
+            <AdForm busy={busy} data={data} post={post} />
+          </details>
         </>
       )}
     </div>
   )
 }
 
-function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boolean; onLive: (id: string, name: string) => void; onPause: (id: string) => void }) {
+function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boolean; onLive: (id: string, name: string) => void; onPause: (id: string, name: string) => void }) {
   const Actions = ({ id, name, status }: { id: string; name: string; status: string }) =>
     status === 'ACTIVE' ? (
-      <button type="button" className={s.seg} disabled={busy} onClick={() => onPause(id)}>
+      <button type="button" className={s.seg} disabled={busy} onClick={() => onPause(id, name)}>
         Duraklat
       </button>
     ) : status === 'PAUSED' ? (
@@ -194,7 +210,7 @@ function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boo
         <td className={s.pathCell} style={{ whiteSpace: 'normal' }}>
           <strong>{c.name}</strong> <span style={{ color: 'var(--text-muted)' }}>· {OBJECTIVE_TR[c.objective] ?? c.objective}</span>
         </td>
-        <td>{statusText(c.effectiveStatus)}</td>
+        <td><Chip status={c.effectiveStatus} /></td>
         <td className={s.num}>{money(c.dailyBudget)}</td>
         <td className={s.num}>
           <Actions id={c.id} name={c.name} status={c.status} />
@@ -206,7 +222,7 @@ function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boo
             <td className={s.pathCell} style={{ paddingLeft: 24, whiteSpace: 'normal' }}>
               ↳ {set.name}
             </td>
-            <td>{statusText(set.effectiveStatus)}</td>
+            <td><Chip status={set.effectiveStatus} /></td>
             <td className={s.num}>{set.dailyBudget !== null ? money(set.dailyBudget) : set.lifetimeBudget !== null ? `${money(set.lifetimeBudget)} (toplam)` : '—'}</td>
             <td className={s.num}>
               <Actions id={set.id} name={set.name} status={set.status} />
@@ -217,7 +233,7 @@ function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boo
               <td className={s.pathCell} style={{ paddingLeft: 48, whiteSpace: 'normal' }}>
                 ↳ {ad.name}
               </td>
-              <td>{statusText(ad.effectiveStatus)}</td>
+              <td><Chip status={ad.effectiveStatus} /></td>
               <td />
               <td className={s.num}>
                 <Actions id={ad.id} name={ad.name} status={ad.status} />
@@ -227,6 +243,26 @@ function CampaignRows({ c, busy, onLive, onPause }: { c: MetaCampaign; busy: boo
         </FragmentRows>
       ))}
     </>
+  )
+}
+
+function Chip({ status }: { status: string }) {
+  const live = status === 'ACTIVE'
+  const bad = status === 'DISAPPROVED' || status === 'WITH_ISSUES'
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        padding: '2px 9px',
+        borderRadius: 999,
+        fontSize: '0.75rem',
+        fontWeight: 600,
+        background: live ? 'rgba(46,160,67,0.14)' : bad ? 'rgba(198,40,40,0.14)' : 'var(--surface-1)',
+        color: live ? '#1a7f37' : bad ? '#c62828' : 'var(--text-secondary)',
+      }}
+    >
+      {statusText(status)}
+    </span>
   )
 }
 
