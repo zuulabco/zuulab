@@ -4,6 +4,7 @@ import { getConsent } from '@/lib/consent'
 import { getAttribution, getFirstTouchAttribution } from './attribution'
 import { createDispatcher } from './dispatcher'
 import { ga4BrowserDestination } from './destinations/ga4-browser'
+import { internalBrowserDestination } from './destinations/internal-browser'
 import { metaCapiRelayDestination, metaPixelDestination } from './destinations/meta-pixel'
 import {
   buildEvent,
@@ -22,11 +23,11 @@ import {
  * and hands the event to the dispatcher. It never throws and never waits, so calling it
  * from a click handler or a store action cannot slow down or break the shop.
  *
- * Destinations: GA4, Meta Pixel and the relay that hands browser events to the server for
- * Meta CAPI. Another one is added by registering it here; callers do not change.
+ * Destinations: GA4, Meta Pixel, the relay that hands browser events to the server for
+ * Meta CAPI, and ZUULAB's own analytics. Another one is added by registering it here; callers do not change.
  */
 export const browserDispatcher = createDispatcher({
-  destinations: [ga4BrowserDestination, metaPixelDestination, metaCapiRelayDestination],
+  destinations: [ga4BrowserDestination, metaPixelDestination, metaCapiRelayDestination, internalBrowserDestination],
 })
 
 const ANON_KEY = 'zuulab_aid'

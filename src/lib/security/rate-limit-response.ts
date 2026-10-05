@@ -23,6 +23,8 @@ export const RATE_LIMITS = {
   newsletter: { limit: 6, windowSeconds: 600 },
   // Browser events relayed to Meta CAPI: a busy browsing session sends a few per minute
   marketingEvent: { limit: 120, windowSeconds: 60 },
+  // Browser events stored in ZUULAB's own analytics: every page view and action is one request
+  analyticsCollect: { limit: 300, windowSeconds: 60 },
 } as const
 
 export type RateLimitName = keyof typeof RATE_LIMITS

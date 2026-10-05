@@ -2626,3 +2626,34 @@ model ProductMaterial {
 
   @@map("product_materials")
 }
+
+// ─────────────────────────────────────────────────────────────
+// INTERNAL ANALYTICS (own event log, independent of Google / Meta)
+// ─────────────────────────────────────────────────────────────
+/// One row per canonical marketing event of a visitor who accepted "all" cookies
+/// (see lib/marketing). Funnel, conversion and abandonment are computed from this log;
+/// revenue and orders come from `orders`, which is complete whatever the consent.
+/// event_id is unique, so a repeated delivery (retry, reload) is stored once.
+model MarketingEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique @map("event_id")
+  name        String
+  occurredAt  DateTime @map("occurred_at")
+  anonymousId String?  @map("anonymous_id")
+  sessionId   String?  @map("session_id")
+  userId      String?  @map("user_id")
+  orderNumber String?  @map("order_number")
+  productId   String?  @map("product_id")
+  value       Decimal? @db.Decimal(12, 2)
+  pagePath    String?  @map("page_path")
+  utmSource   String?  @map("utm_source")
+  utmMedium   String?  @map("utm_medium")
+  utmCampaign String?  @map("utm_campaign")
+  utmContent  String?  @map("utm_content")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([name, occurredAt])
+  @@index([occurredAt])
+  @@index([anonymousId])
+  @@map("marketing_events")
+}

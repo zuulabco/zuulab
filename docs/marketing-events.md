@@ -75,6 +75,29 @@ events only appear under Events Manager → Test Events and do not count for ads
   decision: Lead or Subscribe), login, remove_from_cart.
 - No retry queue: a failed CAPI call is logged and dropped.
 
+## Internal analytics (Phase 5)
+
+The shop's own numbers, independent of Google and Meta. Code: `lib/analytics/internal.ts` (rules),
+`lib/services/analytics/internal-analytics.service.ts` (queries), `GET /api/admin/insights`.
+
+- **Two sources, on purpose.** `marketing_events` holds what visitors did (views, carts, checkouts), only for visitors
+  who chose "tümünü kabul et". `orders` holds what was sold, so a sale is never lost to an ad blocker or a refused
+  banner, and revenue can be checked against the admin's order list. `purchase` is never stored as an event.
+- **Collection:** the browser sends every canonical event to `POST /api/marketing/collect` (consent read from the
+  cookie, whitelisted fields, no user id from the body, page path without query string). Repeated event ids are
+  stored once.
+- **Rates are only computed inside one population:** conversion = consented buyers / consented visitors (not all
+  orders / consented visitors). `trackedOrderShare` says how many orders belong to a consented visitor, i.e. how far
+  the visitor numbers can be trusted.
+- **Metrics:** visitors, sessions, funnel (visitor → product view → cart → checkout → payment info → buyer), orders,
+  revenue (what customers paid, shipping included), average order value, conversion, cart and checkout abandonment
+  (visitors who reached the step and have no consented sale in the period), per-product views / carts / buyers /
+  units / revenue / conversion, daily trend, campaign sources (visitors from events, orders from the order's last
+  touch).
+- Periods are Turkish calendar days (UTC+3); an order belongs to the period it was placed in. Each report also
+  returns the previous period of the same length.
+- No retention job yet: rows are small (one per action); prune old ones when the table gets large.
+
 ## Adding a destination
 
 Implement `Destination` (`id`, `consent`, `accepts`, `send`), register it on `browserDispatcher`

@@ -92,6 +92,10 @@
       "model": "LocationInventory",
       "namespace": "public"
     },
+    "marketing_events": {
+      "model": "MarketingEvent",
+      "namespace": "public"
+    },
     "marketplace_credentials": {
       "model": "MarketplaceCredential",
       "namespace": "public"
@@ -3806,6 +3810,187 @@
               },
               "namespaceId": "public",
               "table": "location_inventories"
+            }
+          },
+          "MarketingEvent": {
+            "fields": {
+              "anonymousId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "eventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "occurredAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "orderNumber": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "pagePath": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "productId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "sessionId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "utmCampaign": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "utmContent": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "utmMedium": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "utmSource": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "value": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "anonymousId": {
+                  "column": "anonymous_id"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "eventId": {
+                  "column": "event_id"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "occurredAt": {
+                  "column": "occurred_at"
+                },
+                "orderNumber": {
+                  "column": "order_number"
+                },
+                "pagePath": {
+                  "column": "page_path"
+                },
+                "productId": {
+                  "column": "product_id"
+                },
+                "sessionId": {
+                  "column": "session_id"
+                },
+                "userId": {
+                  "column": "user_id"
+                },
+                "utmCampaign": {
+                  "column": "utm_campaign"
+                },
+                "utmContent": {
+                  "column": "utm_content"
+                },
+                "utmMedium": {
+                  "column": "utm_medium"
+                },
+                "utmSource": {
+                  "column": "utm_source"
+                },
+                "value": {
+                  "column": "value"
+                }
+              },
+              "namespaceId": "public",
+              "table": "marketing_events"
             }
           },
           "MarketplaceCredential": {
@@ -19752,6 +19937,142 @@
               },
               "uniques": []
             },
+            "marketing_events": {
+              "columns": {
+                "anonymous_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "created_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "event_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "occurred_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "order_number": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "page_path": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "product_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "session_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "user_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "utm_campaign": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "utm_content": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "utm_medium": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "utm_source": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "value": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true,
+                  "typeParams": {
+                    "precision": 12,
+                    "scale": 2
+                  }
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "anonymous_id"
+                  ],
+                  "name": "marketing_events_anonymous_id_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "event_id"
+                  ],
+                  "name": "marketing_events_event_id_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
+                    "name",
+                    "occurred_at"
+                  ],
+                  "name": "marketing_events_name_occurred_at_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "occurred_at"
+                  ],
+                  "name": "marketing_events_occurred_at_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "marketplace_credentials": {
               "columns": {
                 "api_key_encrypted": {
@@ -30052,10 +30373,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "507ae5e0d725f70ced4e3c372caec7591fed478eeb78040d3d0723407ad647d5"
+    "storageHash": "13c17381116e27ea419f0cde231147dd00da3554458a9ac803f489285669834e"
   },
   "execution": {
-    "executionHash": "c0567e6d3146606d1ca48b11cb8eb7e15ff1a4a49de19a691c87dba7d3248bac",
+    "executionHash": "007303c84624a36fcb523aa489ac9b24011fc78910dfc64b4fbf0b18ce5ba6ef",
     "mutations": {
       "defaults": [
         {
@@ -30500,6 +30821,17 @@
           "ref": {
             "entry": "location_inventories",
             "field": "updated_at",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "cuid2",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "marketing_events",
+            "field": "id",
             "namespace": "public"
           }
         },
