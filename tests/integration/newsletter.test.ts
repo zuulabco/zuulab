@@ -37,6 +37,8 @@ async function row(addr: string) {
 afterAll(async () => {
   await db.runtime().execute(db.raw.sql`DELETE FROM coupons WHERE assigned_email LIKE ${`${RUN}.%`}`.affectedCount().build())
   await db.runtime().execute(db.raw.sql`DELETE FROM newsletter_subscribers WHERE email LIKE ${`${RUN}.%`}`.affectedCount().build())
+  // confirming a sign-up also records the e-mail permission
+  await db.runtime().execute(db.raw.sql`DELETE FROM email_consents WHERE email LIKE ${`${RUN}.%`}`.affectedCount().build())
 })
 
 describe('newsletter', () => {
