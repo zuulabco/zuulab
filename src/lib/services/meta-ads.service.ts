@@ -26,7 +26,7 @@ import {
  *   META_ADS_ACCESS_TOKEN   system-user token with ads_management + ads_read (secret)
  *   META_AD_ACCOUNT_ID      the ad account (with or without the "act_" prefix)
  *   META_PAGE_ID            Facebook Page the ads are published as (needed to create ads)
- *   META_INSTAGRAM_ACTOR_ID optional Instagram account for the ads
+ *   META_INSTAGRAM_USER_ID  optional Instagram account id (17841…) for the ads; sent as instagram_user_id (instagram_actor_id is deprecated). Old name META_INSTAGRAM_ACTOR_ID still read
  *   META_ADS_MAX_DAILY_BUDGET  highest daily budget in lira the panel accepts (default 1000)
  */
 
@@ -39,7 +39,7 @@ interface AdsConfig {
   token: string
   accountId: string
   pageId: string
-  instagramActorId: string
+  instagramUserId: string
   graphVersion: string
   maxDailyBudget: number
 }
@@ -53,7 +53,7 @@ function config(): AdsConfig | null {
     token,
     accountId: `act_${raw}`,
     pageId: clean(process.env.META_PAGE_ID),
-    instagramActorId: clean(process.env.META_INSTAGRAM_ACTOR_ID),
+    instagramUserId: clean(process.env.META_INSTAGRAM_USER_ID) || clean(process.env.META_INSTAGRAM_ACTOR_ID),
     graphVersion: clean(process.env.META_GRAPH_VERSION) || DEFAULT_GRAPH_VERSION,
     maxDailyBudget: Number.isFinite(max) && max > 0 ? max : 1000,
   }
@@ -73,7 +73,7 @@ function context(c: AdsConfig): BuildContext {
   } catch {
     // keep the defaults
   }
-  return { maxDailyBudget: c.maxDailyBudget, pixelId: getMetaPixelId(), pageId: c.pageId, instagramActorId: c.instagramActorId || undefined, siteHosts: [...hosts] }
+  return { maxDailyBudget: c.maxDailyBudget, pixelId: getMetaPixelId(), pageId: c.pageId, instagramUserId: c.instagramUserId || undefined, siteHosts: [...hosts] }
 }
 
 type Json = Record<string, unknown>

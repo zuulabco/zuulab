@@ -160,3 +160,12 @@ describe('Meta errors', () => {
     expect(describeGraphError(null)).toMatch(/reddetti/)
   })
 })
+
+describe('Instagram account', () => {
+  it('is sent as instagram_user_id, never the deprecated instagram_actor_id', () => {
+    const c = buildCreative(ad, { ...ctx, instagramUserId: '17841478679340169' }) as { object_story_spec: Record<string, unknown> }
+    expect(c.object_story_spec.instagram_user_id).toBe('17841478679340169')
+    expect(c.object_story_spec.instagram_actor_id).toBeUndefined()
+    expect((buildCreative(ad, ctx) as { object_story_spec: Record<string, unknown> }).object_story_spec.instagram_user_id).toBeUndefined()
+  })
+})

@@ -82,7 +82,7 @@ export interface BuildContext {
   maxDailyBudget: number
   pixelId: string
   pageId: string
-  instagramActorId?: string
+  instagramUserId?: string
   /** Hosts a landing page may be on */
   siteHosts: string[]
 }
@@ -255,7 +255,7 @@ export function buildCreative(input: AdInput, ctx: BuildContext): Record<string,
   else linkData.picture = imageUrl
 
   const spec: Record<string, unknown> = { page_id: ctx.pageId, link_data: linkData }
-  if (ctx.instagramActorId) spec.instagram_actor_id = ctx.instagramActorId
+  if (ctx.instagramUserId) spec.instagram_user_id = ctx.instagramUserId
   return { name, object_story_spec: spec, url_tags: URL_TAGS }
 }
 
