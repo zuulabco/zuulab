@@ -205,7 +205,7 @@ describe('running the automations', () => {
   it('does nothing while an automation is paused (they start paused)', async () => {
     sentMails.length = 0
     const result = await svc.runAutomations({ now: NOW })
-    expect(result.map((r) => [r.key, r.state, r.sent])).toEqual([['abandoned_payment', 'paused', 0], ['review_request', 'paused', 0]])
+    expect(result.map((r) => [r.key, r.state, r.sent])).toEqual([['abandoned_payment', 'paused', 0], ['review_request', 'paused', 0], ['win_back', 'paused', 0], ['cross_sell', 'paused', 0]])
     expect(sentMails).toHaveLength(0)
   })
 
@@ -215,7 +215,7 @@ describe('running the automations', () => {
     const night = new Date('2019-03-12T19:00:00Z')
     sentMails.length = 0
     const result = await svc.runAutomations({ now: night })
-    expect(result.map((r) => r.state)).toEqual(['quiet_hours', 'quiet_hours'])
+    expect(result.map((r) => r.state)).toEqual(['quiet_hours', 'quiet_hours', 'paused', 'paused'])
     expect(sentMails).toHaveLength(0)
   })
 
@@ -264,7 +264,7 @@ describe('running the automations', () => {
   it('running again sends nothing: every order is mailed once, an address at most every 3 days', async () => {
     sentMails.length = 0
     const result = await svc.runAutomations({ now: NOW })
-    expect(result.map((r) => r.sent)).toEqual([0, 0])
+    expect(result.map((r) => r.sent)).toEqual([0, 0, 0, 0])
     expect(sentMails).toHaveLength(0)
   })
 
@@ -283,7 +283,7 @@ describe('running the automations', () => {
       const later = new Date(NOW.getTime() + 20 * 86_400_000) // a moment when a2/other orders would be eligible again
       sentMails.length = 0
       const result = await svc.runAutomations({ now: later })
-      expect(result.map((r) => r.state)).toEqual(['paused', 'paused'])
+      expect(result.map((r) => r.state)).toEqual(['paused', 'paused', 'paused', 'paused'])
       expect(sentMails).toHaveLength(0)
       await expect(svc.setAutomationActive('abandoned_payment', true, 'test')).rejects.toThrow(/İYS/)
       await svc.setAutomationActive('abandoned_payment', false, 'test') // switching off is always allowed
@@ -301,5 +301,20 @@ describe('running the automations', () => {
     expect(abandoned.counts).toMatchObject({ sent: 1, failed: 1 })
     expect(review.counts).toMatchObject({ sent: 1, failed: 0 })
     expect(abandoned.active).toBe(true)
+  })
+})
+
+describe('win-back and cross-sell on the real database (dry run: finds people, sends and changes nothing)', () => {
+  it('both rules run and return a count, with the fake provider receiving nothing', async () => {
+    const { runAutomations, findCandidates } = await import('@/lib/services/email-automation.service')
+    const before = sentMails.length
+    const results = await runAutomations({ dryRun: true })
+    expect(results.map((r) => r.key)).toEqual(['abandoned_payment', 'review_request', 'win_back', 'cross_sell'])
+    for (const r of results) expect(r.sent).toBe(0)
+    for (const key of ['win_back', 'cross_sell'] as const) {
+      const people = await findCandidates(key, new Date(), 5)
+      expect(people.length).toBeLessThanOrEqual(5)
+    }
+    expect(sentMails.length).toBe(before)
   })
 })

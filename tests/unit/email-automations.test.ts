@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  AUTOMATIONS, abandonedPaymentMail, automationDef, inQuietHours, reviewRequestMail, signOptout, turkeyHour, verifyOptout,
+  AUTOMATIONS, abandonedPaymentMail, automationDef, crossSellMail, inQuietHours, reviewRequestMail, signOptout, turkeyHour, verifyOptout, winBackMail, withMailTags,
 } from '@/lib/email/automations'
 import { campaignContentSchema, renderCampaignBody } from '@/lib/email/campaign'
 
 describe('which automations exist', () => {
-  it('has the two agreed rules, both only for people who gave the e-mail permission (not the newsletter)', () => {
-    expect(AUTOMATIONS.map((a) => a.key)).toEqual(['abandoned_payment', 'review_request'])
+  it('has the agreed rules, all only for people who gave the e-mail permission (not the newsletter)', () => {
+    expect(AUTOMATIONS.map((a) => a.key)).toEqual(['abandoned_payment', 'review_request', 'win_back', 'cross_sell'])
     for (const a of AUTOMATIONS) {
       expect(a.audience).toContain('e-posta izni')
       expect(a.audience.toLowerCase()).not.toContain('bültene abone olanlar veya')
@@ -117,5 +117,33 @@ describe('POST /api/email/optout (takes the e-mail permission back)', () => {
     expect((await post(`?e=${link.e}&s=forged`)).status).toBe(400)
     expect((await post('')).status).toBe(400)
     expect(recorded).toEqual([])
+  })
+})
+
+describe('win-back and cross-sell mails', () => {
+  const recs = [
+    { name: 'Mini Dinozor', path: '/urun/mini-dinozor', price: 249.9 },
+    { name: 'Spinner Ball', path: '/urun/spinner-ball', price: 99 },
+  ]
+
+  it('list the suggestions with their prices and stay valid campaign content', () => {
+    const win = winBackMail(recs, 'https://zuulab.com')
+    expect(win.content.paragraphs.join('\n')).toContain('Mini Dinozor — 249,90 ₺')
+    expect(campaignContentSchema.safeParse(win.content).success).toBe(true)
+    const cross = crossSellMail([{ name: 'Renk Sıralama', quantity: 1 }], recs, 'https://zuulab.com')
+    expect(cross.content.paragraphs[0]).toContain('Renk Sıralama')
+    expect(cross.content.ctaUrl).toContain('/urun/mini-dinozor')
+    expect(campaignContentSchema.safeParse(cross.content).success).toBe(true)
+  })
+
+  it('carry no discount promise and tag their links so the shop can tell which mail brought a visit', () => {
+    const body = JSON.stringify(winBackMail(recs, 'https://zuulab.com')).toLowerCase()
+    expect(body).not.toMatch(/indirim|%\d|kupon/)
+    expect(winBackMail(recs, 'https://zuulab.com').content.ctaUrl).toBe('https://zuulab.com/urunler?utm_source=email&utm_medium=automation&utm_campaign=win_back')
+    expect(withMailTags('https://zuulab.com/urun/x?a=1', 'cross_sell')).toBe('https://zuulab.com/urun/x?a=1&utm_source=email&utm_medium=automation&utm_campaign=cross_sell')
+  })
+
+  it('cross-sell sends no button when there is nothing to suggest', () => {
+    expect(crossSellMail([], [], 'https://zuulab.com').content.ctaUrl).toBeUndefined()
   })
 })

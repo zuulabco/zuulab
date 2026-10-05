@@ -10,7 +10,7 @@ import type { CampaignContent } from './campaign'
  * address every 3 days, a reminder for an unpaid order at most once a week, nothing at night.
  */
 
-export type AutomationKey = 'abandoned_payment' | 'review_request'
+export type AutomationKey = 'abandoned_payment' | 'review_request' | 'win_back' | 'cross_sell'
 
 export interface AutomationDef {
   key: AutomationKey
@@ -36,6 +36,18 @@ export const AUTOMATIONS: AutomationDef[] = [
     audience:
       'Yalnızca e-posta izni vermiş ve siparişini teslim almış müşteriler. İçinde indirim veya reklam yoktur; her e-postada izni geri alma bağlantısı vardır.',
   },
+  {
+    key: 'win_back',
+    name: 'Tekrar satın alma (uzun süredir alışveriş yok)',
+    rule: 'Son siparişinin üzerinden 90 gün geçmiş ve o günden beri yeni sipariş vermemiş müşteriye (en geç 1 yıl içinde), öne çıkan ürünlerle bir hatırlatma gider. En fazla 90 günde bir.',
+    audience: 'Yalnızca e-posta izni vermiş, daha önce sipariş vermiş müşteriler. İndirim vaadi yoktur; her e-postada izni geri alma bağlantısı vardır.',
+  },
+  {
+    key: 'cross_sell',
+    name: 'Çapraz satış (aldığı ürüne uygun öneri)',
+    rule: 'Siparişin teslim edilmesinden 30 gün sonra (en geç 90 gün içinde), aldığı ürünlerin koleksiyonundan veya kategorisinden stokta olan, henüz almadığı ürünler önerilir.',
+    audience: 'Yalnızca e-posta izni vermiş ve siparişini teslim almış müşteriler. Önerilecek stokta ürün yoksa e-posta gitmez.',
+  },
 ]
 
 export function automationDef(key: string): AutomationDef | undefined {
@@ -52,6 +64,13 @@ export const REVIEW_UNTIL_DAYS = 30
 export const MIN_DAYS_BETWEEN_MAILS = 3
 /** A reminder for an unpaid order is repeated at most this often */
 export const ABANDONED_REPEAT_DAYS = 7
+export const WIN_BACK_AFTER_DAYS = 90
+export const WIN_BACK_UNTIL_DAYS = 365
+/** A customer gets the win-back mail at most this often */
+export const WIN_BACK_REPEAT_DAYS = 90
+export const CROSS_SELL_AFTER_DAYS = 30
+export const CROSS_SELL_UNTIL_DAYS = 90
+export const RECOMMENDATION_COUNT = 3
 
 /** Türkiye is UTC+3 all year */
 export const turkeyHour = (at: Date): number => (at.getUTCHours() + 3) % 24
@@ -116,6 +135,55 @@ export function reviewRequestMail(products: ReviewProduct[], siteUrl: string): A
         'Bir sorun varsa bu e-postayı yanıtlayarak bize yazabilirsin; yardımcı oluruz.',
       ],
       ...(first ? { ctaLabel: 'ürünü değerlendir', ctaUrl: `${siteUrl}${first.path}#reviews` } : {}),
+    },
+  }
+}
+
+export interface Recommendation {
+  name: string
+  /** Product page address without the site: /urun/<slug> */
+  path: string
+  /** Lira, as the shop shows it */
+  price: number
+}
+
+const lira = (n: number) => `${n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`
+const recLines = (recs: Recommendation[]) => recs.map((r) => `• ${r.name} — ${lira(r.price)}`).join('\n')
+
+/** Links in these mails carry tags so the shop's own analytics can tell which automation brought a visit */
+export const withMailTags = (url: string, automation: AutomationKey): string =>
+  `${url}${url.includes('?') ? '&' : '?'}utm_source=email&utm_medium=automation&utm_campaign=${automation}`
+
+export function winBackMail(recs: Recommendation[], siteUrl: string): AutomationMail {
+  return {
+    subject: 'seni özledik',
+    preheader: 'Mağazamızda yeni ve öne çıkan ürünlere göz atabilirsin.',
+    content: {
+      heading: 'uzun zaman oldu',
+      paragraphs: [
+        'Son alışverişinin üzerinden epey zaman geçti. O günden bu yana mağazamızda öne çıkan ürünler:',
+        recLines(recs),
+        'Bir sorun yaşadıysan ya da aklına takılan bir şey varsa bu e-postayı yanıtlayarak bize yazabilirsin.',
+      ],
+      ctaLabel: 'ürünlere göz at',
+      ctaUrl: withMailTags(`${siteUrl}/urunler`, 'win_back'),
+    },
+  }
+}
+
+export function crossSellMail(bought: MailItem[], recs: Recommendation[], siteUrl: string): AutomationMail {
+  const first = recs[0]
+  return {
+    subject: 'aldığın ürünlere yakışacak öneriler',
+    preheader: 'Siparişine uygun, stokta olan ürünleri bir araya getirdik.',
+    content: {
+      heading: 'bunlar da hoşuna gidebilir',
+      paragraphs: [
+        `Siparişindeki ürünlere (${bought.slice(0, 2).map((b) => b.name).join(', ')}${bought.length > 2 ? ' …' : ''}) uygun olarak seçtiklerimiz:`,
+        recLines(recs),
+        'Bu önerileri beğenmediysen sorun değil; bu e-postayı yanıtlayarak ne aradığını bize yazabilirsin.',
+      ],
+      ...(first ? { ctaLabel: 'ürünü incele', ctaUrl: withMailTags(`${siteUrl}${first.path}`, 'cross_sell') } : {}),
     },
   }
 }

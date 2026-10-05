@@ -223,8 +223,8 @@ export default function SegmentsPage() {
               </p>
               {def.kind === 'visitors' && (
                 <p className={s.panelSub} style={{ padding: '0 1rem 1rem' }}>
-                  Çerezleri kabul etmiş, adı bilinmeyen ziyaretçiler sayılır. Bunlara e-posta gönderilemez; reklam hedef kitlesi
-                  için kullanılır.
+                  Çerezleri kabul etmiş, adı bilinmeyen ziyaretçiler sayılır. Bunlara e-posta gönderilemez. Reklam kitlesi
+                  olarak kullanmak için Meta Reklam Yöneticisi’nde Pixel olaylarından kitle kurun (rehber: docs/meta-remarketing.md).
                 </p>
               )}
               {def.kind === 'customers' && detail.members.length > 0 && (

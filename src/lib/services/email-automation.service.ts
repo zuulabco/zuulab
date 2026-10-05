@@ -18,6 +18,14 @@ import {
   MIN_DAYS_BETWEEN_MAILS,
   REVIEW_AFTER_DAYS,
   REVIEW_UNTIL_DAYS,
+  WIN_BACK_AFTER_DAYS,
+  WIN_BACK_REPEAT_DAYS,
+  WIN_BACK_UNTIL_DAYS,
+  CROSS_SELL_AFTER_DAYS,
+  CROSS_SELL_UNTIL_DAYS,
+  RECOMMENDATION_COUNT,
+  crossSellMail,
+  winBackMail,
   abandonedPaymentMail,
   automationDef,
   inQuietHours,
@@ -27,6 +35,7 @@ import {
   type AutomationKey,
   type AutomationMail,
   type MailItem,
+  type Recommendation,
   type ReviewProduct,
 } from '@/lib/email/automations'
 import { campaignRates, escapeHtml, renderCampaignBody, type CampaignRates, type MessageCounts } from '@/lib/email/campaign'
@@ -187,9 +196,110 @@ async function reviewCandidates(campaignId: string, now: Date, limit: number): P
   return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email) }))
 }
 
+/**
+ * Win-back: customers whose last storefront order is 90 days to a year old and who have not ordered since,
+ * with an active e-mail permission. One mail per customer per 90 days, never within 3 days of another automatic mail.
+ */
+async function winBackCandidates(campaignId: string, now: Date, limit: number): Promise<Candidate[]> {
+  const n = wall(now)
+  const rows = await run(
+    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      CROSS JOIN LATERAL (SELECT lower(COALESCE(NULLIF(o.email, ''), u.email)) AS email) e
+      JOIN email_consents ec ON ec.email = e.email AND ec.status = 'ACTIVE'
+      WHERE o.channel = 'DIRECT' AND o.status IN ('PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED')
+        AND o.created_at <= ${n}::timestamp - make_interval(days => ${WIN_BACK_AFTER_DAYS})
+        AND o.created_at >= ${n}::timestamp - make_interval(days => ${WIN_BACK_UNTIL_DAYS})
+        AND NOT EXISTS (
+          SELECT 1 FROM orders o2
+          WHERE o2.channel = 'DIRECT' AND o2.created_at > o.created_at
+            AND o2.status IN ('PAYMENT_RECEIVED', 'CONFIRMED', 'PREPARING', 'IN_PRODUCTION', 'PACKING', 'SHIPPED', 'DELIVERED')
+            AND (o2.user_id = o.user_id OR lower(COALESCE(o2.email, '')) = e.email))
+        AND NOT EXISTS (SELECT 1 FROM email_messages m WHERE m.campaign_id = ${campaignId} AND m.order_id = o.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM email_messages m WHERE m.campaign_id = ${campaignId} AND lower(m.email) = e.email
+            AND m.status IN ('QUEUED', 'SENT') AND m.created_at >= ${n}::timestamp - make_interval(days => ${WIN_BACK_REPEAT_DAYS}))
+        AND NOT EXISTS (
+          SELECT 1 FROM email_messages m JOIN email_campaigns c ON c.id = m.campaign_id
+          WHERE c.kind = 'AUTOMATION' AND lower(m.email) = e.email AND m.status IN ('QUEUED', 'SENT')
+            AND m.created_at >= ${n}::timestamp - make_interval(days => ${MIN_DAYS_BETWEEN_MAILS}))
+      ORDER BY e.email, o.created_at DESC
+      LIMIT ${limit}`
+      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1' } as never)
+      .build()
+  )
+  return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email) }))
+}
+
+/**
+ * Cross-sell: orders delivered 30 to 90 days ago, with an active e-mail permission, for which the shop has something
+ * to suggest (an active, in-stock product of the same collection or category that was not in the order).
+ */
+async function crossSellCandidates(campaignId: string, now: Date, limit: number): Promise<Candidate[]> {
+  const n = wall(now)
+  const rows = await run(
+    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      CROSS JOIN LATERAL (SELECT lower(COALESCE(NULLIF(o.email, ''), u.email)) AS email) e
+      JOIN LATERAL (SELECT MIN(h.created_at) AS at FROM order_status_history h WHERE h.order_id = o.id AND h.status = 'DELIVERED') d ON d.at IS NOT NULL
+      JOIN email_consents ec ON ec.email = e.email AND ec.status = 'ACTIVE'
+      WHERE o.channel = 'DIRECT' AND o.status = 'DELIVERED'
+        AND d.at <= ${n}::timestamp - make_interval(days => ${CROSS_SELL_AFTER_DAYS})
+        AND d.at >= ${n}::timestamp - make_interval(days => ${CROSS_SELL_UNTIL_DAYS})
+        AND EXISTS (
+          SELECT 1 FROM products p
+          WHERE p.is_active AND p.stock > 0
+            AND p.id NOT IN (SELECT oi.product_id FROM order_items oi WHERE oi.order_id = o.id)
+            AND (p.collection_id IN (SELECT p2.collection_id FROM order_items oi2 JOIN products p2 ON p2.id = oi2.product_id WHERE oi2.order_id = o.id AND p2.collection_id IS NOT NULL)
+              OR p.category_id IN (SELECT p3.category_id FROM order_items oi3 JOIN products p3 ON p3.id = oi3.product_id WHERE oi3.order_id = o.id)))
+        AND NOT EXISTS (SELECT 1 FROM email_messages m WHERE m.campaign_id = ${campaignId} AND m.order_id = o.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM email_messages m JOIN email_campaigns c ON c.id = m.campaign_id
+          WHERE c.kind = 'AUTOMATION' AND lower(m.email) = e.email AND m.status IN ('QUEUED', 'SENT')
+            AND m.created_at >= ${n}::timestamp - make_interval(days => ${MIN_DAYS_BETWEEN_MAILS}))
+      ORDER BY e.email, d.at DESC
+      LIMIT ${limit}`
+      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1' } as never)
+      .build()
+  )
+  return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email) }))
+}
+
+/**
+ * Products to suggest for an order: active, in stock, not already in it. With `onlyRelated`, only those of the same
+ * collection or category (cross-sell); otherwise any. Same collection first, then best sellers and featured ones.
+ */
+async function recommendationsFor(orderId: string, onlyRelated: boolean): Promise<Recommendation[]> {
+  const rows = await run(
+    db.raw.sql`SELECT p.name, p.slug, p.price::text AS price FROM products p
+      WHERE p.is_active AND p.stock > 0
+        AND p.id NOT IN (SELECT oi.product_id FROM order_items oi WHERE oi.order_id = ${orderId})
+        AND (NOT ${onlyRelated}::boolean
+          OR p.collection_id IN (SELECT p2.collection_id FROM order_items oi2 JOIN products p2 ON p2.id = oi2.product_id WHERE oi2.order_id = ${orderId} AND p2.collection_id IS NOT NULL)
+          OR p.category_id IN (SELECT p3.category_id FROM order_items oi3 JOIN products p3 ON p3.id = oi3.product_id WHERE oi3.order_id = ${orderId}))
+      ORDER BY (p.collection_id IN (SELECT p4.collection_id FROM order_items oi4 JOIN products p4 ON p4.id = oi4.product_id WHERE oi4.order_id = ${orderId} AND p4.collection_id IS NOT NULL)) DESC NULLS LAST,
+        p.is_best_seller DESC, p.is_featured DESC, p.name
+      LIMIT ${RECOMMENDATION_COUNT}`
+      .returnsRow({ name: 'pg/text@1', slug: 'pg/text@1', price: 'pg/text@1' } as never)
+      .build()
+  )
+  return rows.map((r) => ({ name: String(r.name), path: `/urun/${r.slug}`, price: Number(r.price) }))
+}
+
 export async function findCandidates(key: AutomationKey, now: Date = new Date(), limit = 25): Promise<Candidate[]> {
   const { id } = await ensureAutomation(key)
-  return key === 'abandoned_payment' ? abandonedCandidates(id, now, limit) : reviewCandidates(id, now, limit)
+  switch (key) {
+    case 'abandoned_payment':
+      return abandonedCandidates(id, now, limit)
+    case 'review_request':
+      return reviewCandidates(id, now, limit)
+    case 'win_back':
+      return winBackCandidates(id, now, limit)
+    case 'cross_sell':
+      return crossSellCandidates(id, now, limit)
+  }
 }
 
 /** How many people the rule would mail right now (for the admin; sends nothing) */
@@ -239,10 +349,22 @@ export function buildAutomationEmail(mail: AutomationMail, to: string, campaignI
 }
 
 async function mailFor(def: AutomationDef, c: Candidate): Promise<AutomationMail> {
-  const products = await orderProducts(c.orderId)
-  return def.key === 'abandoned_payment'
-    ? abandonedPaymentMail(products as MailItem[], SITE_URL)
-    : reviewRequestMail(products, SITE_URL)
+  switch (def.key) {
+    case 'win_back': {
+      const recs = await recommendationsFor(c.orderId, false)
+      if (recs.length === 0) throw new Error('Önerilecek ürün yok')
+      return winBackMail(recs, SITE_URL)
+    }
+    case 'cross_sell': {
+      const [bought, recs] = await Promise.all([orderProducts(c.orderId), recommendationsFor(c.orderId, true)])
+      if (recs.length === 0) throw new Error('Önerilecek ürün yok')
+      return crossSellMail(bought, recs, SITE_URL)
+    }
+    case 'abandoned_payment':
+      return abandonedPaymentMail((await orderProducts(c.orderId)) as MailItem[], SITE_URL)
+    case 'review_request':
+      return reviewRequestMail(await orderProducts(c.orderId), SITE_URL)
+  }
 }
 
 /** A sample of the mail to the admin's own address; nothing is recorded */
@@ -255,7 +377,16 @@ export async function sendAutomationTest(key: AutomationKey, to: string): Promis
     { name: 'örnek ürün adı', quantity: 1, path: '/urunler' },
     { name: 'ikinci örnek ürün', quantity: 2, path: '/urunler' },
   ]
-  const mail = key === 'abandoned_payment' ? abandonedPaymentMail(sample, SITE_URL) : reviewRequestMail(sample, SITE_URL)
+  const recs: Recommendation[] = [
+    { name: 'örnek öneri 1', path: '/urunler', price: 249.9 },
+    { name: 'örnek öneri 2', path: '/urunler', price: 189 },
+  ]
+  const mail = {
+    abandoned_payment: () => abandonedPaymentMail(sample, SITE_URL),
+    review_request: () => reviewRequestMail(sample, SITE_URL),
+    win_back: () => winBackMail(recs, SITE_URL),
+    cross_sell: () => crossSellMail(sample, recs, SITE_URL),
+  }[key]()
   const email = buildAutomationEmail(mail, to, id)
   const result = await getEmailProvider()
     .sendEmail({ ...email, subject: `[TEST] ${mail.subject}`, tags: undefined })
