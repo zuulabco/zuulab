@@ -32,6 +32,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Pazarlama',
     items: [
       { label: 'Genel bakış', href: '/marketing', icon: 'megaphone', keywords: 'pazarlama özet ciro dönüşüm huni sepet terk ziyaretçi reklam roas marketing' },
+      { label: 'Ürün performansı', href: '/marketing/products', icon: 'products', keywords: 'ürün analitik görüntülenme sepete ekleme satış dönüşüm en çok satan fırsat product' },
       { label: 'Analitik', href: '/analytics', icon: 'analytics', keywords: 'analizler google analytics rapor istatistik grafik analytics ziyaretçi tıklama' },
       { label: 'SEO', href: '/seo', icon: 'analytics', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },
     ],

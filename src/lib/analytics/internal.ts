@@ -75,6 +75,30 @@ export function eventRow(event: MarketingEvent): EventRow | null {
   }
 }
 
+/** Internal row name for one product of a checkout: lets a many-product checkout count for each of its products */
+export const CHECKOUT_ITEM = 'begin_checkout_item'
+
+/**
+ * Everything to store for an event: its row, plus (for a checkout) one row per product in it,
+ * so product-level checkout numbers exist even when the checkout holds several products.
+ * The extra rows have their own name, so visitor and funnel counts are not affected.
+ */
+export function eventRows(event: MarketingEvent): EventRow[] {
+  const main = eventRow(event)
+  if (!main) return []
+  if (event.eventName !== 'begin_checkout' || !event.items?.length) return [main]
+  const byProduct = new Map<string, number>()
+  for (const i of event.items.slice(0, 20)) byProduct.set(i.productId, (byProduct.get(i.productId) ?? 0) + i.price * i.quantity)
+  const items = [...byProduct.entries()].map(([productId, value]) => ({
+    ...main,
+    eventId: `${main.eventId}:${productId}`.slice(0, 100),
+    name: CHECKOUT_ITEM,
+    productId: cut(productId, 100),
+    value: Math.round(value * 100) / 100,
+  }))
+  return [main, ...items]
+}
+
 // ── Report periods ───────────────────────────────────────────────────
 
 /** Türkiye has had a fixed UTC+3 offset since 2016, so a Turkish calendar day starts at 21:00 UTC the day before */

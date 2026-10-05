@@ -212,8 +212,8 @@ export default function MarketingOverviewPage() {
 
           {cur.orders > 0 && cur.trackedOrderShare !== null && cur.trackedOrderShare < 1 && (
             <p className={s.note}>
-              Ziyaretçi, dönüşüm ve terk oranı yalnızca çerez bandında “tümünü kabul et” diyenleri kapsar; bu dönemde siparişlerin{' '}
-              {pct(cur.trackedOrderShare, 0)}’i bu gruptan geldi. Ciro ve sipariş sayısı ise tüm siparişleri kapsar.
+              Ziyaretçi, dönüşüm ve terk oranı yalnızca çerez bandında “tümünü kabul et” diyenleri kapsar (bu dönemde siparişlerin{' '}
+              {pct(cur.trackedOrderShare, 0)} kadarı bu gruptan geldi). Ciro ve sipariş sayısı ise tüm siparişleri kapsar.
             </p>
           )}
 

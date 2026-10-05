@@ -12,7 +12,7 @@ describe('admin navigation', () => {
   it('groups the marketing pages under Pazarlama, overview first', () => {
     const marketing = NAV_SECTIONS.find((s) => s.id === 'marketing')!
     expect(marketing.title).toBe('Pazarlama')
-    expect(marketing.items.map((i) => i.href)).toEqual(['/marketing', '/analytics', '/seo'])
+    expect(marketing.items.map((i) => i.href)).toEqual(['/marketing', '/marketing/products', '/analytics', '/seo'])
   })
 
   it('still reaches the marketing pages from the quick search (by their words)', () => {

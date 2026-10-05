@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { rateLimit } from '@/lib/security/rate-limit-response'
 import { buildEvent, isCanonicalEvent, type MarketingEventData } from '@/lib/marketing/events'
 import { readConsentCookie } from '@/lib/marketing/request-context'
-import { eventRow } from '@/lib/analytics/internal'
+import { eventRows } from '@/lib/analytics/internal'
 import { storeEvent } from '@/lib/services/analytics/internal-analytics.service'
 
 export const dynamic = 'force-dynamic'
@@ -56,8 +56,7 @@ export async function POST(request: Request) {
     const now = Date.now()
     event.timestamp = timestamp && Math.abs(now - timestamp) < DAY_MS ? timestamp : now
 
-    const row = eventRow(event)
-    if (row) await storeEvent(row)
+    for (const row of eventRows(event)) await storeEvent(row)
   } catch (error) {
     console.warn('[analytics/collect] failed:', error instanceof Error ? error.message : error)
   }

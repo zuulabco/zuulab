@@ -98,6 +98,22 @@ The shop's own numbers, independent of Google and Meta. Code: `lib/analytics/int
   returns the previous period of the same length.
 - No retention job yet: rows are small (one per action); prune old ones when the table gets large.
 
+## Product analytics (Phase 7)
+
+Admin page `/marketing/products`, API `GET /api/admin/insights/products`. Code: `lib/analytics/product-insights.ts`
+(rules), `lib/services/analytics/product-analytics.service.ts` (queries).
+
+- Per product: viewers and views, cart adders, checkout starters, consented buyers, orders, units, revenue, average
+  selling price, view→cart / cart→checkout / conversion rates, and where its sales came from (the order's last campaign
+  touch). Every number also comes with the previous period.
+- A checkout holding several products is stored as one `begin_checkout` row plus one `begin_checkout_item` row per
+  product, so product-level checkout counts exist. The extra rows have their own name and do not touch visitor or funnel
+  counts. (Data starts when this shipped; older checkouts have no per-product rows.)
+- Rankings: most viewed, most added to cart, best selling.
+- Opportunities, only for products at least 10 visitors have seen: **high views, low sales** (never sold, or converting at
+  less than half the shop's rate; a product sold only to visitors we cannot follow is not called weak) and **high sales,
+  low traffic** (converting at twice the shop's rate or more while few people see it).
+
 ## Adding a destination
 
 Implement `Destination` (`id`, `consent`, `accepts`, `send`), register it on `browserDispatcher`
