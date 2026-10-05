@@ -59,3 +59,18 @@ describe.skipIf(!configured)('Meta ads: ad set payload (validate-only)', () => {
     expect(r).toEqual({ validated: true })
   })
 })
+
+describe.skipIf(!configured)('Meta ads: report (read-only)', () => {
+  it('returns the account totals, per-campaign rows and a daily series that agree', async () => {
+    const { getInsightsReport } = await import('@/lib/services/meta-ads.service')
+    const end = new Date().toISOString().slice(0, 10)
+    const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10)
+    const report = await getInsightsReport({ start: day(29), end, previous: { start: day(59), end: day(30) } }, 'campaign', true)
+    expect(report.currency).toBe('TRY')
+    const spendOfRows = report.rows.reduce((a, r) => a + r.metrics.spend, 0)
+    expect(spendOfRows).toBeCloseTo(report.current.spend, 1)
+    const spendOfDays = report.daily.reduce((a, d) => a + d.spend, 0)
+    expect(spendOfDays).toBeCloseTo(report.current.spend, 1)
+    expect(report.current.reach).toBeLessThanOrEqual(report.current.impressions)
+  })
+})

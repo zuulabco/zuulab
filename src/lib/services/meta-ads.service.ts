@@ -13,6 +13,7 @@ import {
   type BuildContext,
   type CampaignInput,
 } from '@/lib/meta-ads/builders'
+import { dailySeries, metricsOf, rowsByLevel, sumMetrics, type AdMetrics, type DayPoint, type InsightLevel, type InsightRow, type NamedMetrics } from '@/lib/meta-ads/insights'
 
 /**
  * Meta Marketing API for the admin's Pazarlama → Meta page.
@@ -290,4 +291,60 @@ export async function setStatus(id: string, status: 'ACTIVE' | 'PAUSED', by: str
   await assertOwned(c, id)
   await graph(c, 'POST', id, { status })
   await audit(status === 'ACTIVE' ? 'META_ENTITY_ACTIVATED' : 'META_ENTITY_PAUSED', id, { by })
+}
+
+// ── Reports ──────────────────────────────────────────────────────────
+
+export interface InsightsReport {
+  generatedAt: string
+  currency: string
+  current: AdMetrics
+  previous: AdMetrics
+  level: InsightLevel
+  rows: NamedMetrics[]
+  daily: DayPoint[]
+}
+
+const INSIGHT_FIELDS = 'spend,impressions,reach,inline_link_clicks,actions,action_values'
+const REPORT_TTL_MS = 5 * 60_000
+const reportCache = new Map<string, { at: number; report: InsightsReport }>()
+
+async function insightRows(c: AdsConfig, params: Json): Promise<InsightRow[]> {
+  const res = await graph<{ data?: InsightRow[] }>(c, 'GET', `${c.accountId}/insights`, { limit: '500', ...params })
+  return res.data ?? []
+}
+
+/** Performance of the ads for a span of days (YYYY-MM-DD, Meta reads them in the account's time zone), compared with the span before */
+export async function getInsightsReport(
+  period: { start: string; end: string; previous: { start: string; end: string } },
+  level: InsightLevel,
+  fresh = false
+): Promise<InsightsReport> {
+  const c = need()
+  const key = `${level}|${period.start}|${period.end}`
+  const hit = reportCache.get(key)
+  if (!fresh && hit && Date.now() - hit.at < REPORT_TTL_MS) return hit.report
+
+  const range = (r: { start: string; end: string }) => ({ time_range: { since: r.start, until: r.end } })
+  const levelFields = { campaign: 'campaign_id,campaign_name', adset: 'adset_id,adset_name,campaign_name', ad: 'ad_id,ad_name,adset_name' }[level]
+
+  const [cur, prev, rows, daily, account] = await Promise.all([
+    insightRows(c, { level: 'account', fields: INSIGHT_FIELDS, ...range(period) }),
+    insightRows(c, { level: 'account', fields: INSIGHT_FIELDS, ...range(period.previous) }),
+    insightRows(c, { level, fields: `${levelFields},${INSIGHT_FIELDS}`, ...range(period) }),
+    insightRows(c, { level: 'account', fields: INSIGHT_FIELDS, time_increment: '1', ...range(period) }),
+    graph<Json>(c, 'GET', c.accountId, { fields: 'currency' }),
+  ])
+
+  const report: InsightsReport = {
+    generatedAt: new Date().toISOString(),
+    currency: String(account.currency ?? 'TRY'),
+    current: cur[0] ? metricsOf(cur[0]) : sumMetrics([], 0),
+    previous: prev[0] ? metricsOf(prev[0]) : sumMetrics([], 0),
+    level,
+    rows: rowsByLevel(rows, level),
+    daily: dailySeries(daily),
+  }
+  reportCache.set(key, { at: Date.now(), report })
+  return report
 }
