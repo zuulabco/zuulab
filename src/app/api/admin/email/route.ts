@@ -13,6 +13,7 @@ import {
 } from '@/lib/services/email-campaign.service'
 import { countEligible, listAutomations, sendAutomationTest, setAutomationActive } from '@/lib/services/email-automation.service'
 import { AUTOMATIONS } from '@/lib/email/automations'
+import { consentCounts } from '@/lib/services/email-consent.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,14 +21,14 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   try {
     await requirePermission(request, 'CONTENT_MANAGE')
-    const [overview, automations] = await Promise.all([getEmailOverview(), listAutomations()])
+    const [overview, automations, consents] = await Promise.all([getEmailOverview(), listAutomations(), consentCounts()])
     const setup = {
       /** MOCK sends nothing for real */
       provider: (process.env.EMAIL_PROVIDER || 'MOCK').toUpperCase(),
       /** Without the signing secret Resend's events (delivered, opened, clicked) are refused */
       webhookConfigured: Boolean(process.env.RESEND_WEBHOOK_SECRET?.trim()),
     }
-    return NextResponse.json({ success: true, ...overview, automations, setup }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ success: true, ...overview, automations, consents, setup }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     return fail(error)
   }

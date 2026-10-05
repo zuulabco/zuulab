@@ -19,8 +19,6 @@ export interface AutomationDef {
   rule: string
   /** Who receives it, and why that is allowed */
   audience: string
-  /** Marketing mails need the person's consent: they go only to active subscribers (newsletter form or the payment-page box) */
-  marketing: boolean
 }
 
 export const AUTOMATIONS: AutomationDef[] = [
@@ -29,16 +27,14 @@ export const AUTOMATIONS: AutomationDef[] = [
     name: 'Terk edilen ödeme',
     rule: 'Ödeme sayfasına gelip siparişi tamamlamayan müşteriye, siparişten 3 saat sonra (en geç 24 saat içinde) bir hatırlatma gider.',
     audience:
-      'Yalnızca kampanya e-postası onayı vermiş müşteriler (bültene abone olanlar veya ödeme sayfasındaki kutuyu işaretleyenler): pazarlama e-postası için izin gerekir.',
-    marketing: true,
+      'Yalnızca e-posta izni vermiş müşteriler (üyelikte giriş sonrası çıkan pencerede veya ödeme sayfasındaki kutuda). Bülten aboneliği bu izin yerine geçmez.',
   },
   {
     key: 'review_request',
     name: 'Değerlendirme isteği',
     rule: 'Siparişin teslim edilmesinden 7 gün sonra (en geç 30 gün içinde) ürünü değerlendirmesi için bir istek gider.',
     audience:
-      'Siparişi teslim alan müşteriler. İçinde indirim veya reklam yoktur, siparişle ilgili bir istektir; her e-postada “bu e-postaları istemiyorum” bağlantısı vardır.',
-    marketing: false,
+      'Yalnızca e-posta izni vermiş ve siparişini teslim almış müşteriler. İçinde indirim veya reklam yoktur; her e-postada izni geri alma bağlantısı vardır.',
   },
 ]
 

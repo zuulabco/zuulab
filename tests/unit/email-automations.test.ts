@@ -5,10 +5,12 @@ import {
 import { campaignContentSchema, renderCampaignBody } from '@/lib/email/campaign'
 
 describe('which automations exist', () => {
-  it('has the two agreed rules, the reminder as marketing (needs consent) and the review request not', () => {
+  it('has the two agreed rules, both only for people who gave the e-mail permission (not the newsletter)', () => {
     expect(AUTOMATIONS.map((a) => a.key)).toEqual(['abandoned_payment', 'review_request'])
-    expect(automationDef('abandoned_payment')?.marketing).toBe(true)
-    expect(automationDef('review_request')?.marketing).toBe(false)
+    for (const a of AUTOMATIONS) {
+      expect(a.audience).toContain('e-posta izni')
+      expect(a.audience.toLowerCase()).not.toContain('bültene abone olanlar veya')
+    }
     expect(automationDef('nope')).toBeUndefined()
   })
 })
@@ -94,14 +96,14 @@ describe('the "I do not want these" link', () => {
 const recorded: string[] = []
 vi.mock('@/lib/security/rate-limit-response', () => ({ rateLimit: async () => null }))
 vi.mock('@/lib/services/session.service', () => ({ getSigningSecret: () => 'test-signing-secret' }))
-vi.mock('@/lib/services/email-automation.service', () => ({ recordOptout: async (email: string) => void recorded.push(email) }))
+vi.mock('@/lib/services/email-consent.service', () => ({ withdrawEmailConsent: async (email: string) => (recorded.push(email), true) }))
 
 const post = async (qs: string, body?: unknown) => {
   const { POST } = await import('@/app/api/email/optout/route')
   return POST(new Request(`https://zuulab.com/api/email/optout${qs}`, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }))
 }
 
-describe('POST /api/email/optout', () => {
+describe('POST /api/email/optout (takes the e-mail permission back)', () => {
   beforeEach(() => void (recorded.length = 0))
   const link = signOptout('test-signing-secret', 'ali@example.com')
 

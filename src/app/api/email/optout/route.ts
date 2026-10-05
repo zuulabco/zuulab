@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/security/rate-limit-response'
 import { verifyOptout } from '@/lib/email/automations'
 import { getSigningSecret } from '@/lib/services/session.service'
-import { recordOptout } from '@/lib/services/email-automation.service'
+import { withdrawEmailConsent } from '@/lib/services/email-consent.service'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * "I do not want these e-mails" (the review request). The link in the mail carries the address and
+ * Takes the e-mail permission back (the link in every automatic mail). The link carries the address and
  * its signature (?e=…&s=…): mail apps' one-click unsubscribe posts to it as it is, and the
- * /eposta/ayril page posts the same values from its button. Only a link we signed can add an
- * address, so nobody can opt someone else out.
+ * /eposta/ayril page posts the same values from its button. Only a link we signed can withdraw an
+ * address, so nobody can withdraw someone else's permission.
  */
 export async function POST(request: Request) {
   const limited = await rateLimit(request, 'newsletter')
@@ -28,6 +28,6 @@ export async function POST(request: Request) {
   if (!email) {
     return NextResponse.json({ success: false, error: 'Bağlantı geçersiz ya da süresi dolmuş.' }, { status: 400 })
   }
-  await recordOptout(email)
+  await withdrawEmailConsent(email)
   return NextResponse.json({ success: true })
 }

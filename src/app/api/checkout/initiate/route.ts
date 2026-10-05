@@ -11,7 +11,7 @@ import {
 } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { readClientContext } from '@/lib/marketing/request-context'
-import { recordCheckoutEmailConsent } from '@/lib/services/newsletter.service'
+import { recordCheckoutEmailConsent } from '@/lib/services/email-consent.service'
 import { getPublicOrigin } from '@/lib/config/app-url'
 import { getGeliverConfig } from '@/lib/services/shipping/geliver/geliver.client'
 import {
@@ -138,9 +138,9 @@ export async function POST(request: Request) {
           : marketing,
     })
 
-    // The optional "campaign e-mails" box: recorded as consent for this address (best effort, never fails the order)
+    // The optional e-mail permission box (separate from the newsletter): recorded for this address, best effort, never fails the order
     if (marketingEmailConsent === true) {
-      await recordCheckoutEmailConsent({ email, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') })
+      await recordCheckoutEmailConsent({ email, userId: user?.id, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') })
     }
 
     // Lets this browser (including guests) see and pay the order it created.

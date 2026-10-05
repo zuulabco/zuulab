@@ -7,7 +7,6 @@ import { logAuditEvent } from './admin.service'
 import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import type { EmailSendOptions } from './notification/notification.interface'
-import { newsletterEnvelope } from './newsletter.service'
 import { getSigningSecret } from './session.service'
 import { countsByCampaign, emptyCounts, CampaignError } from './email-campaign.service'
 import {
@@ -112,13 +111,14 @@ export interface Candidate {
   orderId: string
   orderNumber: string
   email: string
-  /** The newsletter subscription of this address, when there is one */
-  subscriberId: string | null
-  token: string | null
 }
 
 /**
- * Unpaid card orders from 3 to 24 hours ago, of addresses that confirmed the newsletter: the latest
+ * Both rules go only to addresses with an ACTIVE e-mail permission (email_consents: given by a member in the
+ * modal after signing in, or in the optional box on the payment page). The newsletter is a different list and
+ * plays no part here.
+ *
+ * Unpaid card orders from 3 to 24 hours ago, of addresses with that permission: the latest
  * such order per address, skipping bank-transfer orders (the customer is paying by wire), orders
  * with a payment under way or paid, addresses that bought something since, orders already mailed,
  * a second reminder within 7 days, and any address that got an automatic mail in the last 3 days.
@@ -126,11 +126,11 @@ export interface Candidate {
 async function abandonedCandidates(campaignId: string, now: Date, limit: number): Promise<Candidate[]> {
   const n = wall(now)
   const rows = await run(
-    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email, s.id AS subscriber_id, s.token
+    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email
       FROM orders o
       JOIN users u ON u.id = o.user_id
       CROSS JOIN LATERAL (SELECT lower(COALESCE(NULLIF(o.email, ''), u.email)) AS email) e
-      JOIN newsletter_subscribers s ON lower(s.email) = e.email AND s.status = 'ACTIVE'
+      JOIN email_consents ec ON ec.email = e.email AND ec.status = 'ACTIVE'
       WHERE o.channel = 'DIRECT' AND o.paid_at IS NULL AND o.status IN ('PAYMENT_PENDING', 'PAYMENT_FAILED')
         AND o.created_at <= ${n}::timestamp - make_interval(hours => ${ABANDONED_AFTER_HOURS})
         AND o.created_at >= ${n}::timestamp - make_interval(hours => ${ABANDONED_UNTIL_HOURS})
@@ -150,31 +150,28 @@ async function abandonedCandidates(campaignId: string, now: Date, limit: number)
             AND m.created_at >= ${n}::timestamp - make_interval(days => ${MIN_DAYS_BETWEEN_MAILS}))
       ORDER BY e.email, o.created_at DESC
       LIMIT ${limit}`
-      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1', subscriber_id: 'pg/text@1', token: 'pg/text@1' } as never)
+      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1' } as never)
       .build()
   )
-  return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email), subscriberId: String(r.subscriber_id), token: String(r.token) }))
+  return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email) }))
 }
 
 /**
- * Orders delivered 7 to 30 days ago: the most recent per address, skipping addresses that opted out,
- * that left the newsletter, orders already mailed, and any address that got an automatic mail in the
- * last 3 days.
+ * Orders delivered 7 to 30 days ago, of addresses with an active e-mail permission: the most recent per
+ * address, skipping orders already mailed and any address that got an automatic mail in the last 3 days.
  */
 async function reviewCandidates(campaignId: string, now: Date, limit: number): Promise<Candidate[]> {
   const n = wall(now)
   const rows = await run(
-    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email, s.id AS subscriber_id, s.token
+    db.raw.sql`SELECT DISTINCT ON (e.email) o.id AS order_id, o.order_number, e.email
       FROM orders o
       JOIN users u ON u.id = o.user_id
       CROSS JOIN LATERAL (SELECT lower(COALESCE(NULLIF(o.email, ''), u.email)) AS email) e
       JOIN LATERAL (SELECT MIN(h.created_at) AS at FROM order_status_history h WHERE h.order_id = o.id AND h.status = 'DELIVERED') d ON d.at IS NOT NULL
-      LEFT JOIN newsletter_subscribers s ON lower(s.email) = e.email
-      WHERE o.channel = 'DIRECT' AND o.status = 'DELIVERED' AND e.email LIKE '%@%'
+      JOIN email_consents ec ON ec.email = e.email AND ec.status = 'ACTIVE'
+      WHERE o.channel = 'DIRECT' AND o.status = 'DELIVERED'
         AND d.at <= ${n}::timestamp - make_interval(days => ${REVIEW_AFTER_DAYS})
         AND d.at >= ${n}::timestamp - make_interval(days => ${REVIEW_UNTIL_DAYS})
-        AND (s.id IS NULL OR s.status <> 'UNSUBSCRIBED')
-        AND NOT EXISTS (SELECT 1 FROM email_optouts x WHERE lower(x.email) = e.email)
         AND NOT EXISTS (SELECT 1 FROM email_messages m WHERE m.campaign_id = ${campaignId} AND m.order_id = o.id)
         AND NOT EXISTS (
           SELECT 1 FROM email_messages m JOIN email_campaigns c ON c.id = m.campaign_id
@@ -182,16 +179,10 @@ async function reviewCandidates(campaignId: string, now: Date, limit: number): P
             AND m.created_at >= ${n}::timestamp - make_interval(days => ${MIN_DAYS_BETWEEN_MAILS}))
       ORDER BY e.email, d.at DESC
       LIMIT ${limit}`
-      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1', subscriber_id: 'pg/text@1', token: 'pg/text@1' } as never)
+      .returnsRow({ order_id: 'pg/text@1', order_number: 'pg/text@1', email: 'pg/text@1' } as never)
       .build()
   )
-  return rows.map((r) => ({
-    orderId: String(r.order_id),
-    orderNumber: String(r.order_number),
-    email: String(r.email),
-    subscriberId: r.subscriber_id ? String(r.subscriber_id) : null,
-    token: r.token ? String(r.token) : null,
-  }))
+  return rows.map((r) => ({ orderId: String(r.order_id), orderNumber: String(r.order_number), email: String(r.email) }))
 }
 
 export async function findCandidates(key: AutomationKey, now: Date = new Date(), limit = 25): Promise<Candidate[]> {
@@ -225,24 +216,17 @@ function optoutEnvelope(email: string) {
   const oneClick = `${SITE_URL}/api/email/optout?e=${encodeURIComponent(e)}&s=${encodeURIComponent(s)}`
   return {
     footerHtml: `
-  <div>Bu e-postayı zuulab siparişin nedeniyle aldın.</div>
-  <div style="margin-top: 6px;"><a href="${optoutUrl(email)}">Bu tür e-postaları istemiyorum</a></div>`,
+  <div>Bu e-postayı, zuulab'dan e-posta almayı onayladığın için aldın.</div>
+  <div style="margin-top: 6px;"><a href="${optoutUrl(email)}">İznimi geri alıyorum, bu e-postaları istemiyorum</a></div>`,
     headers: { 'List-Unsubscribe': `<${oneClick}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
     from: process.env.NEWSLETTER_FROM_EMAIL || undefined,
     replyTo: process.env.SUPPORT_INBOX_EMAIL || undefined,
   }
 }
 
-/** The mail for one person; `messageId` lets an unsubscribe be counted against this mail */
-export function buildAutomationEmail(
-  def: AutomationDef,
-  mail: AutomationMail,
-  to: string,
-  token: string | null,
-  campaignId: string,
-  messageId?: string
-): EmailSendOptions {
-  const env = def.marketing && token ? newsletterEnvelope(token, messageId) : optoutEnvelope(to)
+/** The mail for one person, with the signed link that takes the permission back */
+export function buildAutomationEmail(mail: AutomationMail, to: string, campaignId: string): EmailSendOptions {
+  const env = optoutEnvelope(to)
   const { html } = renderEmailBase({
     title: escapeHtml(mail.subject),
     preheader: escapeHtml(mail.preheader),
@@ -270,7 +254,7 @@ export async function sendAutomationTest(key: AutomationKey, to: string): Promis
     { name: 'ikinci örnek ürün', quantity: 2, path: '/urunler' },
   ]
   const mail = key === 'abandoned_payment' ? abandonedPaymentMail(sample, SITE_URL) : reviewRequestMail(sample, SITE_URL)
-  const email = buildAutomationEmail(def, mail, to, 'test', id)
+  const email = buildAutomationEmail(mail, to, id)
   const result = await getEmailProvider()
     .sendEmail({ ...email, subject: `[TEST] ${mail.subject}`, tags: undefined })
     .catch((e: unknown) => ({ success: false, error: (e as Error)?.message ?? String(e) }))
@@ -316,13 +300,13 @@ export async function runAutomations({ now = new Date(), dryRun = false, limit =
         // Claim first: the database refuses a second mail for the same order, even from an overlapping run
         const claim = await exec(
           db.raw.sql`INSERT INTO email_messages (id, campaign_id, subscriber_id, order_id, email, status, created_at)
-                     VALUES (${messageId}, ${id}, NULLIF(${c.subscriberId ?? ''}, ''), ${c.orderId}, ${c.email}, 'QUEUED', ${wall(now)}::timestamp)
+                     VALUES (${messageId}, ${id}, NULL, ${c.orderId}, ${c.email}, 'QUEUED', ${wall(now)}::timestamp)
                      ON CONFLICT (campaign_id, order_id) DO NOTHING`.affectedCount().build()
         )
         if (claim.affectedRows !== 1) continue
         try {
           const mail = await mailFor(def, c)
-          const result = await getEmailProvider().sendEmail(buildAutomationEmail(def, mail, c.email, c.token, id, messageId))
+          const result = await getEmailProvider().sendEmail(buildAutomationEmail(mail, c.email, id))
           if (!result.success) throw new Error(result.error ?? 'bilinmeyen hata')
           sent++
           await exec(
@@ -340,12 +324,4 @@ export async function runAutomations({ now = new Date(), dryRun = false, limit =
     results.push({ key: def.key, state: 'sent', eligible: candidates.length, sent, failed })
   }
   return results
-}
-
-// ── Opt-out ──────────────────────────────────────────────────────────
-
-export async function recordOptout(email: string): Promise<void> {
-  await exec(
-    db.raw.sql`INSERT INTO email_optouts (email, source, created_at) VALUES (${email.trim().toLowerCase()}, 'review_request', now()) ON CONFLICT (email) DO NOTHING`.affectedCount().build()
-  )
 }

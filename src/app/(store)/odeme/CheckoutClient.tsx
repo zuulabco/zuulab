@@ -19,7 +19,7 @@ import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 import { trackEvent, getCheckoutMarketingContext } from '@/lib/marketing/client'
 import { cartLineToItem } from '@/lib/marketing/cart'
-import { CHECKOUT_MARKETING_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
 import { BANK_TRANSFER_DISCOUNT_RATE } from '@/lib/pricing/money'
@@ -102,6 +102,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
 
   // Optional consent to campaign e-mails (ticari elektronik ileti). Unticked by default, never required to order.
   const [emailMarketingConsent, setEmailMarketingConsent] = useState(false)
+  // A member who already gave the permission is not asked again (the box is hidden)
+  const [emailPermissionActive, setEmailPermissionActive] = useState(false)
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('')
@@ -151,6 +153,21 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // A signed-in member who already gave the e-mail permission does not see the box again
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    fetch('/api/account/email-consent', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d.success && d.status === 'ACTIVE') setEmailPermissionActive(true)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   // Auto-fill logged in user info
   useEffect(() => {
@@ -1160,20 +1177,22 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   {fieldErrors.agreement}
                 </span>
               )}
-              <label className={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={emailMarketingConsent}
-                  onChange={(e) => setEmailMarketingConsent(e.target.checked)}
-                  className={styles.checkboxInput}
-                />
-                <span className={styles.agreementText}>
-                  {CHECKOUT_MARKETING_CONSENT_TEXT} (isteğe bağlı){' '}
-                  <Link href="/ticari-elektronik-ileti-onayi" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
-                    Ayrıntılar
-                  </Link>
-                </span>
-              </label>
+              {!emailPermissionActive && (
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={emailMarketingConsent}
+                    onChange={(e) => setEmailMarketingConsent(e.target.checked)}
+                    className={styles.checkboxInput}
+                  />
+                  <span className={styles.agreementText}>
+                    {EMAIL_PERMISSION_TEXT} (isteğe bağlı, bülten aboneliği değildir){' '}
+                    <Link href="/ticari-elektronik-ileti-onayi" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
+                      Ayrıntılar
+                    </Link>
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Desktop Primary Submit CTA */}

@@ -26,8 +26,8 @@ export default function OptoutClient({ e, s }: { e: string; s: string }) {
       <div className={styles.card}>
         {state === 'done' ? (
           <>
-            <h1 className={styles.title}>tercihin kaydedildi.</h1>
-            <p className={styles.text}>Artık değerlendirme isteği gibi e-postalar göndermeyeceğiz. Sipariş ve kargo bilgilendirmeleri gelmeye devam eder.</p>
+            <h1 className={styles.title}>iznin geri alındı.</h1>
+            <p className={styles.text}>Artık sepet hatırlatması, değerlendirme isteği ve kampanya gibi e-postalar göndermeyeceğiz. Sipariş ve kargo bilgilendirmeleri gelmeye devam eder. Bülten aboneliğin ayrıdır ve bu işlemden etkilenmez.</p>
             <Link href="/" className="btn btn-primary btn-lg">
               ana sayfaya dön
             </Link>
@@ -42,11 +42,11 @@ export default function OptoutClient({ e, s }: { e: string; s: string }) {
           </>
         ) : (
           <>
-            <h1 className={styles.title}>bu e-postaları istemiyor musun?</h1>
-            <p className={styles.text}>Siparişinle ilgili değerlendirme isteği gibi e-postaları artık göndermeyeceğiz. Sipariş ve kargo bilgilendirmeleri etkilenmez.</p>
+            <h1 className={styles.title}>e-posta iznini geri almak istiyor musun?</h1>
+            <p className={styles.text}>Sepet hatırlatması, değerlendirme isteği ve kampanya gibi e-postaları artık göndermeyeceğiz. Sipariş ve kargo bilgilendirmeleri etkilenmez. Bülten aboneliğin ayrıdır ve bu işlemden etkilenmez.</p>
             <div className={styles.actions}>
               <button type="button" className="btn btn-primary btn-lg" onClick={optOut} disabled={state === 'working'}>
-                {state === 'working' ? 'işleniyor…' : 'evet, istemiyorum'}
+                {state === 'working' ? 'işleniyor…' : 'evet, iznimi geri alıyorum'}
               </button>
               <Link href="/" className="btn btn-secondary btn-lg">
                 vazgeç

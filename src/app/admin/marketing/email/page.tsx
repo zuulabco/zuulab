@@ -9,7 +9,7 @@ import { fmtInt } from '../../analytics/charts'
 import type { EmailOverview, CampaignSummary } from '@/lib/services/email-campaign.service'
 import type { AutomationSummary } from '@/lib/services/email-automation.service'
 
-type Overview = EmailOverview & { automations: AutomationSummary[]; setup: { provider: string; webhookConfigured: boolean } }
+type Overview = EmailOverview & { automations: AutomationSummary[]; consents: { active: number; withdrawn: number; declined: number }; setup: { provider: string; webhookConfigured: boolean } }
 
 interface Form {
   id?: string
@@ -252,7 +252,8 @@ export default function EmailCenterPage() {
           <Kpi label="Açılma" value={pct(data.totalRates.openRate)} hint="tahmini, aşağıya bakın" />
           <Kpi label="Tıklama" value={pct(data.totalRates.clickRate)} hint="bağlantıya tıklayan" />
           <Kpi label="Abonelikten çıkan" value={fmtInt(data.totals.unsubscribed)} hint="kampanya e-postalarından" />
-          <Kpi label="Aktif abone" value={fmtInt(data.subscribers.active)} hint={`${fmtInt(data.subscribers.pending)} onay bekliyor`} />
+          <Kpi label="Bülten abonesi" value={fmtInt(data.subscribers.active)} hint={`${fmtInt(data.subscribers.pending)} onay bekliyor · kampanyalar bunlara gider`} />
+          <Kpi label="E-posta izni verenler" value={fmtInt(data.consents.active)} hint={`otomatik e-postalar bunlara gider · ${fmtInt(data.consents.declined)} kişi hayır dedi`} />
         </section>
       )}
 

@@ -72,8 +72,8 @@ export default function KvkkNoticePage() {
                 <tr>
                   <td>Pazarlama</td>
                   <td>
-                    Bülten aboneliği ve onay kaydı (ödeme sayfasında verdiğiniz kampanya e-postası onayı dahil), e-postaların
-                    açılma ve tıklama bilgisi; izin verirseniz site kullanım ve reklam ölçüm verileri (ziyaret edilen sayfalar,
+                    Bülten aboneliği ve onay kaydı; e-posta izni (üyelikte giriş sonrası çıkan pencere ya da ödeme sayfasındaki
+                    kutu) ve onay kaydı; e-postaların açılma ve tıklama bilgisi; izin verirseniz site kullanım ve reklam ölçüm verileri (ziyaret edilen sayfalar,
                     incelenen ve sepete eklenen ürünler, ödeme adımları, geldiğiniz reklam veya bağlantı, rastgele ziyaretçi numarası,
                     sipariş sırasında IP adresi ve tarayıcı bilgisi)
                   </td>
@@ -115,12 +115,15 @@ export default function KvkkNoticePage() {
                   <td>Meşru menfaat (m.5/2-f), hukuki yükümlülük (m.5/2-ç)</td>
                 </tr>
                 <tr>
-                  <td>Bülten ve kampanya e-postaları, ödemesi tamamlanmayan sipariş için hatırlatma e-postası</td>
+                  <td>Bülten e-postaları (yalnızca bültene abone olanlara)</td>
                   <td>Açık rıza (m.5/1) ve 6563 sayılı Kanun kapsamında ticari ileti onayı</td>
                 </tr>
                 <tr>
-                  <td>Teslim edilen siparişle ilgili ürün değerlendirme isteği (reklam veya indirim içermez)</td>
-                  <td>Meşru menfaat (m.5/2-f); her e-postada itiraz bağlantısı bulunur</td>
+                  <td>
+                    Kampanya ve indirim e-postaları, ödemesi tamamlanmayan sipariş için hatırlatma, teslim edilen siparişle ilgili ürün
+                    değerlendirme isteği (yalnızca e-posta izni verenlere; bülten aboneliğinden bağımsız)
+                  </td>
+                  <td>Açık rıza (m.5/1) ve 6563 sayılı Kanun kapsamında ticari ileti onayı</td>
                 </tr>
                 <tr>
                   <td>Site kullanım istatistikleri ve reklam ölçümü (analiz ve reklam çerezleri, Google Analytics, Meta Pixel ve Conversions API, kendi istatistik kaydımız)</td>

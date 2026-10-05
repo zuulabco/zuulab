@@ -1,7 +1,8 @@
 /**
  * Two promises made in the privacy texts, against the real Postgres database (DATABASE_URL):
  *
- * 1. The optional "campaign e-mails" box on the payment page records consent for that address.
+ * 1. The e-mail permission (member modal, optional box on the payment page) is recorded with proof,
+ *    can be declined and withdrawn, and is NOT a newsletter subscription.
  * 2. Marketing data is removed when its retention period ends (browser identifiers stored with an
  *    order after 30 days, visit records after 14 months).
  *
@@ -14,49 +15,97 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const { db } = await import('@/prisma/db')
 const { toDbTimestamp } = await import('@/lib/db/time')
-const { recordCheckoutEmailConsent } = await import('@/lib/services/newsletter.service')
+const consent = await import('@/lib/services/email-consent.service')
 const { purgeExpiredPersonalData } = await import('@/lib/services/privacy-retention.service')
 const { storeEvent } = await import('@/lib/services/analytics/internal-analytics.service')
-const { CHECKOUT_MARKETING_CONSENT_TEXT } = await import('@/lib/newsletter/consent')
+const { EMAIL_PERMISSION_TEXT } = await import('@/lib/newsletter/consent')
 
 const RUN = `zk${Date.now().toString(36)}`
 const run = (plan: Parameters<ReturnType<typeof db.runtime>['execute']>[0]) => db.runtime().execute(plan)
 const addr = (key: string) => `${RUN}-${key}@example.com`
-const find = (key: string) => db.orm.public.NewsletterSubscriber.where({ email: addr(key) }).first() as Promise<Record<string, any> | null>
 
-describe('consent box on the payment page', () => {
-  it('a new address becomes an active subscriber with proof of consent, and no welcome coupon', async () => {
-    const outcome = await recordCheckoutEmailConsent({ email: `  ${addr('new').toUpperCase()} `, ip: '203.0.113.9', userAgent: 'TestBrowser/1.0' })
-    expect(outcome).toBe('subscribed')
-    const s = (await find('new'))!
-    expect(s).toMatchObject({ status: 'ACTIVE', source: 'checkout', consentText: CHECKOUT_MARKETING_CONSENT_TEXT, consentIp: '203.0.113.9', consentAgent: 'TestBrowser/1.0' })
-    expect(s.confirmedAt).not.toBeNull()
-    expect(s.couponId ?? null).toBeNull()
-    expect(s.token).toBeTruthy() // every mail can carry its own unsubscribe link
+interface ConsentRow {
+  status: string
+  source: string
+  consent_text: string
+  consent_ip: string | null
+  consent_agent: string | null
+  user_id: string | null
+  granted: boolean
+  withdrawn: boolean
+}
+
+const row = async (key: string): Promise<ConsentRow | null> => {
+  const rows = (await db.runtime().query(
+    db.raw.sql`SELECT status, source, consent_text, consent_ip, consent_agent, user_id,
+                      (granted_at IS NOT NULL) AS granted, (withdrawn_at IS NOT NULL) AS withdrawn
+               FROM email_consents WHERE email = ${addr(key)}`
+      .returnsRow({
+        status: 'pg/text@1', source: 'pg/text@1', consent_text: 'pg/text@1', consent_ip: 'pg/text@1', consent_agent: 'pg/text@1',
+        user_id: 'pg/text@1', granted: 'pg/bool@1', withdrawn: 'pg/bool@1',
+      } as never)
+      .build() as never
+  )) as unknown as ConsentRow[]
+  return rows[0] ?? null
+}
+
+const newsletterRows = async (key: string) => (await db.orm.public.NewsletterSubscriber.where({ email: addr(key) }).all()).length
+
+describe('e-mail permission', () => {
+  it('a payment-page tick creates an active permission with proof, and does not subscribe to the newsletter', async () => {
+    const outcome = await consent.recordCheckoutEmailConsent({ email: `  ${addr('new').toUpperCase()} `, ip: '203.0.113.9', userAgent: 'TestBrowser/1.0' })
+    expect(outcome).toBe('granted')
+    expect(await row('new')).toMatchObject({
+      status: 'ACTIVE', source: 'checkout', consent_text: EMAIL_PERMISSION_TEXT, consent_ip: '203.0.113.9', consent_agent: 'TestBrowser/1.0', granted: true,
+    })
+    expect(await newsletterRows('new')).toBe(0) // the newsletter is a different list
+    expect(await consent.getConsentStatus(addr('new'))).toBe('ACTIVE')
   })
 
-  it('someone who never confirmed the newsletter, or who left it, is subscribed again by ticking the box', async () => {
-    await db.orm.public.NewsletterSubscriber.create({ email: addr('pending'), token: `${RUN}-p`, status: 'PENDING', consentText: 'old', source: 'homepage' } as never)
-    await db.orm.public.NewsletterSubscriber.create({ email: addr('left'), token: `${RUN}-l`, status: 'UNSUBSCRIBED', consentText: 'old', source: 'homepage' } as never)
-    expect(await recordCheckoutEmailConsent({ email: addr('pending') })).toBe('subscribed')
-    expect(await recordCheckoutEmailConsent({ email: addr('left') })).toBe('subscribed')
-    for (const key of ['pending', 'left']) {
-      const s = (await find(key))!
-      expect(s).toMatchObject({ status: 'ACTIVE', source: 'checkout', consentText: CHECKOUT_MARKETING_CONSENT_TEXT })
-      expect(s.unsubscribedAt ?? null).toBeNull()
-    }
-    expect((await find('pending'))!.token).toBe(`${RUN}-p`) // same token: earlier unsubscribe links keep working
+  it('a member who says yes in the modal gets one with their account id; asking twice changes nothing', async () => {
+    expect(await consent.grantEmailConsent({ email: addr('member'), source: 'member_modal', userId: 'user-123' })).toBe(true)
+    expect(await row('member')).toMatchObject({ status: 'ACTIVE', source: 'member_modal', user_id: 'user-123' })
+    expect(await consent.grantEmailConsent({ email: addr('member'), source: 'checkout' })).toBe(false)
+    expect(await row('member')).toMatchObject({ source: 'member_modal' }) // the first proof stays
   })
 
-  it('an address that is already active is left alone', async () => {
-    await db.orm.public.NewsletterSubscriber.create({ email: addr('active'), token: `${RUN}-a`, status: 'ACTIVE', consentText: 'homepage text', source: 'homepage' } as never)
-    expect(await recordCheckoutEmailConsent({ email: addr('active') })).toBe('already_active')
-    expect(await find('active')).toMatchObject({ source: 'homepage', consentText: 'homepage text' })
+  it('a member who says no is recorded as declined, so no device asks again', async () => {
+    await consent.declineEmailConsent({ email: addr('no'), source: 'member_modal' })
+    expect(await consent.getConsentStatus(addr('no'))).toBe('DECLINED')
+    expect(await row('no')).toMatchObject({ status: 'DECLINED', granted: false })
+  })
+
+  it('withdrawing takes the permission back, it can be given again later, and an address with none is unaffected', async () => {
+    expect(await consent.withdrawEmailConsent(addr('member'))).toBe(true)
+    expect(await row('member')).toMatchObject({ status: 'WITHDRAWN', withdrawn: true })
+    expect(await consent.withdrawEmailConsent(addr('member'))).toBe(false) // already withdrawn
+    expect(await consent.withdrawEmailConsent(addr('nobody'))).toBe(false)
+
+    expect(await consent.grantEmailConsent({ email: addr('member'), source: 'checkout' })).toBe(true)
+    expect(await row('member')).toMatchObject({ status: 'ACTIVE', source: 'checkout', withdrawn: false })
+  })
+
+  it('saying no after having said yes withdraws it', async () => {
+    await consent.grantEmailConsent({ email: addr('flip'), source: 'member_modal' })
+    await consent.declineEmailConsent({ email: addr('flip'), source: 'member_modal' })
+    expect(await row('flip')).toMatchObject({ status: 'WITHDRAWN' })
+  })
+
+  it('subscribing to the newsletter gives no e-mail permission', async () => {
+    await db.orm.public.NewsletterSubscriber.create({ email: addr('news'), token: `${RUN}-n`, status: 'ACTIVE', consentText: 'newsletter', source: 'homepage' } as never)
+    expect(await consent.getConsentStatus(addr('news'))).toBe('NONE')
   })
 
   it('an invalid address records nothing and never throws, so the order cannot be hurt', async () => {
-    expect(await recordCheckoutEmailConsent({ email: 'not-an-address' })).toBe('skipped')
-    expect(await recordCheckoutEmailConsent({ email: undefined })).toBe('skipped')
+    expect(await consent.recordCheckoutEmailConsent({ email: 'not-an-address' })).toBe('skipped')
+    expect(await consent.recordCheckoutEmailConsent({ email: undefined })).toBe('skipped')
+  })
+
+  it('counts by status for the admin', async () => {
+    const c = await consent.consentCounts()
+    expect(c.active).toBeGreaterThanOrEqual(2) // new and member
+    expect(c.declined).toBeGreaterThanOrEqual(1)
+    expect(c.withdrawn).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -118,5 +167,6 @@ afterAll(async () => {
   await run(db.raw.sql`DELETE FROM orders WHERE order_number LIKE ${`ZK-${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM users WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM newsletter_subscribers WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
+  await run(db.raw.sql`DELETE FROM email_consents WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await db.close()
 }, 60_000)

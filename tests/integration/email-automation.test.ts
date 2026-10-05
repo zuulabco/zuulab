@@ -39,6 +39,7 @@ const { db } = await import('@/prisma/db')
 const { toDbTimestamp } = await import('@/lib/db/time')
 const svc = await import('@/lib/services/email-automation.service')
 const { getSigningSecret } = await import('@/lib/services/session.service')
+const consent = await import('@/lib/services/email-consent.service')
 const { verifyOptout } = await import('@/lib/email/automations')
 const { escapeHtml } = await import('@/lib/email/campaign')
 
@@ -53,7 +54,6 @@ const email = (key: string) => `${RUN}-${key}@example.com`
 let productId = ''
 let productName = ''
 const userIds: Record<string, string> = {}
-const subscribers: Record<string, string> = {}
 const wasActive: Record<string, boolean> = {}
 let seq = 0
 
@@ -62,9 +62,17 @@ async function userOf(key: string) {
   return userIds[key]
 }
 
-async function subscribe(key: string, status: 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED') {
-  const row = await db.orm.public.NewsletterSubscriber.create({ email: email(key), token: `${RUN}-${key}`, status, consentText: 'test', source: 'test' } as never)
-  subscribers[key] = row.id
+/** The e-mail permission (what the automations need); NOT the newsletter */
+async function permit(key: string, status: 'ACTIVE' | 'WITHDRAWN' | 'DECLINED' = 'ACTIVE') {
+  await run(
+    db.raw.sql`INSERT INTO email_consents (id, email, status, source, consent_text, created_at, updated_at)
+               VALUES (${`${RUN}-c-${key}`}, ${email(key)}, ${status}, 'checkout', 'test', now(), now())`.affectedCount().build()
+  )
+}
+
+/** A newsletter subscription: a different list, which must give the automations nothing */
+async function subscribeToNewsletter(key: string, status: 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' = 'ACTIVE') {
+  await db.orm.public.NewsletterSubscriber.create({ email: email(key), token: `${RUN}-${key}`, status, consentText: 'test', source: 'test' } as never)
 }
 
 async function order(key: string, o: { status: string; createdAt: Date; payment?: { provider: 'MANUAL' | 'PAYTR'; status: string } }) {
@@ -119,34 +127,40 @@ beforeAll(async () => {
   }
 
   // — unpaid orders —
-  await subscribe('a1', 'ACTIVE')
+  await permit('a1')
   await order('a1', { status: 'PAYMENT_PENDING', createdAt: hoursAgo(8) }) // older: only the latest order of an address counts
   await order('a1', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) })
-  await subscribe('a2', 'PENDING')
-  await order('a2', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // never confirmed the newsletter
-  await order('a3', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // not a subscriber
-  await subscribe('a4', 'ACTIVE')
+  await permit('a2', 'DECLINED')
+  await order('a2', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // was asked and said no
+  await subscribeToNewsletter('a3')
+  await order('a3', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // newsletter subscriber only: never gave the e-mail permission
+  await permit('a4')
   await order('a4', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) })
   await order('a4', { status: 'CONFIRMED', createdAt: hoursAgo(4) }) // bought afterwards
-  await subscribe('a5', 'ACTIVE')
+  await permit('a5')
   await order('a5', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(2) }) // too recent
-  await subscribe('a6', 'ACTIVE')
+  await permit('a6')
   await order('a6', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(30) }) // too old
-  await subscribe('a7', 'ACTIVE')
+  await permit('a7')
   await order('a7', { status: 'PAYMENT_PENDING', createdAt: hoursAgo(5), payment: { provider: 'MANUAL', status: 'PENDING' } }) // paying by bank transfer
-  await subscribe('a8', 'ACTIVE')
+  await permit('a8')
   await order('a8', { status: 'PAYMENT_PENDING', createdAt: hoursAgo(5), payment: { provider: 'PAYTR', status: 'PROCESSING' } }) // payment under way
-  await subscribe('boom-a9', 'ACTIVE')
+  await permit('boom-a9')
   await order('boom-a9', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // the fake provider rejects this address
+  await order('a10', { status: 'PAYMENT_FAILED', createdAt: hoursAgo(5) }) // no permission at all (and not on the newsletter): a guest who never ticked the box
 
   // — delivered orders —
+  await permit('r1')
   await delivered('r1', daysAgo(8, NOW))
+  await permit('r2')
   await delivered('r2', daysAgo(3, NOW)) // too early
+  await permit('r3')
   await delivered('r3', daysAgo(40, NOW)) // too late
-  await delivered('r4', daysAgo(8, NOW))
-  await run(db.raw.sql`INSERT INTO email_optouts (email, source) VALUES (${email('r4')}, 'test')`.affectedCount().build())
-  await subscribe('r5', 'UNSUBSCRIBED')
-  await delivered('r5', daysAgo(8, NOW))
+  await permit('r4', 'WITHDRAWN')
+  await delivered('r4', daysAgo(8, NOW)) // took the permission back
+  await subscribeToNewsletter('r5')
+  await delivered('r5', daysAgo(8, NOW)) // newsletter only
+  await delivered('r6', daysAgo(8, NOW)) // delivered, no permission
   await delivered('a1', daysAgo(9, NOW)) // a1 also qualifies for a review request, but will already have had the reminder
 }, 180_000)
 
@@ -156,7 +170,7 @@ afterAll(async () => {
   await run(db.raw.sql`DELETE FROM orders WHERE order_number LIKE ${`ZA-${RUN}-%`}`.affectedCount().build()) // items and history go with them
   await run(db.raw.sql`DELETE FROM users WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM newsletter_subscribers WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
-  await run(db.raw.sql`DELETE FROM email_optouts WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
+  await run(db.raw.sql`DELETE FROM email_consents WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   for (const key of ['abandoned_payment', 'review_request'] as const) await svc.setAutomationActive(key, wasActive[key] ?? false, 'test')
   await db.close()
 }, 90_000)
@@ -164,16 +178,16 @@ afterAll(async () => {
 const emails = (list: Array<{ email: string }>) => list.map((c) => c.email.replace(`${RUN}-`, '').replace('@example.com', '')).sort()
 
 describe('who the rules pick', () => {
-  it('unpaid orders: only the latest unpaid card order, 3 to 24 hours old, of a confirmed subscriber who has not bought since', async () => {
+  it('unpaid orders: only the latest unpaid card order, 3 to 24 hours old, of an address with the e-mail permission that has not bought since', async () => {
     const found = await svc.findCandidates('abandoned_payment', NOW, 100)
-    // a1 once (not twice), and boom-a9; not a2 (pending), a3 (not a subscriber), a4 (bought), a5 (too recent), a6 (too old), a7 (bank transfer), a8 (paying)
+    // a1 once (not twice), and boom-a9; not a2 (said no), a3 (newsletter only), a4 (bought), a5 (too recent), a6 (too old),
+    // a7 (bank transfer), a8 (paying), a10 (never gave a permission)
     expect(emails(found)).toEqual(['a1', 'boom-a9'])
-    expect(found.find((c) => c.email === email('a1'))?.token).toBe(`${RUN}-a1`)
   })
 
-  it('review request: delivered 7 to 30 days ago, not opted out, not left the newsletter', async () => {
+  it('review request: delivered 7 to 30 days ago, only for addresses with the e-mail permission', async () => {
     const found = await svc.findCandidates('review_request', NOW, 100)
-    // r1, and a1 (not yet blocked); not r2 (too early), r3 (too late), r4 (opted out), r5 (unsubscribed)
+    // r1, and a1 (not yet blocked); not r2 (too early), r3 (too late), r4 (withdrew), r5 (newsletter only), r6 (no permission)
     expect(emails(found)).toEqual(['a1', 'r1'])
   })
 
@@ -214,22 +228,34 @@ describe('running the automations', () => {
     expect((await statusOf('boom-a9'))[0]).toMatchObject({ status: 'FAILED', error: 'mailbox rejected' })
   })
 
-  it('the reminder carries the newsletter unsubscribe link of that subscriber and names the product', async () => {
+  it('the reminder names the product and carries a signed link that takes the e-mail permission back (not a newsletter link)', async () => {
     const mail = sentMails.find((m) => m.to === email('a1'))!
     expect(mail.subject).toBe('sepetindeki ürünler seni bekliyor')
     expect(mail.html).toContain(escapeHtml(productName))
-    expect(mail.headers?.['List-Unsubscribe']).toContain(`/api/newsletter/unsubscribe?t=${RUN}-a1&m=`)
-    expect(mail.html).toContain('Bültenden ayrıl')
+    expect(mail.html).toContain('İznimi geri alıyorum')
+    expect(mail.html).not.toContain('/bulten/ayril')
+    const link = /\/eposta\/ayril\?e=([^&"]+)&(?:amp;)?s=([^"&]+)/.exec(mail.html)!
+    expect(verifyOptout(getSigningSecret(), decodeURIComponent(link[1]), decodeURIComponent(link[2]))).toBe(email('a1'))
+    expect(mail.headers?.['List-Unsubscribe']).toContain('/api/email/optout?e=')
+    expect(mail.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click')
     expect(mail.tags?.[0].name).toBe('campaign')
   })
 
-  it('the review request carries a signed opt-out link for that address, not a newsletter link', async () => {
+  it('the review request carries the same kind of signed link for its own address', async () => {
     const mail = sentMails.find((m) => m.to === email('r1'))!
     expect(mail.subject).toBe('siparişin nasıldı?')
-    expect(mail.html).toContain('Bu tür e-postaları istemiyorum')
+    expect(mail.html).toContain('İznimi geri alıyorum')
     const link = /\/eposta\/ayril\?e=([^&"]+)&(?:amp;)?s=([^"&]+)/.exec(mail.html)!
     expect(verifyOptout(getSigningSecret(), decodeURIComponent(link[1]), decodeURIComponent(link[2]))).toBe(email('r1'))
-    expect(mail.headers?.['List-Unsubscribe']).toContain('/api/email/optout?e=')
+  })
+
+  it('following the link in a mail takes the permission back, and the person is no longer picked', async () => {
+    const mail = sentMails.find((m) => m.to === email('a1'))!
+    const link = /\/eposta\/ayril\?e=([^&"]+)&(?:amp;)?s=([^"&]+)/.exec(mail.html)!
+    const who = verifyOptout(getSigningSecret(), decodeURIComponent(link[1]), decodeURIComponent(link[2]))!
+    expect(await consent.withdrawEmailConsent(who)).toBe(true)
+    expect(await consent.getConsentStatus(email('a1'))).toBe('WITHDRAWN')
+    await consent.grantEmailConsent({ email: email('a1'), source: 'checkout' }) // put it back for the rest of the run
   })
 
   it('running again sends nothing: every order is mailed once, an address at most every 3 days', async () => {
@@ -244,7 +270,7 @@ describe('running the automations', () => {
     await delivered('r1', daysAgo(9, later)) // a second delivered order of r1, 9 days before "later"
     expect(emails(await svc.findCandidates('review_request', later, 100))).toContain('r1')
 
-    await svc.recordOptout(email('r1'))
+    await consent.withdrawEmailConsent(email('r1')) // the link in the mail
     expect(emails(await svc.findCandidates('review_request', later, 100))).not.toContain('r1')
   })
 

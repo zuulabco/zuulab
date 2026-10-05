@@ -140,14 +140,19 @@ Admin page `/marketing/email`, API `/api/admin/email`, Resend webhook `/api/webh
 Two automatic mails, managed under Pazarlama > E-posta > Otomatik e-postalar. Code: `lib/email/automations.ts` (rules,
 texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-automations`.
 
-- **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses with an ACTIVE
-  subscription (marketing mail needs consent): the newsletter form (double opt-in) or the optional, unticked box on the payment
-  page (`recordCheckoutEmailConsent`: single opt-in, no welcome coupon, consent text / time / IP / browser kept as proof). Left out: bank-transfer orders, payments under way or paid, addresses that bought
+- **Two separate permissions.** The newsletter (`newsletter_subscribers`, double opt-in) and the e-mail permission
+  (`email_consents`, `lib/services/email-consent.service.ts`). Newsletter campaigns go only to newsletter subscribers; the
+  automations go only to addresses with an ACTIVE e-mail permission. Neither gives the other. The permission is given by a signed-in
+  member in the modal after sign-in (`EmailConsentModal`, `/api/account/email-consent`; only for a verified address; "yes" gives it,
+  "no" is saved as DECLINED, closing the modal gives nothing and asks again after 14 days in that browser) or by anyone in the
+  optional, unticked box on the payment page (hidden for a member who already gave it). Text / time / IP / browser are kept as proof;
+  every automatic mail carries a signed link (`/eposta/ayril`) that withdraws it. A guest who never ticked the box gets no
+  commercial e-mail (only order and shipping mail).
+- **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses with the e-mail
+  permission. Left out: bank-transfer orders, payments under way or paid, addresses that bought
   since, a second reminder within 7 days. Only the latest such order per address. No discount, no fake deadline.
-- **Review request** (`review_request`): an order delivered 7 to 30 days ago (delivery date from `order_status_history`). Customers
-  who are not subscribers receive it too, because it is a request about their own order with no promotion in it; every mail has a
-  signed "bu tür e-postaları istemiyorum" link (`/eposta/ayril`, list `email_optouts`) and the one-click header. Left out:
-  opted-out addresses and subscribers who unsubscribed. **Needs a lawyer's view** whether this counts as a service message.
+- **Review request** (`review_request`): an order delivered 7 to 30 days ago (delivery date from `order_status_history`), only for
+  addresses with the e-mail permission; no promotion in it. (`email_optouts` from the first version of this phase is no longer used.)
 - **Restraint, in code:** one mail per order and automation (the database refuses a second claim), one automatic mail per address
   every 3 days across automations, nothing between 21:00 and 09:00 Türkiye time (it waits for the morning), each run sends at most 25
   per automation. A failed send is recorded and not retried by itself (it may have been accepted, a retry could mail twice).
