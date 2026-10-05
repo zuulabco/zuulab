@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
+import { describeAudit } from '@/lib/admin/audit-labels'
 import styles from './admin.module.css'
 
 interface DashboardStats {
@@ -486,7 +487,7 @@ export default function AdminDashboardPage() {
           <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>Son Sistem ve Operasyon Hareketleri</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              Audit Log
+              Son 6 hareket
             </span>
           </div>
 
@@ -509,14 +510,7 @@ export default function AdminDashboardPage() {
                       fontSize: '0.8rem',
                     }}
                   >
-                    <div>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', marginRight: '0.5rem' }}>
-                        {log.action}
-                      </span>
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        {log.entity} {log.entityId ? `#${log.entityId}` : ''}
-                      </span>
-                    </div>
+                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{describeAudit(log)}</div>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {new Date(log.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
