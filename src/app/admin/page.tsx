@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
-import { describeAudit } from '@/lib/admin/audit-labels'
+import { auditIconName, describeAudit } from '@/lib/admin/audit-labels'
+import AdminIcon from './AdminIcon'
 import styles from './admin.module.css'
 
 interface DashboardStats {
@@ -510,7 +511,25 @@ export default function AdminDashboardPage() {
                       fontSize: '0.8rem',
                     }}
                   >
-                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{describeAudit(log)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 500, color: 'var(--text-primary)', minWidth: 0 }}>
+                      <span
+                        aria-hidden
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 28,
+                          height: 28,
+                          flex: '0 0 28px',
+                          borderRadius: 8,
+                          background: 'var(--surface-1)',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        <AdminIcon name={auditIconName(log.action)} size={16} />
+                      </span>
+                      <span>{describeAudit(log)}</span>
+                    </div>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {new Date(log.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>

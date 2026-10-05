@@ -28,6 +28,11 @@ const SENTENCES: Record<string, string> = {
   ORDER_CREATED: 'Yeni sipariş oluşturuldu',
   ORDER_CANCELLED: 'Sipariş iptal edildi',
   ORDER_STATUS_CHANGED: 'Sipariş durumu değişti',
+  ORDER_DELETED: 'Sipariş kalıcı olarak silindi',
+  CUSTOMER_DELETED: 'Üye silindi',
+  CUSTOMER_ANONYMIZED: 'Üyenin kişisel verileri silindi',
+  CUSTOMER_SUSPENDED: 'Müşteri hesabı askıya alındı',
+  CUSTOMER_ACTIVATED: 'Müşteri hesabı yeniden aktifleştirildi',
   ORDER_INTERNAL_NOTE_ADDED: 'Siparişe iç not eklendi',
   ORDER_OVERSOLD: 'Stoktan fazla satış yapıldı (stok eksiye düştü)',
   // Bilgilendirme e-postaları
@@ -205,4 +210,31 @@ export function describeAudit(row: AuditRow): string {
   if (subject) line += ` — ${subject}`
   if (detail) line += subject ? ` (${detail})` : ` — ${detail}`
   return line
+}
+
+/** The line icon (names from AdminIcon) that stands for the kind of thing an action did, so the list can be scanned at a glance */
+const ICON_RULES: Array<[RegExp, string]> = [
+  [/^(PAYMENT_|BANK_TRANSFER)/, 'payments'],
+  [/^ORDER_/, 'orders'],
+  [/^NOTIFICATION_/, 'notifications'],
+  [/^(SHIPMENT_|shipping.)/, 'shipping'],
+  [/^RETURN_/, 'returns'],
+  [/^PRODUCTION_/, 'production'],
+  [/^(INVENTORY_|MATERIAL_|warehouse.)/, 'inventory'],
+  [/^(PRODUCT_|CATEGORY_|COLLECTION_)/, 'products'],
+  [/^INVOICE_/, 'invoices'],
+  [/^(CONTENT_|ANNOUNCEMENTS_)/, 'layout'],
+  [/^MEDIA_/, 'media'],
+  [/^(SETTINGS_|SOCIAL_|CHANNEL_)/, 'settings'],
+  [/^COUPON_/, 'coupons'],
+  [/^CAMPAIGN_/, 'megaphone'],
+  [/^(EMAIL_|NEWSLETTER_)/, 'mail'],
+  [/^META_/, 'target'],
+  [/^(CUSTOMER_|USER_)/, 'users'],
+  [/^SUPPORT_/, 'support'],
+  [/^marketplace./, 'store'],
+]
+
+export function auditIconName(action: string): string {
+  return ICON_RULES.find(([re]) => re.test(action))?.[1] ?? 'pulse'
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
 import { formatPrice } from '@/lib/utils'
@@ -17,8 +18,9 @@ export default function AdminCustomerDetailPage({
 }) {
   const resolvedParams = use(params)
   const { id } = resolvedParams
-  const { token, canFetch } = useAuthStore()
+  const { token, canFetch, user } = useAuthStore()
   const { addToast } = useToastStore()
+  const router = useRouter()
 
   const [customer, setCustomer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -28,6 +30,12 @@ export default function AdminCustomerDetailPage({
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false)
   const [suspendReason, setSuspendReason] = useState('')
   const [updatingStatus, setUpdatingStatus] = useState(false)
+
+  // Permanent removal (Super Admin): delete the account, or keep the records without the person
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deleteMode, setDeleteMode] = useState<'delete' | 'anonymize'>('delete')
+  const [deleteEmail, setDeleteEmail] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const loadCustomer = async () => {
     if (!canFetch || !id) return
@@ -53,6 +61,28 @@ export default function AdminCustomerDetailPage({
   useEffect(() => {
     loadCustomer()
   }, [token, canFetch, id])
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/customers/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: deleteMode, confirmEmail: deleteEmail }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        addToast(deleteMode === 'delete' ? 'Üye silindi.' : 'Üyenin kişisel verileri silindi, kayıtlar isimsiz kaldı.', 'success')
+        router.push('/customers')
+      } else {
+        addToast(data.error || 'Üye silinemedi.', 'error')
+      }
+    } catch {
+      addToast('Bağlantı hatası oluştu.', 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const handleStatusChange = async (targetStatus: 'ACTIVE' | 'SUSPENDED') => {
     if (!canFetch) return
@@ -159,6 +189,18 @@ export default function AdminCustomerDetailPage({
               style={{ color: '#dc2626', borderColor: '#fca5a5' }}
             >
               Hesabı Askıya Al
+            </button>
+          )}
+          {user?.role === 'SUPER_ADMIN' && (
+            <button
+              onClick={() => {
+                setDeleteEmail('')
+                setDeleteMode(customer.deletionBlockers?.length ? 'anonymize' : 'delete')
+                setIsDeleteOpen(true)
+              }}
+              className={`${styles.btn} ${styles.btnDanger}`}
+            >
+              Üyeyi Sil
             </button>
           )}
         </div>
@@ -425,6 +467,61 @@ export default function AdminCustomerDetailPage({
           </div>
         </div>
       </div>
+
+      {/* ── DELETE MEMBER MODAL ──────────────────────────────────────────────── */}
+      <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} ariaLabel="Üyeyi Sil" maxWidth={500}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: '#dc2626' }}>Üyeyi sil</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+              {customer.name} ({customer.email})
+            </p>
+          </div>
+          {customer.deletionBlockers?.length > 0 ? (
+            <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+              Bu üyenin <strong>{customer.deletionBlockers.join(', ')}</strong> var. Bu kayıtlar (özellikle siparişler ve faturalar) yasal olarak saklanmalı, bu yüzden hesap tamamen silinemez.
+              Bunun yerine kişisel verilerini silebilirsiniz: ad, e-posta, telefon, adresler, sepet ve favoriler silinir, kişi bir daha giriş yapamaz; kayıtlar isimsiz olarak kalır.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+              <label>
+                <input type="radio" checked={deleteMode === 'delete'} onChange={() => setDeleteMode('delete')} /> Hesabı tamamen sil (sipariş, iade, yorum ya da destek kaydı yok)
+              </label>
+              <label>
+                <input type="radio" checked={deleteMode === 'anonymize'} onChange={() => setDeleteMode('anonymize')} /> Yalnızca kişisel verileri sil, hesap kaydı kalsın
+              </label>
+            </div>
+          )}
+          <p style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: 10, margin: 0, lineHeight: 1.5 }}>
+            Geri alınamaz. Üyenin giriş hesabı silinir, ticari e-posta izni ve bülten aboneliği sonlandırılır.
+          </p>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+              Onaylamak için üyenin e-posta adresini yazın: {customer.email}
+            </label>
+            <input
+              value={deleteEmail}
+              onChange={(e) => setDeleteEmail(e.target.value)}
+              placeholder={customer.email}
+              autoComplete="off"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14 }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className={styles.btn} onClick={() => setIsDeleteOpen(false)} disabled={deleting}>
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              onClick={handleDelete}
+              disabled={deleting || deleteEmail.trim().toLowerCase() !== String(customer.email).toLowerCase()}
+            >
+              {deleting ? 'Siliniyor…' : deleteMode === 'delete' ? 'Üyeyi sil' : 'Kişisel verileri sil'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── SUSPEND ACCOUNT MODAL ────────────────────────────────────────────── */}
       <Modal

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/store/toastStore'
 import Modal from '@/components/common/Modal'
@@ -21,7 +21,8 @@ import { SkeletonPage } from '@/components/common/Skeleton'
 export default function AdminOrderDetailPage() {
   const params = useParams()
   const orderNumber = params.orderNumber as string
-  const { token, canFetch } = useAuthStore()
+  const { token, canFetch, user } = useAuthStore()
+  const router = useRouter()
 
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -62,6 +63,10 @@ export default function AdminOrderDetailPage() {
   const [cancelShipmentReason, setCancelShipmentReason] = useState('Müşteri talebiyle iptal')
 
   const [showCancelOrderModal, setShowCancelOrderModal] = useState(false)
+  // Permanent deletion (Super Admin): the order number has to be typed back
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [cancelOrderReason, setCancelOrderReason] = useState('')
   const [cancellingOrder, setCancellingOrder] = useState(false)
 
@@ -222,6 +227,28 @@ export default function AdminOrderDetailPage() {
       toast.error('Bağlantı hatası oluştu.')
     } finally {
       setSyncingShipment(false)
+    }
+  }
+
+  const confirmDeleteOrder = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderNumber}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: deleteConfirm }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(`Sipariş #${orderNumber} silindi.`)
+        router.push('/orders')
+      } else {
+        toast.error(data.error || 'Sipariş silinemedi.')
+      }
+    } catch {
+      toast.error('Bağlantı hatası oluştu.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -592,6 +619,18 @@ export default function AdminOrderDetailPage() {
               className={`${styles.btn} ${styles.btnDanger}`}
             >
               Siparişi İptal Et
+            </button>
+          )}
+          {user?.role === 'SUPER_ADMIN' && order.channel === 'DIRECT' && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirm('')
+                setShowDeleteModal(true)
+              }}
+              className={`${styles.btn} ${styles.btnDanger}`}
+            >
+              Siparişi Sil
             </button>
           )}
         </div>
@@ -1197,6 +1236,39 @@ export default function AdminOrderDetailPage() {
               disabled={cancellingOrder}
             >
               {cancellingOrder ? 'İptal Ediliyor...' : 'Evet, Siparişi İptal Et'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} ariaLabel="Siparişi Kalıcı Olarak Sil" maxWidth={480}>
+        <div style={{ padding: '8px 4px' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', color: '#dc2626' }}>Siparişi kalıcı olarak sil</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 12px' }}>
+            #{order.orderNumber} ve ona bağlı ödeme, kargo ve e-posta kayıtları <strong>geri alınamaz şekilde silinir</strong>. Ayrılan ya da düşülen stok rafa geri eklenir.
+            Müşteriye bir e-posta gitmez. Gerçek bir müşteri siparişiyse bunun yerine “Siparişi İptal Et” kullanın.
+          </p>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+            Onaylamak için sipariş numarasını yazın: <strong>{order.orderNumber}</strong>
+          </label>
+          <input
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            placeholder={order.orderNumber}
+            autoComplete="off"
+            style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14 }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button type="button" className={styles.btn} onClick={() => setShowDeleteModal(false)} disabled={deleting}>
+              Vazgeç
+            </button>
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnDanger}`}
+              onClick={confirmDeleteOrder}
+              disabled={deleting || deleteConfirm.trim() !== order.orderNumber}
+            >
+              {deleting ? 'Siliniyor…' : 'Kalıcı olarak sil'}
             </button>
           </div>
         </div>

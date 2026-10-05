@@ -9,6 +9,9 @@ export type AdminPermissionName =
   | 'ORDER_VIEW'
   | 'ORDER_UPDATE'
   | 'ORDER_CANCEL'
+  /** Permanently deleting an order or a member: Super Admin only (never listed for another role) */
+  | 'ORDER_DELETE'
+  | 'CUSTOMER_DELETE'
   | 'INVENTORY_VIEW'
   | 'INVENTORY_UPDATE'
   | 'INVENTORY_MANAGE'

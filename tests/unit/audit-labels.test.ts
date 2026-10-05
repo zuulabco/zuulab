@@ -26,3 +26,16 @@ describe('describeAudit', () => {
     expect(describeAudit({ action: 'SOME_NEW_THING' })).toBe('Some new thing')
   })
 })
+
+describe('auditIconName', () => {
+  it('gives each kind of action its own icon, and a neutral one for the unknown', async () => {
+    const { auditIconName } = await import('@/lib/admin/audit-labels')
+    expect(auditIconName('PAYMENT_CREATED')).toBe('payments')
+    expect(auditIconName('ORDER_DELETED')).toBe('orders')
+    expect(auditIconName('NOTIFICATION_SENT')).toBe('notifications')
+    expect(auditIconName('EMAIL_CAMPAIGN_SENT')).toBe('mail')
+    expect(auditIconName('CONTENT_PUBLISHED')).toBe('layout')
+    expect(auditIconName('shipping.shipment.created')).toBe('shipping')
+    expect(auditIconName('SOMETHING_NEW')).toBe('pulse')
+  })
+})
