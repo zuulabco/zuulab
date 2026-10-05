@@ -4,12 +4,16 @@ import { pageMetadata } from '@/lib/seo/metadata'
 import LegalDocument, { KeyValue } from '@/components/legal/LegalDocument'
 import { legalDoc } from '@/lib/legal/documents'
 import { COMPANY, DATA_PROCESSORS } from '@/config/company'
+import { commercialEmailEnabled } from '@/lib/email/policy'
 
 const doc = legalDoc('kvkk-aydinlatma-metni')
 
 export const metadata: Metadata = pageMetadata({ title: doc.title, description: doc.summary, path: `/${doc.slug}` })
 
 export default function KvkkNoticePage() {
+  // The e-mail permission (member modal, payment-page box, reminders) is described only once commercial e-mail is switched on
+  // (COMMERCIAL_EMAIL_ENABLED); the setting is read when the page is built, so turning it on means redeploying.
+  const full = commercialEmailEnabled()
   const local = DATA_PROCESSORS.filter((p) => !p.abroad)
   const abroad = DATA_PROCESSORS.filter((p) => p.abroad)
 
@@ -72,8 +76,7 @@ export default function KvkkNoticePage() {
                 <tr>
                   <td>Pazarlama</td>
                   <td>
-                    Bülten aboneliği ve onay kaydı; e-posta izni (üyelikte giriş sonrası çıkan pencere ya da ödeme sayfasındaki
-                    kutu) ve onay kaydı; e-postaların açılma ve tıklama bilgisi; izin verirseniz site kullanım ve reklam ölçüm verileri (ziyaret edilen sayfalar,
+                    Bülten aboneliği ve onay kaydı{full ? '; e-posta izni (üyelikte giriş sonrası çıkan pencere ya da ödeme sayfasındaki kutu) ve onay kaydı' : ''}; e-postaların açılma ve tıklama bilgisi; izin verirseniz site kullanım ve reklam ölçüm verileri (ziyaret edilen sayfalar,
                     incelenen ve sepete eklenen ürünler, ödeme adımları, geldiğiniz reklam veya bağlantı, rastgele ziyaretçi numarası,
                     sipariş sırasında IP adresi ve tarayıcı bilgisi)
                   </td>
@@ -118,13 +121,15 @@ export default function KvkkNoticePage() {
                   <td>Bülten e-postaları (yalnızca bültene abone olanlara)</td>
                   <td>Açık rıza (m.5/1) ve 6563 sayılı Kanun kapsamında ticari ileti onayı</td>
                 </tr>
-                <tr>
-                  <td>
-                    Kampanya ve indirim e-postaları, ödemesi tamamlanmayan sipariş için hatırlatma, teslim edilen siparişle ilgili ürün
-                    değerlendirme isteği (yalnızca e-posta izni verenlere; bülten aboneliğinden bağımsız)
-                  </td>
-                  <td>Açık rıza (m.5/1) ve 6563 sayılı Kanun kapsamında ticari ileti onayı</td>
-                </tr>
+                {full && (
+                  <tr>
+                    <td>
+                      Kampanya ve indirim e-postaları, ödemesi tamamlanmayan sipariş için hatırlatma, teslim edilen siparişle ilgili ürün
+                      değerlendirme isteği (yalnızca e-posta izni verenlere; bülten aboneliğinden bağımsız)
+                    </td>
+                    <td>Açık rıza (m.5/1) ve 6563 sayılı Kanun kapsamında ticari ileti onayı</td>
+                  </tr>
+                )}
                 <tr>
                   <td>Site kullanım istatistikleri ve reklam ölçümü (analiz ve reklam çerezleri, Google Analytics, Meta Pixel ve Conversions API, kendi istatistik kaydımız)</td>
                   <td>Açık rıza (m.5/1)</td>

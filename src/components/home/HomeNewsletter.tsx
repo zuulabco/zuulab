@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { newsletterConsentText } from '@/lib/newsletter/consent'
+import { useCommercialEmail } from '@/hooks/useCommercialEmail'
 import { useAuthStore } from '@/store/authStore'
 import styles from './HomeNewsletter.module.css'
 import { trackEvent } from '@/lib/marketing/client'
@@ -17,6 +18,7 @@ type MemberStatus = 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' | null
  */
 export default function HomeNewsletter() {
   const { user, token } = useAuthStore()
+  const commercial = useCommercialEmail()
   const [member, setMember] = useState<{ email: string; status: MemberStatus } | null>(null)
   /** Signed-in member chose to type another address */
   const [otherEmail, setOtherEmail] = useState(false)
@@ -93,7 +95,7 @@ export default function HomeNewsletter() {
         }}
       />
       <span>
-        {NEWSLETTER_CONSENT_TEXT}{' '}
+        {newsletterConsentText(commercial)}{' '}
         <Link href="/ticari-elektronik-ileti-onayi" className={styles.privacyLink}>
           onay metni
         </Link>

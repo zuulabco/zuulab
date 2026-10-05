@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import Modal from '@/components/common/Modal'
 import { useAuthStore } from '@/store/authStore'
 import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
+import { useCommercialEmail } from '@/hooks/useCommercialEmail'
 
 /**
  * Asks a signed-in member, once, for permission to send commercial e-mail (reminders about an
@@ -16,6 +17,7 @@ import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
  * - Closing it without answering (X, Esc, outside click) gives no permission and is not saved on the
  *   server; this browser asks again after 14 days. Until they say yes, nothing is sent.
  * - Never opens on the payment pages, so it cannot interrupt a payment.
+ * - Never opens while commercial e-mail is switched off (COMMERCIAL_EMAIL_ENABLED).
  */
 
 const SNOOZE_KEY = 'zuulab_email_consent_snooze'
@@ -41,12 +43,13 @@ function snooze(): void {
 export default function EmailConsentModal() {
   const { user, token } = useAuthStore()
   const pathname = usePathname()
+  const commercial = useCommercialEmail()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!user || !token || snoozed()) return
+    if (!commercial || !user || !token || snoozed()) return
     let cancelled = false
     fetch('/api/account/email-consent', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
       .then((r) => r.json())
@@ -57,7 +60,7 @@ export default function EmailConsentModal() {
     return () => {
       cancelled = true
     }
-  }, [user, token])
+  }, [commercial, user, token])
 
   const blocked = pathname.startsWith('/odeme')
 
@@ -86,7 +89,7 @@ export default function EmailConsentModal() {
   }
 
   return (
-    <Modal isOpen={open && !blocked} onClose={close} ariaLabel="E-posta izni" maxWidth={460}>
+    <Modal isOpen={commercial && open && !blocked} onClose={close} ariaLabel="E-posta izni" maxWidth={460}>
       <div style={{ display: 'grid', gap: 14, padding: '8px 4px' }}>
         <h2 style={{ margin: 0, fontSize: '1.25rem' }}>e-posta ile haberdar olmak ister misin?</h2>
         <p style={{ margin: 0 }}>

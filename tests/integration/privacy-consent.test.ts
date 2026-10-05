@@ -13,6 +13,9 @@
 import 'dotenv/config'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
+// The e-mail permission is only collected while commercial e-mail is switched on
+vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+
 // Confirming a newsletter sign-up sends a welcome mail and mints a coupon: no real mail goes out
 vi.mock('@/lib/services/admin.service', () => ({ logAuditEvent: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/lib/services/notification/email-provider.factory', () => ({
@@ -25,7 +28,7 @@ const { toDbTimestamp } = await import('@/lib/db/time')
 const consent = await import('@/lib/services/email-consent.service')
 const { purgeExpiredPersonalData } = await import('@/lib/services/privacy-retention.service')
 const { storeEvent } = await import('@/lib/services/analytics/internal-analytics.service')
-const { EMAIL_PERMISSION_TEXT, NEWSLETTER_CONSENT_TEXT } = await import('@/lib/newsletter/consent')
+const { EMAIL_PERMISSION_TEXT, NEWSLETTER_CONSENT_TEXT_WITH_REMINDERS: NEWSLETTER_CONSENT_TEXT } = await import('@/lib/newsletter/consent')
 
 const RUN = `zk${Date.now().toString(36)}`
 const run = (plan: Parameters<ReturnType<typeof db.runtime>['execute']>[0]) => db.runtime().execute(plan)
@@ -160,6 +163,50 @@ describe('one permission, two ways in, one way out', () => {
     expect(await consent.grantEmailConsent({ email: addr('form'), source: 'account', userId: 'u1' })).toBe(true)
     expect(await row('form')).toMatchObject({ status: 'ACTIVE', source: 'account' })
     expect(await newsletterStatus('form')).toBe('UNSUBSCRIBED') // the newsletter is a separate choice: it stays off
+  })
+})
+
+describe('while commercial e-mail is switched off', () => {
+  const off = async <T>(fn: () => Promise<T>): Promise<T> => {
+    vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'false')
+    try {
+      return await fn()
+    } finally {
+      vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
+    }
+  }
+  const stored = async (key: string) => (await db.orm.public.NewsletterSubscriber.where({ email: addr(key) }).first()) as Record<string, any> | null
+
+  it('the payment-page box records nothing, even if the browser sends it as ticked', async () => {
+    expect(await off(() => consent.recordCheckoutEmailConsent({ email: addr('off1') }))).toBe('skipped')
+    expect(await consent.getConsentStatus(addr('off1'))).toBe('NONE')
+  })
+
+  it('no permission can be given at all', async () => {
+    await expect(off(() => consent.grantEmailConsent({ email: addr('off2'), source: 'member_modal' }))).rejects.toThrow(/İYS/)
+    expect(await consent.getConsentStatus(addr('off2'))).toBe('NONE')
+  })
+
+  it('the newsletter form still works, with its original wording, and confirming it gives no e-mail permission', async () => {
+    await off(async () => {
+      await news.subscribeToNewsletter({ email: addr('off3'), consent: true, source: 'test' })
+      expect((await stored('off3'))?.consentText).toBe((await import('@/lib/newsletter/consent')).NEWSLETTER_CONSENT_TEXT)
+      const token = (await stored('off3'))!.token as string
+      expect((await news.confirmNewsletter(token)).ok).toBe(true)
+    })
+    expect((await stored('off3'))?.status).toBe('ACTIVE')
+    expect(await consent.getConsentStatus(addr('off3'))).toBe('NONE')
+  })
+
+  it('a sign-up that carries the wording with reminders still gets no permission while it is off', async () => {
+    await db.orm.public.NewsletterSubscriber.create({ email: addr('off4'), token: `${RUN}-t-off4`, status: 'PENDING', consentText: NEWSLETTER_CONSENT_TEXT, source: 'homepage' } as never)
+    await off(() => news.confirmNewsletter(`${RUN}-t-off4`))
+    expect(await consent.getConsentStatus(addr('off4'))).toBe('NONE')
+  })
+
+  it('once it is on, the form carries the wording with reminders', async () => {
+    await news.subscribeToNewsletter({ email: addr('on1'), consent: true, source: 'test' })
+    expect((await stored('on1'))?.consentText).toBe(NEWSLETTER_CONSENT_TEXT)
   })
 })
 

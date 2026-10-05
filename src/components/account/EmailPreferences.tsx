@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/authStore'
 import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
+import { useCommercialEmail } from '@/hooks/useCommercialEmail'
 
 /**
  * "e-posta tercihleri" in Hesabım > Profilim: the one place a member can see and change whether
@@ -17,6 +18,7 @@ type NewsletterStatus = 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' | null
 
 export default function EmailPreferences() {
   const { user, token } = useAuthStore()
+  const commercial = useCommercialEmail()
   const [state, setState] = useState<{ status: Status; newsletter: NewsletterStatus; eligible: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -35,7 +37,8 @@ export default function EmailPreferences() {
     }
   }, [user, token])
 
-  if (!user || !token || !state) return null
+  // Nothing to show while commercial e-mail is switched off
+  if (!commercial || !user || !token || !state) return null
 
   const on = state.status === 'ACTIVE'
 

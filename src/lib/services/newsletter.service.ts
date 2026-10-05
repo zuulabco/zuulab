@@ -7,7 +7,8 @@ import { SITE_URL } from '@/lib/config/urls'
 import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import { logAuditEvent } from './admin.service'
-import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { NEWSLETTER_CONSENT_TEXT_WITH_REMINDERS, newsletterConsentText } from '@/lib/newsletter/consent'
+import { commercialEmailEnabled } from '@/lib/email/policy'
 import { grantEmailConsent, withdrawEmailConsent } from './email-consent.service'
 
 /**
@@ -180,7 +181,7 @@ export async function subscribeToNewsletter(input: {
     throw new NewsletterError('Bülten için e-posta iletişim onayını işaretlemen gerekiyor.')
   }
   const consent = {
-    consentText: NEWSLETTER_CONSENT_TEXT,
+    consentText: newsletterConsentText(commercialEmailEnabled()),
     consentIp: input.ip?.slice(0, 64) ?? null,
     consentAgent: input.userAgent?.slice(0, 300) ?? null,
     source: (input.source || 'homepage').slice(0, 40),
@@ -266,8 +267,8 @@ export async function confirmNewsletter(token: string): Promise<ConfirmResult> {
       couponId = nextCouponId
       // The form's wording also covers reminders and offers, so confirming it gives the e-mail permission too, but only for
       // someone who saw that wording (an older, still unconfirmed sign-up saw the previous text)
-      if (sub.consentText === NEWSLETTER_CONSENT_TEXT) {
-        await grantEmailConsent({ email: sub.email, source: 'newsletter', text: NEWSLETTER_CONSENT_TEXT, ip: sub.consentIp, userAgent: sub.consentAgent }).catch((err: unknown) =>
+      if (commercialEmailEnabled() && sub.consentText === NEWSLETTER_CONSENT_TEXT_WITH_REMINDERS) {
+        await grantEmailConsent({ email: sub.email, source: 'newsletter', text: NEWSLETTER_CONSENT_TEXT_WITH_REMINDERS, ip: sub.consentIp, userAgent: sub.consentAgent }).catch((err: unknown) =>
           console.warn('[newsletter] could not record the e-mail permission of a confirmed subscriber:', err)
         )
       }

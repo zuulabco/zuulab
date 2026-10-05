@@ -5,6 +5,7 @@ import { getClientIp } from '@/lib/config/maintenance'
 import { db } from '@/prisma/db'
 import { declineEmailConsent, getConsentStatus, grantEmailConsent, withdrawEmailConsent } from '@/lib/services/email-consent.service'
 import { newsletterStatusFor } from '@/lib/services/newsletter.service'
+import { COMMERCIAL_EMAIL_OFF_MESSAGE, commercialEmailEnabled } from '@/lib/email/policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
       isVerified(user.id),
       newsletterStatusFor(user.email).catch(() => null),
     ])
-    return NextResponse.json({ success: true, email: user.email, status, newsletter, eligible }, { headers: { 'Cache-Control': 'no-store' } })
+    // nobody is offered a permission while commercial e-mail is switched off
+    return NextResponse.json({ success: true, email: user.email, status, newsletter, eligible: eligible && commercialEmailEnabled() }, { headers: { 'Cache-Control': 'no-store' } })
   } catch {
     return NextResponse.json({ success: false }, { status: 401 })
   }
@@ -57,6 +59,9 @@ export async function POST(request: Request) {
   const proof = { email: user.email, source: (parsed.data.from === 'account' ? 'account' : 'member_modal') as 'account' | 'member_modal', userId: user.id, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') }
   try {
     if (parsed.data.answer === 'accept') {
+      if (!commercialEmailEnabled()) {
+        return NextResponse.json({ success: false, error: COMMERCIAL_EMAIL_OFF_MESSAGE }, { status: 403 })
+      }
       if (!(await isVerified(user.id))) {
         return NextResponse.json({ success: false, error: 'Önce e-posta adresini doğrulamalısın.' }, { status: 400 })
       }

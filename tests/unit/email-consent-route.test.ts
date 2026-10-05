@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * /api/account/email-consent: what the modal after sign-in talks to. The database and the consent
  * service are replaced; what is checked is who may do what.
  */
+vi.stubEnv('COMMERCIAL_EMAIL_ENABLED', 'true')
 let signedIn = true
 let verified = true
 let status: 'NONE' | 'ACTIVE' | 'WITHDRAWN' | 'DECLINED' = 'NONE'

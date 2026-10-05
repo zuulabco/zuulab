@@ -169,7 +169,12 @@ texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-aut
 
 `COMMERCIAL_EMAIL_ENABLED` (env, default off, `lib/email/policy.ts`). While it is not "true": `sendCampaign` refuses, an automation cannot be
 switched on and `runAutomations` treats every automation as paused even if its row says ACTIVE. Still working: order / payment /
-shipping mails (not commercial), previews, the sample and test mails an admin sends to their own address, all reports. Set it to
+shipping mails (not commercial), previews, the sample and test mails an admin sends to their own address, all reports. The
+switch also covers **collecting the e-mail permission**: while it is off, the modal after sign-in, the payment-page box and the
+account preferences do not appear (`useCommercialEmail` asks `GET /api/email/features`), the server refuses to record a permission
+(`grantEmailConsent`, the account API, the payment route), the newsletter keeps its original consent wording and confirming it
+gives no permission, and the commercial-message page and KVKK notice describe only the newsletter. Withdrawing a permission and
+unsubscribing always work. Set it to
 `true` in Vercel once İYS registration is done and the consent texts are approved.
 
 ## Retention (privacy)

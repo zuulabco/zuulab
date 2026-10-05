@@ -20,6 +20,7 @@ import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 import { trackEvent, getCheckoutMarketingContext } from '@/lib/marketing/client'
 import { cartLineToItem } from '@/lib/marketing/cart'
 import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
+import { useCommercialEmail } from '@/hooks/useCommercialEmail'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
 import { BANK_TRANSFER_DISCOUNT_RATE } from '@/lib/pricing/money'
@@ -102,6 +103,8 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
 
   // Optional consent to campaign e-mails (ticari elektronik ileti). Unticked by default, never required to order.
   const [emailMarketingConsent, setEmailMarketingConsent] = useState(false)
+  // The box only exists while commercial e-mail is switched on (COMMERCIAL_EMAIL_ENABLED)
+  const commercialEmail = useCommercialEmail()
   // A member who already gave the permission is not asked again (the box is hidden)
   const [emailPermissionActive, setEmailPermissionActive] = useState(false)
 
@@ -502,7 +505,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
           checkoutKey: checkoutKeyRef.current,
           paymentMethod,
           marketing: getCheckoutMarketingContext(),
-          marketingEmailConsent: emailMarketingConsent,
+          marketingEmailConsent: commercialEmail && emailMarketingConsent,
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -1177,7 +1180,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   {fieldErrors.agreement}
                 </span>
               )}
-              {!emailPermissionActive && (
+              {commercialEmail && !emailPermissionActive && (
                 <label className={styles.checkboxLabel}>
                   <input
                     type="checkbox"

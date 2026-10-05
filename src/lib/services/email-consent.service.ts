@@ -2,6 +2,7 @@ import 'server-only'
 import { randomBytes } from 'node:crypto'
 import { db } from '@/prisma/db'
 import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
+import { COMMERCIAL_EMAIL_OFF_MESSAGE, commercialEmailEnabled } from '@/lib/email/policy'
 
 /**
  * The one permission to send a person commercial e-mail (ticari elektronik ileti): campaigns, offers,
@@ -63,8 +64,12 @@ const proofValues = (p: Proof) => ({
   userId: p.userId ?? '',
 })
 
-/** The person said yes. Returns false when they already had an active permission (nothing changes). */
+/**
+ * The person said yes. Returns false when they already had an active permission (nothing changes). Refused while commercial
+ * e-mail is switched off (COMMERCIAL_EMAIL_ENABLED): no permission is collected for mails that are not being sent.
+ */
 export async function grantEmailConsent(p: Proof): Promise<boolean> {
+  if (!commercialEmailEnabled()) throw new EmailConsentError(COMMERCIAL_EMAIL_OFF_MESSAGE)
   const v = proofValues(p)
   const text = p.text ?? EMAIL_PERMISSION_TEXT
   const { affectedRows } = await exec(
@@ -122,6 +127,8 @@ export async function recordCheckoutEmailConsent(input: {
   ip?: string | null
   userAgent?: string | null
 }): Promise<'granted' | 'already_active' | 'skipped'> {
+  // While commercial e-mail is switched off no permission is collected, even if a client sends the box as ticked
+  if (!commercialEmailEnabled()) return 'skipped'
   try {
     const granted = await grantEmailConsent({ email: String(input.email ?? ''), source: 'checkout', userId: input.userId, ip: input.ip, userAgent: input.userAgent })
     return granted ? 'granted' : 'already_active'
