@@ -26,6 +26,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Kontrol paneli', href: '/', icon: 'home', keywords: 'ana panel dashboard özet genel bakış' },
       { label: 'Bugün', href: '/today', icon: 'today', keywords: 'günlük yapılacaklar bekleyen işler today' },
       { label: 'Analizler', href: '/analytics', icon: 'analytics', keywords: 'rapor istatistik ciro gelir satış grafik analytics' },
+      { label: 'SEO', href: '/seo', icon: 'analytics', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },
     ],
   },
   {
