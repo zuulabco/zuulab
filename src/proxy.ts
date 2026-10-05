@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import {
-  isMaintenanceModeEnabled,
   getMaintenanceAllowedIps,
   getClientIp,
   isIpAllowed,
@@ -33,7 +32,7 @@ export function resetProxyCache(): void {
  * 1. Checks in-memory edge cache (5s TTL).
  * 2. If same-process cache is already populated, uses it.
  * 3. Otherwise, queries the internal /api/maintenance/status endpoint.
- * 4. Falls back to environment variable if fetch fails or times out.
+ * 4. If it cannot be determined, serves the site (see the last step).
  */
 async function resolveMaintenanceStatus(request: NextRequest): Promise<boolean> {
   const now = Date.now()
@@ -53,7 +52,8 @@ async function resolveMaintenanceStatus(request: NextRequest): Promise<boolean> 
   try {
     const origin = request.nextUrl.origin
     const res = await fetch(`${origin}/api/maintenance/status`, {
-      signal: AbortSignal.timeout(1500),
+      // a cold serverless start (function boot + database) can take a couple of seconds
+      signal: AbortSignal.timeout(4000),
       headers: { 'x-proxy-check': '1' },
     })
 
@@ -77,8 +77,12 @@ async function resolveMaintenanceStatus(request: NextRequest): Promise<boolean> 
     return _edgeMaintenanceCache.enabled
   }
 
-  // 5. Ultimate fallback to environment variable
-  return isMaintenanceModeEnabled()
+  // 5. Unknown: serve the site. The database is the single source of truth and the status
+  // endpoint already falls back to MAINTENANCE_MODE when the database has no value, so reaching
+  // here only means the endpoint did not answer. Trusting the environment variable at this
+  // point would put the whole shop in maintenance whenever the check hiccups, even though
+  // the setting is off in the database (MAINTENANCE_MODE="true" is still set in Vercel).
+  return false
 }
 
 /**

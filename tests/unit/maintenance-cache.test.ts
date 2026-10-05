@@ -50,6 +50,22 @@ describe('maintenance state is never trusted forever', () => {
     expect(res.status).toBe(503)
   })
 
+it('serves the site when the status cannot be read, even though MAINTENANCE_MODE=true is set in the environment', async () => {
+    // Production has MAINTENANCE_MODE="true" in Vercel while the database setting is off:
+    // a failed or slow status check must not turn that stale variable into a maintenance page
+    process.env.MAINTENANCE_MODE = 'true'
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')))
+    const res = await proxy(storefront())
+    expect(res.status).not.toBe(503)
+    expect(res.headers.get('X-Maintenance-Mode')).toBeNull()
+  })
+
+  it('still shows maintenance when the database setting is on, whatever the environment says', async () => {
+    process.env.MAINTENANCE_MODE = 'false'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enabled: true }) }))
+    expect((await proxy(storefront())).status).toBe(503)
+  })
+
   it('a long-stale "on" is not kept because the status endpoint is failing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ enabled: true }) }))
     expect((await proxy(storefront())).status).toBe(503)
