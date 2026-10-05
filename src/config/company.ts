@@ -101,6 +101,7 @@ export const DATA_PROCESSORS = [
   { name: 'Uyumsoft', purpose: 'e-fatura / e-arşiv faturanın düzenlenmesi', abroad: false },
   { name: 'Mali müşavir (muhasebe)', purpose: 'yasal defter ve beyanların tutulması', abroad: false },
   { name: 'Google (Firebase Authentication, Google Analytics)', purpose: 'üyelik girişi ve, izninizle, site kullanım istatistikleri', abroad: true },
+  { name: 'Meta Platforms', purpose: 'izninizle, Meta reklamlarının sonuçlarının ölçülmesi (Meta Pixel, Conversions API)', abroad: true },
   { name: 'Vercel Inc.', purpose: 'web sitesinin barındırılması', abroad: true },
   { name: 'Neon (Databricks), Frankfurt – Almanya sunucuları', purpose: 'sipariş ve hesap veritabanının barındırılması', abroad: true },
   { name: 'Resend', purpose: 'sipariş ve bilgilendirme e-postalarının gönderilmesi', abroad: true },

@@ -26,6 +26,11 @@ const ANALYTICS: Array<[string, string, string]> = [
   ['_ga_4D608HQZZ1', 'Google Analytics: oturum bilgisini tutar', '2 yıl'],
 ]
 
+const MARKETING: Array<[string, string, string]> = [
+  ['_fbp', 'Meta Pixel: tarayıcınızı tanır, reklam ölçümünü mümkün kılar', '3 ay'],
+  ['_fbc', 'Meta Pixel: bir Meta reklamından geldiğinizde, tıklanan reklamı hatırlar', '3 ay'],
+]
+
 export default function CookiePolicyPage() {
   return (
     <LegalDocument
@@ -97,7 +102,31 @@ export default function CookiePolicyPage() {
                 yalnızca sitemizi ve ürünlerimizi geliştirmek için toplu istatistik olarak kullanılır. Bu aktarım yurt dışına
                 yapıldığından <Link href="/acik-riza-metni">açık rıza metni</Link> kapsamındadır.
               </p>
-              <p>Reklam, yeniden pazarlama veya kişiselleştirilmiş reklam çerezi kullanmıyoruz.</p>
+            </>
+          ),
+        },
+        {
+          id: 'reklam',
+          title: 'Reklam ölçüm çerezleri (yalnızca izninizle)',
+          body: (
+            <>
+              <p>
+                Çerez bandında &quot;tümünü kabul et&quot; seçeneğini işaretlerseniz Meta (Facebook ve Instagram) Pixel
+                çerezlerini kullanırız. Bunlar, Meta reklamlarımızın siteye ne kadar ziyaret ve sipariş getirdiğini ölçmemizi
+                sağlar. Görüntülediğiniz ve sepete eklediğiniz ürünler, ödeme adımları ve verdiğiniz siparişin tutarı
+                Meta’ya bildirilir.
+              </p>
+              <CookieTable rows={MARKETING} />
+              <p>
+                Bir sipariş verdiğinizde, siparişin reklamdan geldiğini doğrulamak için sipariş bilgisi sunucumuzdan da Meta’ya
+                gönderilir (Meta Conversions API). Bu aktarımda e-posta, telefon, ad ve şehir bilgisi geri çevrilemeyen bir
+                şifreleme (hash) ile, IP adresi ve tarayıcı bilgisi ise olduğu gibi iletilir. Kart bilgisi hiçbir zaman
+                gönderilmez. Bu aktarım yurt dışına yapıldığından <Link href="/acik-riza-metni">açık rıza metni</Link>{' '}
+                kapsamındadır.
+              </p>
+              <p>
+                &quot;Yalnızca gerekli&quot; seçeneğini işaretlerseniz Meta Pixel yüklenmez ve Meta’ya hiçbir bilgi gönderilmez.
+              </p>
             </>
           ),
         },
@@ -107,7 +136,7 @@ export default function CookiePolicyPage() {
           body: (
             <>
               <p>
-                &quot;Yalnızca gerekli&quot; seçeneğini işaretlerseniz analiz çerezleri hiç yüklenmez. Kararınızı değiştirmek
+                &quot;Yalnızca gerekli&quot; seçeneğini işaretlerseniz analiz ve reklam ölçüm çerezleri hiç yüklenmez. Kararınızı değiştirmek
                 için tarayıcınızın ayarlarından bu sitenin çerezlerini ve site verilerini silmeniz yeterlidir; bir sonraki
                 ziyaretinizde size yeniden sorulur.
               </p>

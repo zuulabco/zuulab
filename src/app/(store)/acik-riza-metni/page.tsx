@@ -33,6 +33,13 @@ export default function ExplicitConsentPage() {
                 aktarılmasına açık rıza vermiş olursunuz.
               </p>
               <p>
+                Aynı seçenekle, Meta reklamlarının sonuçlarını ölçmek amacıyla; incelediğiniz ve sepete eklediğiniz ürünlerin,
+                ödeme adımlarının ve siparişinizin (tutar ve ürünler) ile e-posta, telefon, ad ve şehir bilginizin
+                (geri çevrilemeyen şifreleme ile), IP adresiniz ve tarayıcı bilginizin Meta Pixel ve Meta Conversions API
+                aracılığıyla işlenmesine ve bu amaçla sunucuları yurt dışında bulunan Meta’ya aktarılmasına açık rıza vermiş
+                olursunuz.
+              </p>
+              <p>
                 Ayrıntılar <Link href="/cerez-politikasi">çerez politikasında</Link> yer alır.
               </p>
             </>
