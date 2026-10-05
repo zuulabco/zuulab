@@ -21,6 +21,7 @@ interface EdgeMaintenanceCache {
 }
 
 let _edgeMaintenanceCache: EdgeMaintenanceCache | null = null
+const STALE_ON_ERROR_MS = 30_000
 
 export function resetProxyCache(): void {
   _edgeMaintenanceCache = null
@@ -70,8 +71,9 @@ async function resolveMaintenanceStatus(request: NextRequest): Promise<boolean> 
     // Network / timeout / offline test runner fallback
   }
 
-  // 4. Stale-while-error fallback
-  if (_edgeMaintenanceCache) {
+  // 4. Stale-while-error fallback, but only briefly: a value older than this must not
+  // keep the whole shop in maintenance because the status endpoint had a bad moment
+  if (_edgeMaintenanceCache && now < _edgeMaintenanceCache.expiresAt + STALE_ON_ERROR_MS) {
     return _edgeMaintenanceCache.enabled
   }
 

@@ -18,19 +18,39 @@ export interface MaintenanceModeStatus {
 // In-process cache for fast proxy evaluation without DB overhead on every request
 let _cachedMaintenanceEnabled: boolean | null = null
 let _cachedSource: 'database' | 'env' | 'default' = 'default'
+let _cachedAt = 0
+
+/**
+ * How long the in-process value is trusted. It must expire: every serverless instance has
+ * its own copy, so an instance that once saw maintenance = true would otherwise keep
+ * serving the maintenance page long after the setting was switched off elsewhere.
+ */
+export const MAINTENANCE_CACHE_TTL_MS = 5000
+
+function cacheIsFresh(): boolean {
+  return _cachedMaintenanceEnabled !== null && Date.now() - _cachedAt < MAINTENANCE_CACHE_TTL_MS
+}
+
+/** Test helper: forget the in-process value */
+export function resetCachedMaintenanceState(): void {
+  _cachedMaintenanceEnabled = null
+  _cachedSource = 'default'
+  _cachedAt = 0
+}
 
 export function setCachedMaintenanceState(enabled: boolean, source: 'database' | 'env' | 'default' = 'database'): void {
   _cachedMaintenanceEnabled = enabled
   _cachedSource = source
+  _cachedAt = Date.now()
 }
 
 export function getCachedMaintenanceState(): { enabled: boolean | null; source: 'database' | 'env' | 'default' } {
-  return { enabled: _cachedMaintenanceEnabled, source: _cachedSource }
+  return { enabled: cacheIsFresh() ? _cachedMaintenanceEnabled : null, source: _cachedSource }
 }
 
 export function isMaintenanceModeEnabled(): boolean {
-  // If explicitly set in runtime cache (from DB or admin action), respect it
-  if (_cachedMaintenanceEnabled !== null) {
+  // If recently set in runtime cache (from DB or admin action), respect it
+  if (cacheIsFresh()) {
     return _cachedMaintenanceEnabled
   }
 
