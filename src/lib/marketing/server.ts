@@ -4,6 +4,7 @@ import { buildEvent, type EventUser, type MarketingEvent, type MarketingEventDat
 import { buildPurchaseEvent } from './purchase'
 import { metaCapiDestination } from './destinations/meta-capi'
 import { findOrderByNumber, type StoredOrder } from '@/lib/services/orders.service'
+import { getPublicOrigin } from '@/lib/config/app-url'
 
 /**
  * Server entry point for canonical events. Server-side destinations are registered on
@@ -66,6 +67,8 @@ export async function emitPurchaseForOrder(orderNumber: string): Promise<void> {
       ...purchase,
       source: 'server',
       consent: order.marketingConsent,
+      // Meta wants the page of a website event; the server copy has no browser, so use the order's thank-you page
+      pageUrl: `${getPublicOrigin()}/odeme/basarili?order=${encodeURIComponent(order.orderNumber)}`,
       user: userOfOrder(order),
       ...(order.attribution?.meta ? { client: order.attribution.meta } : {}),
     })

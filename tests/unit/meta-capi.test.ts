@@ -188,3 +188,10 @@ describe('Meta configuration', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('Meta CAPI: event_source_url', () => {
+  it('is sent for website events when the event has a page', () => {
+    const body = buildCapiPayload(purchase({ pageUrl: 'https://www.zuulab.com/odeme/basarili?order=ZUU-1' }))!
+    expect(body.data[0].event_source_url).toBe('https://www.zuulab.com/odeme/basarili?order=ZUU-1')
+  })
+})
