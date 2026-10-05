@@ -63,7 +63,7 @@ const ACTIONS: Array<{ event: string; label: string }> = [
   { event: 'add_to_wishlist', label: 'Favoriye ekleme' },
   { event: 'search', label: 'Site içi arama' },
   { event: 'generate_lead', label: 'İletişim formu' },
-  { event: 'sign_up', label: 'Bülten kaydı' },
+  { event: 'sign_up', label: 'Kayıt (bülten / hesap)' },
 ]
 const FUNNEL: Array<{ event: string; label: string }> = [
   { event: 'view_item', label: 'Ürün görüntüleme' },

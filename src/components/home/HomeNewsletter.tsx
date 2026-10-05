@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
 import { useAuthStore } from '@/store/authStore'
 import styles from './HomeNewsletter.module.css'
-import { track } from '@/lib/analytics/gtag'
+import { trackEvent } from '@/lib/marketing/client'
 
 type MemberStatus = 'ACTIVE' | 'PENDING' | 'UNSUBSCRIBED' | null
 
@@ -69,7 +69,7 @@ export default function HomeNewsletter() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.success) throw new Error(data.error || 'Kaydın şu an alınamadı. Biraz sonra tekrar dene.')
-      track('sign_up', { method: 'bülten' })
+      trackEvent('newsletter_signup', { method: 'bülten' })
       setStatus('success')
       setMessage(data.message)
       setEmail('')

@@ -8,7 +8,7 @@ import { formatPrice, calcDiscountPercent } from '@/lib/utils'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from '@/store/toastStore'
 import { useShippingConfig } from '@/hooks/useShippingConfig'
-import { trackItems } from '@/lib/analytics/gtag'
+import { trackEvent } from '@/lib/marketing/client'
 import FavoriteButton from './FavoriteButton'
 import StockAlertForm from './StockAlertForm'
 import { isLight, presetFor, swatchBackground } from '@/lib/catalog/colors'
@@ -30,9 +30,9 @@ export default function ProductDetailsClient({ product }: Props) {
   const addItem = useCartStore((s) => s.addItem)
   const { freeShippingThreshold: FREE_SHIPPING_THRESHOLD } = useShippingConfig()
 
-  // GA4: product detail view (feeds "en çok ilgi gören ürünler" in Analizler)
+  // product_view (GA4 view_item feeds "en çok ilgi gören ürünler" in Analizler)
   useEffect(() => {
-    trackItems('view_item', [{ id: product.id, sku: product.sku, name: product.name, price: product.price, category: product.categoryName }])
+    trackEvent('product_view', { productId: product.id, sku: product.sku, productName: product.name, price: product.price, category: product.categoryName })
   }, [product.id, product.sku, product.name, product.price, product.categoryName])
 
   // Options (Renk, Boyut…). Older products have single-option variants without the

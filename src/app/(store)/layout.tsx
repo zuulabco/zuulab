@@ -4,7 +4,9 @@ import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import ScrollToTop from '@/components/layout/ScrollToTop'
 import CampaignModal from '@/components/layout/CampaignModal'
 import CookieBanner from '@/components/layout/CookieBanner'
+import { Suspense } from 'react'
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics'
+import MarketingTracker from '@/components/analytics/MarketingTracker'
 import WhatsAppButton from '@/components/common/WhatsAppButton'
 import { getStoreNavigation } from '@/lib/services/catalog/navigation.service'
 
@@ -27,6 +29,9 @@ export default async function StoreLayout({
       <WhatsAppButton />
       <CookieBanner />
       <GoogleAnalytics />
+      <Suspense fallback={null}>
+        <MarketingTracker />
+      </Suspense>
     </div>
   )
 }

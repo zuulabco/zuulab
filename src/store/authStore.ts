@@ -15,7 +15,9 @@ import {
   prepareAuthProtection,
   type FirebaseUser,
 } from '@/lib/firebase'
+import { getAdditionalUserInfo } from 'firebase/auth'
 import { authErrorMessage } from '@/lib/auth/error-messages'
+import { trackEvent } from '@/lib/marketing/client'
 
 export interface UserProfile {
   id: string
@@ -49,6 +51,12 @@ interface AuthState {
   registerWithEmail: (email: string, pass: string, name?: string) => Promise<void>
   devLogin: (role?: 'CUSTOMER' | 'ADMIN') => Promise<void>
   logout: () => Promise<void>
+}
+
+/** signup / login, sent only when the backend sync really signed the person in */
+function trackAuthEvent(state: AuthState, event: 'signup' | 'login', method: 'email' | 'google') {
+  if (state.error || !state.user) return
+  trackEvent(event, { method, userId: state.user.id })
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -181,6 +189,7 @@ export const useAuthStore = create<AuthState>()(
           const token = await result.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token, { name: result.user.displayName || undefined })
+          trackAuthEvent(get(), getAdditionalUserInfo(result)?.isNewUser ? 'signup' : 'login', 'google')
         } catch (err: any) {
           console.error('[authStore] Google sign-in failed:', err)
           set({
@@ -213,6 +222,7 @@ export const useAuthStore = create<AuthState>()(
           const token = await credential.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token)
+          trackAuthEvent(get(), 'login', 'email')
         } catch (err: any) {
           console.error('[authStore] Email sign-in failed:', err)
           set({ error: authErrorMessage(err.code, 'Giriş yapılamadı. Bilgilerinizi kontrol edin.'), isLoading: false })
@@ -237,6 +247,7 @@ export const useAuthStore = create<AuthState>()(
           const token = await credential.user.getIdToken(true)
           const syncFn = (get() as any).syncWithBackend
           await syncFn(token, { name })
+          trackAuthEvent(get(), 'signup', 'email')
         } catch (err: any) {
           console.error('[authStore] Registration failed:', err)
           set({ error: authErrorMessage(err.code, 'Kayıt oluşturulamadı.'), isLoading: false })

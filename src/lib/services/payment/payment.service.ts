@@ -22,6 +22,7 @@ import { recordCouponUsage } from '../coupons.service'
 import { sendNewOrderAlert } from '../notification/store-order-email'
 import { logAuditEvent } from '../admin.service'
 import { createNotification } from '../notification/notification.service'
+import { emitPurchaseForOrder } from '@/lib/marketing/server'
 
 export interface StoredPayment {
   id: string
@@ -336,6 +337,7 @@ export async function initiateCashOnDelivery(params: { orderNumber: string; ipAd
   await db.orm.public.Order.where({ id: order.id }).update({ paymentExpiresAt: null as never })
   const moved = await updateOrderStatus(order.orderNumber, 'CONFIRMED', 'Kapıda ödemeli sipariş (PTT Kargo); ödeme teslimatta alınacak.', 'customer')
   if (!moved.success) console.error(`[payment.service] ${order.orderNumber} kapıda ödeme could not be confirmed: ${moved.error}`)
+  else await emitPurchaseForOrder(order.orderNumber) // marketing purchase event; best effort, never throws
 
   await logAuditEvent({
     action: 'PAYMENT_CREATED',
@@ -496,6 +498,9 @@ async function handleSuccess(
   )
   if (!transition.success) {
     console.error(`[payment.service] ${order.orderNumber} paid but could not be confirmed: ${transition.error}`)
+  } else {
+    // Marketing purchase event: only the winning callback gets here (once per order); best effort, never throws
+    await emitPurchaseForOrder(order.orderNumber)
   }
 
   // "Sipariş Geldi!" mail to the shop; runs once per order (only the winning callback gets here)

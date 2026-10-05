@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { trackItems } from '@/lib/analytics/gtag'
+import { trackEvent } from '@/lib/marketing/client'
 
 export interface CartItem {
   productId: string
@@ -67,9 +67,15 @@ export const useCartStore = create<CartState>()(
       addItem: (newItem, extraQty) => {
         const { productId, variantId = null } = newItem
         const quantity = extraQty ?? newItem.quantity ?? 1
-        trackItems('add_to_cart', [
-          { id: productId, sku: newItem.sku, name: newItem.name, price: newItem.price, quantity, variant: newItem.variantLabel },
-        ])
+        trackEvent('add_to_cart', {
+          productId,
+          variantId,
+          productName: newItem.name,
+          sku: newItem.sku,
+          variantLabel: newItem.variantLabel,
+          quantity,
+          price: newItem.price,
+        })
         // Every add opens the cart drawer so the customer sees what is in the cart
         set((state) => {
           const existing = state.items.find(
@@ -104,9 +110,15 @@ export const useCartStore = create<CartState>()(
       removeItem: (productId, variantId = null) => {
         const gone = get().getItem(productId, variantId)
         if (gone) {
-          trackItems('remove_from_cart', [
-            { id: gone.productId, sku: gone.sku, name: gone.name, price: gone.price, quantity: gone.quantity, variant: gone.variantLabel },
-          ])
+          trackEvent('remove_from_cart', {
+            productId: gone.productId,
+            variantId: gone.variantId,
+            productName: gone.name,
+            sku: gone.sku,
+            variantLabel: gone.variantLabel,
+            quantity: gone.quantity,
+            price: gone.price,
+          })
         }
         set((state) => ({
           items: state.items.filter(

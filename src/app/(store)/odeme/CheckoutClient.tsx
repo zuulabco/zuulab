@@ -17,6 +17,8 @@ import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
+import { trackEvent } from '@/lib/marketing/client'
+import { cartLineToItem } from '@/lib/marketing/cart'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
 import { BANK_TRANSFER_DISCOUNT_RATE } from '@/lib/pricing/money'
@@ -425,6 +427,16 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
     if (!checkoutKeyRef.current) {
       checkoutKeyRef.current = crypto.randomUUID().replace(/-/g, '')
     }
+
+    // Payment details are in and the order is about to be placed. One per checkout attempt (the key
+    // is kept across retries), so a retried submit is not a second payment-info step.
+    trackEvent('add_payment_info', {
+      eventId: `add_payment_info_${checkoutKeyRef.current}`,
+      items: items.map(cartLineToItem),
+      value: grandTotal,
+      paymentMethod,
+      ...(coupon ? { coupon: coupon.code } : {}),
+    })
 
     submittingRef.current = true
     setLoading(true)
