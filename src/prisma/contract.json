@@ -5743,6 +5743,20 @@
                   "kind": "scalar"
                 }
               },
+              "anonymousId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "attribution": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
               "billingSnapshot": {
                 "nullable": true,
                 "type": {
@@ -5833,6 +5847,13 @@
               },
               "id": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "marketingConsent": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
@@ -6213,6 +6234,12 @@
                 "adminNote": {
                   "column": "admin_note"
                 },
+                "anonymousId": {
+                  "column": "anonymous_id"
+                },
+                "attribution": {
+                  "column": "attribution"
+                },
                 "billingSnapshot": {
                   "column": "billing_snapshot"
                 },
@@ -6248,6 +6275,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "marketingConsent": {
+                  "column": "marketing_consent"
                 },
                 "orderNumber": {
                   "column": "order_number"
@@ -21541,6 +21571,16 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "anonymous_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "attribution": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
+                },
                 "billing_snapshot": {
                   "codecId": "pg/jsonb@1",
                   "nativeType": "jsonb",
@@ -21627,6 +21667,11 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "marketing_consent": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
                 },
                 "order_number": {
                   "codecId": "pg/text@1",
@@ -30007,7 +30052,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "024af94a5f6e25cb0cc7b808f62d90a5c5d551f5bcc0a08458676b98503a6cf5"
+    "storageHash": "507ae5e0d725f70ced4e3c372caec7591fed478eeb78040d3d0723407ad647d5"
   },
   "execution": {
     "executionHash": "c0567e6d3146606d1ca48b11cb8eb7e15ff1a4a49de19a691c87dba7d3248bac",

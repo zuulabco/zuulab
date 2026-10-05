@@ -665,6 +665,15 @@ model Order {
   paymentExpiresAt DateTime?          @map("payment_expires_at")
   paidAt           DateTime?          @map("paid_at")
 
+  // Marketing, captured at checkout (all optional; older and marketplace orders have none).
+  // Cookie-banner choice at order time ("all" | "necessary"), so a server-side event
+  // (Meta CAPI later) can honour consent when no browser is present.
+  marketingConsent String?            @map("marketing_consent")
+  // Browser visitor id (only sent with consent), to match the server event to the browser one.
+  anonymousId      String?            @map("anonymous_id")
+  // Campaign parameters of the visit that led to the order: { last: {...}, first: {...} }
+  attribution      Json?              @map("attribution")
+
   createdAt      DateTime             @default(now()) @map("created_at")
   updatedAt      DateTime             @updatedAt @map("updated_at")
 

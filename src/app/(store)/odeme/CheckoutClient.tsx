@@ -17,7 +17,7 @@ import { useShippingConfig } from '@/hooks/useShippingConfig'
 import { useCartQuote } from '@/hooks/useCartQuote'
 import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
-import { trackEvent } from '@/lib/marketing/client'
+import { trackEvent, getCheckoutMarketingContext } from '@/lib/marketing/client'
 import { cartLineToItem } from '@/lib/marketing/cart'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
@@ -480,6 +480,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
           expectedTotal: quote!.total,
           checkoutKey: checkoutKeyRef.current,
           paymentMethod,
+          marketing: getCheckoutMarketingContext(),
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,

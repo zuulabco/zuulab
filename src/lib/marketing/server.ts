@@ -12,9 +12,9 @@ import { findOrderByNumber } from '@/lib/services/orders.service'
  * Every call here is best effort: it never throws and is time-bounded, so a slow or
  * failing destination cannot hold up or break an order, a payment or a webhook reply.
  *
- * Consent: a server-side event has no browser to ask, so its consent is unknown (null)
- * and any destination that needs analytics/marketing consent skips it. When Meta CAPI is
- * added, the visitor's consent must be captured at checkout and stored with the order.
+ * Consent: a server-side event has no browser to ask. The purchase carries the visitor's
+ * cookie-banner choice that checkout stored on the order (`orders.marketing_consent`); an
+ * event with unknown consent (null) is skipped by every destination that needs consent.
  */
 
 /** Opt-in console logger for checking the pipeline: set MARKETING_EVENT_DEBUG=1 */
@@ -56,7 +56,8 @@ export async function emitPurchaseForOrder(orderNumber: string): Promise<void> {
     if (!order) return
     const purchase = buildPurchaseEvent(order)
     if (!purchase) return
-    await serverDispatcher.dispatch({ ...purchase, source: 'server', consent: null })
+    // Consent is the visitor's choice recorded with the order (null for older orders = not granted)
+    await serverDispatcher.dispatch({ ...purchase, source: 'server', consent: order.marketingConsent })
   } catch (error) {
     console.warn(`[marketing] purchase event for ${orderNumber} failed:`, error instanceof Error ? error.message : error)
   }

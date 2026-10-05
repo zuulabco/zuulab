@@ -78,6 +78,27 @@ export interface CreateOrderPayload {
   expectedTotal?: number
   /** Bank transfer orders hold stock longer and get the bank details by e-mail instead of the order mail. */
   paymentMethod?: PaymentMethod
+  /** Marketing context the browser reports at checkout (consent, visitor id, campaign) */
+  marketing?: OrderMarketingInput
+}
+
+/** What the browser sends; the visitor id and campaign are kept only when the visitor consented */
+export interface OrderMarketingInput {
+  consent?: 'all' | 'necessary' | null
+  anonymousId?: string
+  attribution?: { last?: Record<string, string | undefined>; first?: Record<string, string | undefined> }
+}
+
+function marketingColumns(m: OrderMarketingInput | undefined) {
+  const consent = m?.consent === 'all' || m?.consent === 'necessary' ? m.consent : null
+  const allowed = consent === 'all'
+  const hasAttribution =
+    allowed && m?.attribution && (Object.keys(m.attribution.last ?? {}).length > 0 || Object.keys(m.attribution.first ?? {}).length > 0)
+  return {
+    marketingConsent: consent,
+    anonymousId: allowed ? m?.anonymousId ?? null : null,
+    attribution: (hasAttribution ? m!.attribution : null) as never,
+  }
 }
 
 export interface OrderStatusHistoryItem {
@@ -113,6 +134,10 @@ export interface StoredOrder {
   addressId?: string | null
   paymentExpiresAt: string | null
   paidAt: string | null
+  /** Cookie-banner choice when the order was placed; null = unknown (older or marketplace order) */
+  marketingConsent: 'all' | 'necessary' | null
+  anonymousId: string | null
+  attribution: { last?: Record<string, string | undefined>; first?: Record<string, string | undefined> } | null
   createdAt: string
   updatedAt: string
   statusHistory: OrderStatusHistoryItem[]
@@ -249,6 +274,9 @@ function toStoredOrder(row: OrderRow): StoredOrder {
     addressId: row.addressId ?? null,
     paymentExpiresAt: dbTimestampToIso(row.paymentExpiresAt),
     paidAt: dbTimestampToIso(row.paidAt),
+    marketingConsent: row.marketingConsent === 'all' || row.marketingConsent === 'necessary' ? row.marketingConsent : null,
+    anonymousId: row.anonymousId ?? null,
+    attribution: (row.attribution ?? null) as StoredOrder['attribution'],
     createdAt: dbTimestampToIso(row.createdAt) ?? new Date(0).toISOString(),
     updatedAt: dbTimestampToIso(row.updatedAt) ?? new Date(0).toISOString(),
     statusHistory: (row.statusHistory ?? []).map((h) => ({
@@ -429,6 +457,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
     checkoutKey,
     expectedTotal,
     paymentMethod = 'CARD',
+    marketing,
   } = payload
   const email = (payload.email || shippingAddress.email || '').trim().toLowerCase() || null
 
@@ -504,6 +533,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<StoredOr
           billingSnapshot: (billing ?? null) as never,
           channel: 'DIRECT',
           checkoutKey: checkoutKey ?? null,
+          ...marketingColumns(marketing),
           stockState: 'NONE',
           paymentExpiresAt: toDbTimestamp(expiresAt) as never,
         })

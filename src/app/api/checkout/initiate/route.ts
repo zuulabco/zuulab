@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       email,
       checkoutKey,
       paymentMethod,
+      marketing,
     } = parsed.data
 
     if (paymentMethod === 'CASH_ON_DELIVERY' && !getGeliverConfig()) {
@@ -126,6 +127,7 @@ export async function POST(request: Request) {
       checkoutKey,
       expectedTotal,
       paymentMethod,
+      marketing,
     })
 
     // Lets this browser (including guests) see and pay the order it created.

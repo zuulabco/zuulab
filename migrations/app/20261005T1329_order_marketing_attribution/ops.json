@@ -1,0 +1,128 @@
+[
+  {
+    "id": "column.public.orders.anonymous_id",
+    "label": "Add column \"anonymous_id\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "anonymous_id",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"anonymous_id\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "anonymous_id"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"anonymous_id\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"anonymous_id\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"anonymous_id\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "anonymous_id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.attribution",
+    "label": "Add column \"attribution\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "attribution",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"attribution\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "attribution"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"attribution\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"attribution\" jsonb"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"attribution\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "attribution"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.orders.marketing_consent",
+    "label": "Add column \"marketing_consent\" to \"orders\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "marketing_consent",
+        "table": "orders"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"marketing_consent\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "marketing_consent"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"marketing_consent\"",
+        "sql": "ALTER TABLE \"public\".\"orders\" ADD COLUMN \"marketing_consent\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"marketing_consent\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "orders",
+          "marketing_consent"
+        ]
+      }
+    ]
+  }
+]

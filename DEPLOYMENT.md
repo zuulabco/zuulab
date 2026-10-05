@@ -90,6 +90,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261003T1343_variants_material_care` — variant options, per-combination photo, material care text
    - `20261003T1942_newsletter` — newsletter subscribers and welcome codes
    - `20261004T0924_variant_images` — several photos per variant (`product_variants.images`)
+   - `20261005T1329_order_marketing_attribution` — `orders.marketing_consent`, `anonymous_id`, `attribution` (checkout marketing context, all nullable)
 
 ---
 

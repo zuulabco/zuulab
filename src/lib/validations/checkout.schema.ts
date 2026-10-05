@@ -46,6 +46,29 @@ export const cartQuoteSchema = z.object({
   paymentMethod: z.enum(['CARD', 'BANK_TRANSFER', 'CASH_ON_DELIVERY']).optional(),
 })
 
+const utmPart = z.object({
+  utmSource: z.string().max(200).optional(),
+  utmMedium: z.string().max(200).optional(),
+  utmCampaign: z.string().max(200).optional(),
+  utmTerm: z.string().max(200).optional(),
+  utmContent: z.string().max(200).optional(),
+  fbclid: z.string().max(200).optional(),
+  gclid: z.string().max(200).optional(),
+})
+
+/**
+ * Marketing context reported by the browser. It must never fail a checkout: a malformed
+ * block is dropped (.catch) and the order is placed without it.
+ */
+export const marketingContextSchema = z
+  .object({
+    consent: z.enum(['all', 'necessary']).nullable().optional(),
+    anonymousId: z.string().max(64).optional(),
+    attribution: z.object({ last: utmPart.optional(), first: utmPart.optional() }).optional(),
+  })
+  .optional()
+  .catch(undefined)
+
 export const checkoutInitiateSchema = z.object({
   email: z.string().email('Geçerli bir e-posta adresi giriniz.'),
   shippingAddress: addressSchema,
@@ -64,6 +87,7 @@ export const checkoutInitiateSchema = z.object({
    * arrives. CASH_ON_DELIVERY: kapıda ödeme, collected by PTT Kargo (Geliver).
    */
   paymentMethod: z.enum(['CARD', 'BANK_TRANSFER', 'CASH_ON_DELIVERY']).default('CARD'),
+  marketing: marketingContextSchema,
 })
 
 export type AddressInput = z.infer<typeof addressSchema>

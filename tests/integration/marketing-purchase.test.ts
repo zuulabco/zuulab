@@ -70,12 +70,13 @@ serverDispatcher.register({
 const purchasesDispatched = (orderNumber: string) =>
   dispatchSpy.mock.calls.filter(([e]) => e.eventName === 'purchase' && e.orderId === orderNumber)
 
-async function newOrder(quantity = 1) {
+async function newOrder(quantity = 1, marketing?: Parameters<typeof createOrder>[0]['marketing']) {
   const order = await createOrder({
     userId,
     items: [{ productId, quantity }],
     shippingAddress: address,
     email: `${RUN}@example.com`,
+    marketing,
   })
   createdOrderIds.push(order.id)
   return order
@@ -183,6 +184,49 @@ describe('purchase from a confirmed card payment', () => {
   it('is not produced for an order that was only created', async () => {
     const order = await newOrder()
     expect(buildPurchaseEvent((await findOrderByNumber(order.orderNumber))!)).toBeNull()
+  }, 60_000)
+})
+
+describe('marketing context saved with the order', () => {
+  const campaign = { last: { utmSource: 'facebook', utmMedium: 'paid', utmCampaign: 'yaz', utmTerm: 'adset1', utmContent: 'ad7', fbclid: 'abc' }, first: { utmSource: 'google' } }
+
+  it('stores consent, visitor id and campaign when the visitor accepted, and the server purchase carries them', async () => {
+    const order = await newOrder(1, { consent: 'all', anonymousId: 'anon-test-1', attribution: campaign })
+    expect(order.marketingConsent).toBe('all')
+    expect(order.anonymousId).toBe('anon-test-1')
+    expect(order.attribution).toEqual(campaign)
+
+    await startCardPayment(order.orderNumber)
+    await callback(order.orderNumber, 'SUCCESS')
+    const event = received.find((e) => e.orderId === order.orderNumber)!
+    expect(event.consent).toBe('all')
+    expect(event.anonymousId).toBe('anon-test-1')
+    expect(event).toMatchObject({ utmSource: 'facebook', utmCampaign: 'yaz', utmTerm: 'adset1', utmContent: 'ad7', fbclid: 'abc' })
+  }, 60_000)
+
+  it('keeps only the consent choice, no visitor id or campaign, when the visitor declined', async () => {
+    const order = await newOrder(1, { consent: 'necessary', anonymousId: 'anon-test-2', attribution: campaign })
+    expect(order.marketingConsent).toBe('necessary')
+    expect(order.anonymousId).toBeNull()
+    expect(order.attribution).toBeNull()
+
+    await startCardPayment(order.orderNumber)
+    await callback(order.orderNumber, 'SUCCESS')
+    const event = received.find((e) => e.orderId === order.orderNumber)!
+    expect(event.consent).toBe('necessary')
+    expect('anonymousId' in event).toBe(false)
+    expect('utmSource' in event).toBe(false)
+  }, 60_000)
+
+  it('treats an order with no marketing context as unknown consent, so consent-gated destinations skip it', async () => {
+    const order = await newOrder(1)
+    expect(order.marketingConsent).toBeNull()
+    expect(order.anonymousId).toBeNull()
+    expect(order.attribution).toBeNull()
+
+    await startCardPayment(order.orderNumber)
+    await callback(order.orderNumber, 'SUCCESS')
+    expect(received.find((e) => e.orderId === order.orderNumber)!.consent).toBeNull()
   }, 60_000)
 })
 

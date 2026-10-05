@@ -72,6 +72,23 @@ describe('purchase payload comes from the stored order', () => {
     expect(e.coupon).toBe('YAZ10')
   })
 
+  it('carries the visitor id and the last campaign touch saved at checkout', () => {
+    const e = buildPurchaseEvent(
+      order({
+        anonymousId: 'anon-1',
+        attribution: { last: { utmSource: 'facebook', utmCampaign: 'yaz', utmTerm: 'adset1', utmContent: 'ad7', fbclid: 'abc' }, first: { utmSource: 'google' } },
+      })
+    )!
+    expect(e.anonymousId).toBe('anon-1')
+    expect(e).toMatchObject({ utmSource: 'facebook', utmCampaign: 'yaz', utmTerm: 'adset1', utmContent: 'ad7', fbclid: 'abc' })
+  })
+
+  it('has no campaign fields for an order without attribution', () => {
+    const e = buildPurchaseEvent(order({ attribution: null, anonymousId: null }))!
+    expect('utmSource' in e).toBe(false)
+    expect('anonymousId' in e).toBe(false)
+  })
+
   it('is identical for every build of the same order, so repeats share one id and one value', () => {
     const a = buildPurchaseEvent(order(), () => 1)!
     const b = buildPurchaseEvent(order(), () => 2)!

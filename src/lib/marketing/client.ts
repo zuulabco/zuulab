@@ -1,7 +1,7 @@
 'use client'
 
 import { getConsent } from '@/lib/consent'
-import { getAttribution } from './attribution'
+import { getAttribution, getFirstTouchAttribution } from './attribution'
 import { createDispatcher } from './dispatcher'
 import { ga4BrowserDestination } from './destinations/ga4-browser'
 import {
@@ -81,6 +81,21 @@ export function trackEvent(name: CanonicalEventName, data: MarketingEventData = 
     void browserDispatcher.dispatch(event)
   } catch {
     // tracking must never break the shop
+  }
+}
+
+/**
+ * What checkout reports to the server so the order carries it: the cookie-banner choice,
+ * and (only with consent) the visitor id and campaign parameters. A server-side event
+ * for the order (Meta CAPI later) then needs no browser.
+ */
+export function getCheckoutMarketingContext() {
+  const consent = getConsent()
+  if (consent !== 'all') return { consent }
+  return {
+    consent,
+    anonymousId: identity(consent).anonymousId,
+    attribution: { last: getAttribution(), first: getFirstTouchAttribution() },
   }
 }
 

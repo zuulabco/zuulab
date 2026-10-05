@@ -4,6 +4,7 @@ import {
   type MarketingEvent,
   type MarketingItem,
   type PaymentMethodName,
+  type UtmParams,
 } from './events'
 
 /**
@@ -25,6 +26,9 @@ export interface PurchaseOrderSource {
   shippingAmount: number
   couponCode: string | null
   createdAt: string
+  /** Captured at checkout (kept only with consent) */
+  anonymousId?: string | null
+  attribution?: { last?: UtmParams; first?: UtmParams } | null
   items: Array<{
     productId: string
     variantId: string | null
@@ -84,6 +88,9 @@ export function buildPurchaseEvent(
     value: roundMoney(order.totalAmount),
     items,
     paymentMethod: order.paymentMethod,
+    ...(order.anonymousId ? { anonymousId: order.anonymousId } : {}),
+    // Last campaign touch before the order, as saved at checkout
+    ...(order.attribution?.last ?? {}),
     ...(order.shippingAmount > 0 ? { shipping: roundMoney(order.shippingAmount) } : {}),
     ...(order.couponCode ? { coupon: order.couponCode } : {}),
   }
