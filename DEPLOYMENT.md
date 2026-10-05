@@ -156,3 +156,19 @@ All cron routes require `Authorization: Bearer $CRON_SECRET` and take a database
 - Neon keeps point-in-time history; set retention to at least 7 days.
 - Restore: create a branch/instance at a time before the incident, point
   `DATABASE_URL` to it, redeploy, check `/api/health/readiness` and `npx prisma db verify`.
+
+## Google sign-in window shows zuulab.com (not `<project>.firebaseapp.com`)
+
+On the storefront (`SITE_URL`'s host, www.zuulab.com) Firebase's `authDomain` is switched to the shop's own host at
+runtime (`src/lib/firebase-auth-domain.ts`) and `next.config.ts` passes `/__/auth/*` and `/__/firebase/*` on to
+`<project>.firebaseapp.com`. One-time setup in the consoles, **before** deploying this change:
+
+1. Google Cloud Console → APIs & Services → Credentials → the "Web client (auto created by Google Service)" OAuth client →
+   **Authorized redirect URIs** → add `https://www.zuulab.com/__/auth/handler` (keep the existing firebaseapp.com one,
+   the admin subdomain and previews still use it).
+2. Firebase Console → Authentication → Settings → **Authorized domains**: `www.zuulab.com` and `zuulab.com` present.
+3. Google Auth Platform → Branding: app name "ZUULAB", logo, support e-mail, authorized domain `zuulab.com`
+   (this is the name Google prints on its own account page).
+
+Without step 1 the Google button fails with `redirect_uri_mismatch` on www.zuulab.com. To roll back: remove the
+`resolveAuthDomain` call in `src/lib/firebase.ts`.

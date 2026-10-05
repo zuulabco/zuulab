@@ -20,10 +20,17 @@ import {
   type Auth,
   type User as FirebaseUser,
 } from 'firebase/auth'
+import { SITE_URL } from '@/lib/config/urls'
+import { resolveAuthDomain } from '@/lib/firebase-auth-domain'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDemoDummyApiKeyForLocalDevelopment123',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'zuulab-e.firebaseapp.com',
+  // On the storefront the sign-in window shows the shop's own address (see firebase-auth-domain.ts)
+  authDomain: resolveAuthDomain(
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'zuulab-e.firebaseapp.com',
+    typeof window === 'undefined' ? undefined : window.location.hostname,
+    SITE_URL
+  ),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'zuulab-e',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'zuulab-e.appspot.com',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '123456789012',

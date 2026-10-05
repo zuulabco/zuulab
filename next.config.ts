@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { firebaseHostedDomain } from "./src/lib/firebase-auth-domain";
+
+// Firebase's sign-in pages, served from the shop's own address so the Google window shows zuulab.com
+// (see src/lib/firebase-auth-domain.ts). Null without a Firebase project: nothing is passed on.
+const firebaseHost = firebaseHostedDomain(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 
 const nextConfig: NextConfig = {
   images: {
@@ -10,6 +15,13 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ['firebase-admin'],
+  async rewrites() {
+    if (!firebaseHost) return []
+    return [
+      { source: '/__/auth/:path*', destination: `https://${firebaseHost}/__/auth/:path*` },
+      { source: '/__/firebase/:path*', destination: `https://${firebaseHost}/__/firebase/:path*` },
+    ]
+  },
   async headers() {
     const csp = [
       "default-src 'self'",

@@ -118,6 +118,8 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
+    // Firebase sign-in pages passed on by next.config.ts: never held back by maintenance mode
+    pathname.startsWith('/__/') ||
     pathname === '/favicon.ico' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||
