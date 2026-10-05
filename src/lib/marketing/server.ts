@@ -5,6 +5,7 @@ import { buildPurchaseEvent } from './purchase'
 import { metaCapiDestination } from './destinations/meta-capi'
 import { findOrderByNumber, type StoredOrder } from '@/lib/services/orders.service'
 import { getPublicOrigin } from '@/lib/config/app-url'
+import { withItemCategories } from './item-category'
 
 /**
  * Server entry point for canonical events. Server-side destinations are registered on
@@ -60,8 +61,9 @@ export async function emitPurchaseForOrder(orderNumber: string): Promise<void> {
   try {
     const order = await findOrderByNumber(orderNumber)
     if (!order) return
-    const purchase = buildPurchaseEvent(order)
-    if (!purchase) return
+    const built = buildPurchaseEvent(order)
+    if (!built) return
+    const purchase = await withItemCategories(built)
     // Consent is the visitor's choice recorded with the order (null for older orders = not granted)
     await serverDispatcher.dispatch({
       ...purchase,

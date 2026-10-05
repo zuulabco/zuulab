@@ -173,7 +173,14 @@ describe('purchase from a confirmed card payment', () => {
     expect(pageUrl).toContain(`/odeme/basarili?order=${order.orderNumber}`)
     expect(user?.email).toBe(stored!.customerEmail)
     expect(user?.phone).toBe(stored!.shippingAddressSnapshot.phone)
-    expect(withoutUser).toEqual({ ...buildPurchaseEvent(stored!)!, timestamp: event.timestamp, source: 'server', consent: null })
+    // The catalog adds each item's category (for GA4); everything else is the order's own data
+    const expected = buildPurchaseEvent(stored!)!
+    expect({ ...withoutUser, items: withoutUser.items!.map(({ category: _c, ...i }) => i) }).toEqual({
+      ...expected,
+      timestamp: event.timestamp,
+      source: 'server',
+      consent: null,
+    })
   }, 60_000)
 
   it('is not produced for a failed payment', async () => {

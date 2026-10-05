@@ -38,6 +38,7 @@ export default function ProductCard({ product, priority = false }: Props) {
       imageUrl: product.primaryImage,
       slug: product.slug,
       sku: product.sku ?? `ZUU-${product.id}`,
+      categoryName: product.categoryName,
       maxStock: product.stockCount || 99,
       quantity: 1,
     })

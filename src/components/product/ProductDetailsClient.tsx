@@ -110,6 +110,7 @@ export default function ProductDetailsClient({ product }: Props) {
         price: currentPrice,
         slug: product.slug,
         sku: currentSku,
+        categoryName: product.categoryName,
         maxStock: currentStock,
       },
       quantity

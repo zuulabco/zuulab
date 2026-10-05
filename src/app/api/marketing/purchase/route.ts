@@ -4,6 +4,7 @@ import { authenticateRequest } from '@/lib/services/auth.service'
 import { findOrderByNumber } from '@/lib/services/orders.service'
 import { hasOrderAccess } from '@/lib/services/session.service'
 import { buildPurchaseEvent } from '@/lib/marketing/purchase'
+import { withItemCategories } from '@/lib/marketing/item-category'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,5 +42,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: 'Sipariş henüz satışa dönüşmedi.' }, { status: 404 })
   }
 
-  return NextResponse.json({ success: true, event }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ success: true, event: await withItemCategories(event) }, { headers: { 'Cache-Control': 'no-store' } })
 }

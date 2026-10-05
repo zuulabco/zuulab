@@ -44,6 +44,7 @@ export default function ZuuKidsSpotlight({ product, hasVariants = false, setting
       imageUrl: product.primaryImage,
       slug: product.slug,
       sku: product.sku,
+      categoryName: product.categoryName,
       maxStock: product.stockCount || 99,
       quantity: 1,
     })

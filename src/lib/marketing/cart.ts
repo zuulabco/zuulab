@@ -9,6 +9,7 @@ interface CartLineLike {
   price: number
   quantity: number
   sku: string
+  categoryName?: string
 }
 
 export function cartLineToItem(line: CartLineLike): MarketingItem {
@@ -17,6 +18,7 @@ export function cartLineToItem(line: CartLineLike): MarketingItem {
     variantId: line.variantId,
     productName: line.name,
     sku: line.sku,
+    category: line.categoryName,
     variantLabel: line.variantLabel,
     price: line.price,
     quantity: line.quantity,

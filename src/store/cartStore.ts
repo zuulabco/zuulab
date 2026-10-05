@@ -13,6 +13,8 @@ export interface CartItem {
   quantity: number
   maxStock: number
   sku: string
+  /** For analytics only (item category); carts saved before this field was added have none */
+  categoryName?: string
 }
 
 export interface CouponState {
@@ -72,6 +74,7 @@ export const useCartStore = create<CartState>()(
           variantId,
           productName: newItem.name,
           sku: newItem.sku,
+          category: newItem.categoryName,
           variantLabel: newItem.variantLabel,
           quantity,
           price: newItem.price,
