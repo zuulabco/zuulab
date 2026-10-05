@@ -74,3 +74,17 @@ describe.skipIf(!configured)('Meta ads: report (read-only)', () => {
     expect(report.current.reach).toBeLessThanOrEqual(report.current.impressions)
   })
 })
+
+describe.skipIf(!configured)('Meta ads: attribution (read-only)', () => {
+  it('matches Meta spend with the shop’s own visits and orders, and nothing is lost', async () => {
+    const { getAttributionReport } = await import('@/lib/services/meta-attribution.service')
+    const day = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10)
+    const r = await getAttributionReport({ start: day(29), end: day(0), previous: { start: day(59), end: day(30) } }, true)
+    const { campaigns, unassigned, totals } = r.result
+    expect(totals.orders).toBe(campaigns.reduce((a, c) => a + c.orders, 0) + unassigned.orders)
+    expect(totals.revenue).toBeCloseTo(campaigns.reduce((a, c) => a + c.revenue, 0) + unassigned.revenue, 2)
+    // Meta-sourced sales can never exceed all storefront sales
+    expect(totals.orders).toBeLessThanOrEqual(r.shop.orders)
+    expect(totals.revenue).toBeLessThanOrEqual(r.shop.revenue + 0.01)
+  })
+})

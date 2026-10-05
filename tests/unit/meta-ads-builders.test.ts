@@ -124,7 +124,8 @@ describe('ads', () => {
     expect(c.object_story_spec.link_data.picture).toBe(ad.imageUrl)
     expect(c.object_story_spec.link_data.call_to_action).toEqual({ type: 'SHOP_NOW', value: { link: ad.landingUrl } })
     expect(c.url_tags).toContain('utm_source=facebook')
-    expect(c.url_tags).toContain('{{campaign.name}}')
+    expect(c.url_tags).toContain('utm_campaign={{campaign.id}}')
+    expect(c.url_tags).toContain('utm_content={{ad.id}}')
   })
 
   it('uses an uploaded image by its hash', () => {

@@ -36,6 +36,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Müşteri grupları', href: '/marketing/segments', icon: 'customers', keywords: 'segment müşteri grubu kitle ilk alışveriş tekrar yüksek harcama sepet terk hedef kitle audience' },
       { label: 'Meta reklamları', href: '/marketing/meta', icon: 'megaphone', keywords: 'meta facebook instagram reklam kampanya reklam seti bütçe ads' },
       { label: 'Reklam raporu', href: '/marketing/meta/report', icon: 'analytics', keywords: 'meta reklam rapor harcama roas ctr cpc cpm erişim gösterim satın alma performans' },
+      { label: 'Reklam → satış', href: '/marketing/meta/sales', icon: 'analytics', keywords: 'attribution reklam satış roas gerçek sipariş kampanya utm fbclid meta atıf' },
       { label: 'E-posta', href: '/marketing/email', icon: 'mail', keywords: 'bülten kampanya e-posta resend gönderim abone açılma tıklama newsletter email' },
       { label: 'Analitik', href: '/analytics', icon: 'analytics', keywords: 'analizler google analytics rapor istatistik grafik analytics ziyaretçi tıklama' },
       { label: 'SEO', href: '/seo', icon: 'analytics', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },

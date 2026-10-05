@@ -76,7 +76,7 @@ export default function MetaReportPage() {
           <h1 className={adminStyles.pageTitle}>Meta reklam raporu</h1>
           <p className={adminStyles.pageSubtitle}>
             Reklamlarınızın harcaması ve sonuçları. Satış ve ROAS rakamları <strong>Meta’nın kendi hesabıdır</strong>; gerçek siparişlerinizle
-            birebir aynı olmayabilir. <Link href="/marketing/meta">Reklamları yönet →</Link>
+            birebir aynı olmayabilir. <Link href="/marketing/meta">Reklamları yönet →</Link> · <Link href="/marketing/meta/sales">Gerçek satış →</Link>
           </p>
         </div>
         <div className={s.toolbar}>

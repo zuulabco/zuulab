@@ -209,8 +209,8 @@ export function buildAdSet(input: AdSetInput, ctx: BuildContext): Record<string,
   return payload
 }
 
-/** The landing page with ad-tracking parameters Meta fills in per campaign and ad (feeds attribution) */
-export const URL_TAGS = 'utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}'
+/** The landing page with ad-tracking parameters Meta fills in per campaign and ad (feeds attribution); ids, not names, so a renamed campaign still matches */
+export const URL_TAGS = 'utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_term={{adset.id}}&utm_content={{ad.id}}'
 
 export function landingUrlProblem(raw: string, siteHosts: string[]): string | null {
   let url: URL
