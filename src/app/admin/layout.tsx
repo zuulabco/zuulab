@@ -74,6 +74,13 @@ export default function AdminLayout({
     }
   })
 
+  // Arriving in a group opens it, even if it was closed earlier; closing it afterwards sticks until you arrive again
+  const arrivedSection = activeItemFor(pathname.replace(/^\/admin/, '') || '/')?.section.id
+  useEffect(() => {
+    if (!arrivedSection) return
+    setNavState((prev) => (prev[arrivedSection] === false ? { ...prev, [arrivedSection]: true } : prev))
+  }, [arrivedSection])
+
   useEffect(() => {
     let isCancelled = false
     setMounted(true)
