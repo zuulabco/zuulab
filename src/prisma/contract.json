@@ -72,6 +72,10 @@
       "model": "EmailMessage",
       "namespace": "public"
     },
+    "email_optouts": {
+      "model": "EmailOptout",
+      "namespace": "public"
+    },
     "email_webhook_events": {
       "model": "EmailWebhookEvent",
       "namespace": "public"
@@ -2752,6 +2756,13 @@
           },
           "EmailCampaign": {
             "fields": {
+              "automationKey": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "content": {
                 "nullable": false,
                 "type": {
@@ -2777,6 +2788,13 @@
                 }
               },
               "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "kind": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
@@ -2858,6 +2876,9 @@
             },
             "storage": {
               "fields": {
+                "automationKey": {
+                  "column": "automation_key"
+                },
                 "content": {
                   "column": "content"
                 },
@@ -2869,6 +2890,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "kind": {
+                  "column": "kind"
                 },
                 "name": {
                   "column": "name"
@@ -3017,6 +3041,13 @@
                   "kind": "scalar"
                 }
               },
+              "orderId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "resendId": {
                 "nullable": true,
                 "type": {
@@ -3121,6 +3152,9 @@
                 "openCount": {
                   "column": "open_count"
                 },
+                "orderId": {
+                  "column": "order_id"
+                },
                 "resendId": {
                   "column": "resend_id"
                 },
@@ -3139,6 +3173,50 @@
               },
               "namespaceId": "public",
               "table": "email_messages"
+            }
+          },
+          "EmailOptout": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "email": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "source": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "source": {
+                  "column": "source"
+                }
+              },
+              "namespaceId": "public",
+              "table": "email_optouts"
             }
           },
           "EmailWebhookEvent": {
@@ -19447,6 +19525,11 @@
             },
             "email_campaigns": {
               "columns": {
+                "automation_key": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "content": {
                   "codecId": "pg/jsonb@1",
                   "nativeType": "jsonb",
@@ -19471,6 +19554,15 @@
                 },
                 "id": {
                   "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "kind": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "CAMPAIGN"
+                  },
                   "nativeType": "text",
                   "nullable": false
                 },
@@ -19526,6 +19618,13 @@
               },
               "foreignKeys": [],
               "indexes": [
+                {
+                  "columns": [
+                    "automation_key"
+                  ],
+                  "name": "email_campaigns_automation_key_key",
+                  "unique": true
+                },
                 {
                   "columns": [
                     "status",
@@ -19647,6 +19746,11 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "order_id": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "resend_id": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -19713,6 +19817,14 @@
                 },
                 {
                   "columns": [
+                    "campaign_id",
+                    "order_id"
+                  ],
+                  "name": "email_messages_campaign_id_order_id_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
                     "email"
                   ],
                   "name": "email_messages_email_idx",
@@ -19729,6 +19841,44 @@
               "primaryKey": {
                 "columns": [
                   "id"
+                ]
+              },
+              "uniques": []
+            },
+            "email_optouts": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamp-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamp",
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "source": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "review_request"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "email"
                 ]
               },
               "uniques": []
@@ -31142,7 +31292,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "375b15beb03a2e927691f954f5b7215a88950af1837cd9cd6ff5b814e936b80f"
+    "storageHash": "7b57f971e71f0d8f2cc8581cf1eb0c49157a82fc878000b23faddca402218629"
   },
   "execution": {
     "executionHash": "2bc2e58078782442c7b1c36fd1c48f3aed51ef2d32a214acd03aa9c5126dd99f",

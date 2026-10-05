@@ -135,6 +135,27 @@ Admin page `/marketing/email`, API `/api/admin/email`, Resend webhook `/api/webh
   `email.opened`, `email.clicked`, `email.bounced`, `email.complained`, `email.failed`; and open / click tracking enabled
   for the sending domain.
 
+## E-mail automation (Phase 9)
+
+Two automatic mails, managed under Pazarlama > E-posta > Otomatik e-postalar. Code: `lib/email/automations.ts` (rules,
+texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-automations`.
+
+- **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses that confirmed the
+  newsletter (marketing mail needs consent). Left out: bank-transfer orders, payments under way or paid, addresses that bought
+  since, a second reminder within 7 days. Only the latest such order per address. No discount, no fake deadline.
+- **Review request** (`review_request`): an order delivered 7 to 30 days ago (delivery date from `order_status_history`). Customers
+  who are not subscribers receive it too, because it is a request about their own order with no promotion in it; every mail has a
+  signed "bu tür e-postaları istemiyorum" link (`/eposta/ayril`, list `email_optouts`) and the one-click header. Left out:
+  opted-out addresses and subscribers who unsubscribed. **Needs a lawyer's view** whether this counts as a service message.
+- **Restraint, in code:** one mail per order and automation (the database refuses a second claim), one automatic mail per address
+  every 3 days across automations, nothing between 21:00 and 09:00 Türkiye time (it waits for the morning), each run sends at most 25
+  per automation. A failed send is recorded and not retried by itself (it may have been accepted, a retry could mail twice).
+- **Off until switched on** in the admin (each automation row is `PAUSED` by default). The admin shows how many people a rule
+  would mail right now and can send a sample to the admin's own address.
+- **Scheduling:** Vercel runs the job daily at 06:00 UTC (09:00 Türkiye). For the 3-hour reminder to arrive on time also call
+  `/api/cron/email-automations` every 30 minutes from cron-job.org (`Authorization: Bearer <CRON_SECRET>`).
+- Automations reuse the campaign tables (`kind = AUTOMATION`), so Resend's webhook and the statistics work the same way.
+
 ## Adding a destination
 
 Implement `Destination` (`id`, `consent`, `accepts`, `send`), register it on `browserDispatcher`

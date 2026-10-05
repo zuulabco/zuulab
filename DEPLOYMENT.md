@@ -93,6 +93,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
    - `20261004T0924_variant_images` — several photos per variant (`product_variants.images`)
    - `20261005T1329_order_marketing_attribution` — `orders.marketing_consent`, `anonymous_id`, `attribution` (checkout marketing context, all nullable)
    - `20261005T1615_marketing_events` — `marketing_events`: the shop's own event log for internal analytics (new table only)
+   - `20261005T1811_email_automations` — `email_campaigns.kind / automation_key`, `email_messages.order_id` (one mail per order and automation), `email_optouts` (additive)
    - `20261005T1712_email_campaigns` — `email_campaigns`, `email_messages`, `email_webhook_events`: newsletter campaigns, one row per mail with its Resend status, handled webhook deliveries (new tables only)
 
 ---
@@ -113,11 +114,16 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
 |---|---|---|
 | `/api/cron/payment-expiration` | daily 03:00 UTC | Backstop: expire unpaid orders and release their stock |
 | `/api/cron/marketplace-orders-sync` | daily 04:30 UTC | Backstop: import marketplace orders, then push stock/prices to stores whose switches are on |
+| `/api/cron/email-automations` | daily 06:00 UTC (09:00 Türkiye) | Runs the e-mail automations that are switched on in the admin (unpaid-order reminder, review request). For the reminder to arrive about 3 hours after the order, also call it every 30 minutes from cron-job.org |
 
 Vercel Hobby runs crons once a day, but marketplace orders should arrive within minutes.
 Schedule the order import externally, e.g. cron-job.org every 10 minutes:
 `GET https://www.zuulab.com/api/cron/marketplace-orders-sync` with header
 `Authorization: Bearer <CRON_SECRET>`. Overlapping runs are safe (database lease per store).
+
+The e-mail automations are safe to call as often as you like: a rule never mails the same order twice, an address gets
+at most one automatic mail every 3 days, nothing goes out between 21:00 and 09:00 Türkiye time, and an automation that is
+switched off in the admin does nothing.
 
 Unpaid orders are also expired at every checkout, and each is reconciled with
 PayTR's status API before expiring, so a paid order is never cancelled.

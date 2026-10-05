@@ -53,9 +53,9 @@ export interface CampaignSummary {
   rates: CampaignRates
 }
 
-const emptyCounts = (): MessageCounts => ({ sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0, unsubscribed: 0, failed: 0 })
+export const emptyCounts = (): MessageCounts => ({ sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0, unsubscribed: 0, failed: 0 })
 
-async function countsByCampaign(): Promise<Map<string, MessageCounts>> {
+export async function countsByCampaign(): Promise<Map<string, MessageCounts>> {
   const rows = await run(
     db.raw.sql`SELECT campaign_id,
         COUNT(*) FILTER (WHERE status = 'SENT')::int AS sent,
@@ -86,7 +86,7 @@ async function countsByCampaign(): Promise<Map<string, MessageCounts>> {
 
 export async function listCampaigns(): Promise<CampaignSummary[]> {
   const [rows, counts] = await Promise.all([
-    db.orm.public.EmailCampaign.orderBy((c) => c.createdAt.desc()).all(),
+    db.orm.public.EmailCampaign.where({ kind: 'CAMPAIGN' }).orderBy((c) => c.createdAt.desc()).all(),
     countsByCampaign(),
   ])
   return rows.map((c) => {

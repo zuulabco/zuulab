@@ -20,6 +20,10 @@ export const SESSION_MAX_AGE = 7 * 24 * 60 * 60 // 7 days in seconds
  * so existing sessions keep working until AUTH_SESSION_SECRET is configured. A publicly
  * known constant is only acceptable outside production.
  */
+export function getSigningSecret(): string {
+  return getSessionSecret()
+}
+
 function getSessionSecret(): string {
   if (process.env.AUTH_SESSION_SECRET) {
     return process.env.AUTH_SESSION_SECRET

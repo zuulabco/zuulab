@@ -2671,6 +2671,10 @@ model EmailCampaign {
   preheader      String?
   content        Json
   status         String         @default("DRAFT")
+  /// CAMPAIGN (written and sent by hand) or AUTOMATION (a standing rule such as the abandoned-payment reminder;
+  /// its status is ACTIVE or PAUSED and its messages are one row per mail sent by the rule)
+  kind           String         @default("CAMPAIGN")
+  automationKey  String?        @unique @map("automation_key")
   createdBy      String?        @map("created_by")
   recipientCount Int            @default(0) @map("recipient_count")
   sentAt         DateTime?      @map("sent_at")
@@ -2687,6 +2691,8 @@ model EmailMessage {
   id             String        @id @default(cuid())
   campaignId     String        @map("campaign_id")
   subscriberId   String?       @map("subscriber_id")
+  /// The order an automatic mail is about; at most one mail per order and automation
+  orderId        String?       @map("order_id")
   email          String
   resendId       String?       @unique @map("resend_id")
   status         String        @default("QUEUED")
@@ -2705,6 +2711,7 @@ model EmailMessage {
   createdAt      DateTime      @default(now()) @map("created_at")
   campaign       EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
+  @@unique([campaignId, orderId])
   @@index([campaignId])
   @@index([email])
   @@map("email_messages")
@@ -2717,4 +2724,14 @@ model EmailWebhookEvent {
   receivedAt DateTime @default(now()) @map("received_at")
 
   @@map("email_webhook_events")
+}
+
+/// Addresses that asked not to get service e-mails such as the review request (a link in that mail).
+/// Newsletter unsubscribes live on newsletter_subscribers; this list is for people who are not subscribers.
+model EmailOptout {
+  email     String   @id
+  source    String   @default("review_request")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_optouts")
 }

@@ -1,0 +1,245 @@
+[
+  {
+    "id": "table.email_optouts",
+    "label": "Create table \"email_optouts\"",
+    "summary": "Creates table \"email_optouts\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "email_optouts"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"email_optouts\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_optouts\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"email_optouts\"",
+        "sql": "CREATE TABLE \"public\".\"email_optouts\" (\n  \"created_at\" timestamp(3) DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"source\" text DEFAULT 'review_request' NOT NULL,\n  PRIMARY KEY (\"email\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"email_optouts\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_optouts\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.email_campaigns.automation_key",
+    "label": "Add column \"automation_key\" to \"email_campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "automation_key",
+        "table": "email_campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"automation_key\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_campaigns",
+          "automation_key"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"automation_key\"",
+        "sql": "ALTER TABLE \"public\".\"email_campaigns\" ADD COLUMN \"automation_key\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"automation_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_campaigns",
+          "automation_key"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.email_campaigns.kind",
+    "label": "Add column \"kind\" to \"email_campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "kind",
+        "table": "email_campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"kind\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_campaigns",
+          "kind"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"kind\"",
+        "sql": "ALTER TABLE \"public\".\"email_campaigns\" ADD COLUMN \"kind\" text DEFAULT 'CAMPAIGN' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"kind\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_campaigns",
+          "kind"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.email_messages.order_id",
+    "label": "Add column \"order_id\" to \"email_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "order_id",
+        "table": "email_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"order_id\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_messages",
+          "order_id"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"order_id\"",
+        "sql": "ALTER TABLE \"public\".\"email_messages\" ADD COLUMN \"order_id\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"order_id\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "email_messages",
+          "order_id"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.email_campaigns.email_campaigns_automation_key_key",
+    "label": "Create index \"email_campaigns_automation_key_key\" on \"email_campaigns\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "email_campaigns_automation_key_key",
+        "table": "email_campaigns"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"email_campaigns_automation_key_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_campaigns_automation_key_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"email_campaigns_automation_key_key\"",
+        "sql": "CREATE UNIQUE INDEX \"email_campaigns_automation_key_key\" ON \"public\".\"email_campaigns\" (\"automation_key\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"email_campaigns_automation_key_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_campaigns_automation_key_key\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.email_messages.email_messages_campaign_id_order_id_key",
+    "label": "Create index \"email_messages_campaign_id_order_id_key\" on \"email_messages\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "email_messages_campaign_id_order_id_key",
+        "table": "email_messages"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"email_messages_campaign_id_order_id_key\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_messages_campaign_id_order_id_key\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"email_messages_campaign_id_order_id_key\"",
+        "sql": "CREATE UNIQUE INDEX \"email_messages_campaign_id_order_id_key\" ON \"public\".\"email_messages\" (\"campaign_id\", \"order_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"email_messages_campaign_id_order_id_key\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"email_messages_campaign_id_order_id_key\""
+        ]
+      }
+    ]
+  }
+]

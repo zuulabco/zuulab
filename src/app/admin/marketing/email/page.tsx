@@ -7,8 +7,9 @@ import adminStyles from '../../admin.module.css'
 import s from '../../analytics/Analytics.module.css'
 import { fmtInt } from '../../analytics/charts'
 import type { EmailOverview, CampaignSummary } from '@/lib/services/email-campaign.service'
+import type { AutomationSummary } from '@/lib/services/email-automation.service'
 
-type Overview = EmailOverview & { setup: { provider: string; webhookConfigured: boolean } }
+type Overview = EmailOverview & { automations: AutomationSummary[]; setup: { provider: string; webhookConfigured: boolean } }
 
 interface Form {
   id?: string
@@ -91,6 +92,9 @@ export default function EmailCenterPage() {
   const [typedTestTo, setTestTo] = useState<string | null>(null)
   const testTo = typedTestTo ?? user?.email ?? ''
   const [confirmSend, setConfirmSend] = useState<{ id: string; recipients: number } | null>(null)
+  /** Automations: how many people each rule would mail right now, and which switch is waiting for a confirmation */
+  const [eligible, setEligible] = useState<Record<string, number>>({})
+  const [confirmOn, setConfirmOn] = useState<string | null>(null)
 
   const headers = useCallback(
     () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
@@ -187,6 +191,25 @@ export default function EmailCenterPage() {
       if (form?.id === id) setForm(null)
       load()
     }
+  }
+
+  async function onToggle(key: string, active: boolean) {
+    const d = await act('automation-toggle', { key, active }, `toggle-${key}`)
+    setConfirmOn(null)
+    if (d) {
+      setMessage({ kind: 'ok', text: active ? 'Otomasyon açıldı. Zamanlanmış görev çalıştıkça uygun müşterilere e-posta gidecek.' : 'Otomasyon kapatıldı. Artık e-posta gitmeyecek.' })
+      load()
+    }
+  }
+
+  async function onEligible(key: string) {
+    const d = await act('automation-preview', { key }, `preview-${key}`)
+    if (d) setEligible((e) => ({ ...e, [key]: d.eligible }))
+  }
+
+  async function onAutomationTest(key: string) {
+    const d = await act('automation-test', { key, to: testTo }, `atest-${key}`)
+    if (d) setMessage({ kind: 'ok', text: `Örnek e-posta ${testTo} adresine gönderildi.` })
   }
 
   const set = (patch: Partial<Form>) => setForm((f) => (f ? { ...f, ...patch } : f))
@@ -298,6 +321,53 @@ export default function EmailCenterPage() {
           </div>
         </Panel>
       )}
+
+      <h2 className={s.sectionTitle}>Otomatik e-postalar</h2>
+      <p className={s.kpiHint} style={{ margin: '0 0 8px' }}>
+        Müşteri bir şey yaptığında kendiliğinden giden e-postalar. Kapalı başlar; açana kadar kimseye e-posta gitmez. Bir kişiye 3 günde en
+        fazla 1 otomatik e-posta gider, her sipariş için bir kez, gece 21:00 – 09:00 arası gönderilmez.
+      </p>
+      <div style={{ display: 'grid', gap: 12 }}>
+        {(data?.automations ?? []).map((a) => (
+          <section key={a.key} className={s.panel}>
+            <div className={s.panelHead}>
+              <div>
+                <h3 className={s.panelTitle}>
+                  {a.name} <span className={s.kpiHint}>· {a.active ? 'açık' : 'kapalı'}</span>
+                </h3>
+                <p className={s.panelSub}>{a.rule}</p>
+                <p className={s.panelSub}>{a.audience}</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+              {a.active ? (
+                <button type="button" className={s.refresh} onClick={() => onToggle(a.key, false)} disabled={busy !== null}>Kapat</button>
+              ) : confirmOn === a.key ? (
+                <span className={s.alert} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                  Açılınca uygun müşterilere gerçekten e-posta gider.
+                  <button type="button" className={s.refresh} onClick={() => onToggle(a.key, true)} disabled={busy !== null}>Evet, aç</button>
+                  <button type="button" className={s.refresh} onClick={() => setConfirmOn(null)}>Vazgeç</button>
+                </span>
+              ) : (
+                <button type="button" className={s.refresh} onClick={() => setConfirmOn(a.key)} disabled={busy !== null} style={{ fontWeight: 600 }}>Aç…</button>
+              )}
+              <button type="button" className={s.refresh} onClick={() => onEligible(a.key)} disabled={busy !== null}>
+                {busy === `preview-${a.key}` ? 'Hesaplanıyor…' : 'Şu an kaç kişiye gider?'}
+              </button>
+              {eligible[a.key] !== undefined && <strong>{fmtInt(eligible[a.key])} kişi</strong>}
+              <button type="button" className={s.refresh} onClick={() => onAutomationTest(a.key)} disabled={busy !== null || !testTo}>
+                {busy === `atest-${a.key}` ? 'Gönderiliyor…' : `Bana örnek gönder (${testTo || '—'})`}
+              </button>
+            </div>
+            <p className={s.kpiHint} style={{ margin: 0 }}>
+              Gönderilen {fmtInt(a.counts.sent)}
+              {a.counts.failed ? ` (+${a.counts.failed} hata)` : ''} · ulaşan {pct(a.rates.deliveryRate)} · açılma {pct(a.rates.openRate)} · tıklama {pct(a.rates.clickRate, 1)} ·
+              {' '}çıkan {fmtInt(a.counts.unsubscribed)}
+              {a.lastSentAt ? ` · son gönderim ${date(a.lastSentAt)}` : ''}
+            </p>
+          </section>
+        ))}
+      </div>
 
       <h2 className={s.sectionTitle}>Kampanyalar</h2>
       {data && data.campaigns.length === 0 ? (
