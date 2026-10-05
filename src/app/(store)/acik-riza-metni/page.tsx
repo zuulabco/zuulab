@@ -33,11 +33,16 @@ export default function ExplicitConsentPage() {
                 aktarılmasına açık rıza vermiş olursunuz.
               </p>
               <p>
+                Aynı seçenekle, bu istatistiklerin bir kısmı (ziyaret edilen sayfalar, incelenen ve sepete eklenen ürünler,
+                ödeme adımları, siteye geldiğiniz reklam veya bağlantı) rastgele bir ziyaretçi numarasıyla, {COMPANY.tradeName}
+                tarafından kendi veritabanımızda 14 ay boyunca saklanır; ad, e-posta, adres veya ödeme bilgisi içermez.
+              </p>
+              <p>
                 Aynı seçenekle, Meta reklamlarının sonuçlarını ölçmek amacıyla; incelediğiniz ve sepete eklediğiniz ürünlerin,
                 ödeme adımlarının ve siparişinizin (tutar ve ürünler) ile e-posta, telefon, ad ve şehir bilginizin
                 (geri çevrilemeyen şifreleme ile), IP adresiniz ve tarayıcı bilginizin Meta Pixel ve Meta Conversions API
                 aracılığıyla işlenmesine ve bu amaçla sunucuları yurt dışında bulunan Meta’ya aktarılmasına açık rıza vermiş
-                olursunuz.
+                olursunuz. Sipariş sırasında kaydedilen IP adresiniz, tarayıcı bilginiz ve reklam çerezi değerleriniz 30 gün sonra silinir.
               </p>
               <p>
                 Ayrıntılar <Link href="/cerez-politikasi">çerez politikasında</Link> yer alır.

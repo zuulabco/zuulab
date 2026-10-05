@@ -26,6 +26,14 @@ const ANALYTICS: Array<[string, string, string]> = [
   ['_ga_4D608HQZZ1', 'Google Analytics: oturum bilgisini tutar', '2 yıl'],
 ]
 
+/** Kept in the browser's own storage (not cookies), only after "tümünü kabul et" */
+const OWN_STATS_STORAGE: Array<[string, string, string]> = [
+  ['zuulab_aid', 'Rastgele üretilen ziyaretçi numarası: aynı ziyaretçinin sayfa ve alışveriş adımlarını bir araya getirir', 'siz silene kadar'],
+  ['zuulab_sid', 'Aynı ziyaretteki adımları birleştiren oturum numarası', 'sekmeyi kapatana kadar'],
+  ['zuulab_attr_first, zuulab_attr_last', 'Siteye hangi reklam veya bağlantıdan geldiğiniz (kampanya bilgisi ve reklam tıklama kimliği)', 'siz silene kadar'],
+  ['zuulab_purchase_sent', 'Aynı siparişin iki kez sayılmaması için tutulan kayıt', 'siz silene kadar'],
+]
+
 const MARKETING: Array<[string, string, string]> = [
   ['_fbp', 'Meta Pixel: tarayıcınızı tanır, reklam ölçümünü mümkün kılar', '3 ay'],
   ['_fbc', 'Meta Pixel: bir Meta reklamından geldiğinizde, tıklanan reklamı hatırlar', '3 ay'],
@@ -102,6 +110,13 @@ export default function CookiePolicyPage() {
                 yalnızca sitemizi ve ürünlerimizi geliştirmek için toplu istatistik olarak kullanılır. Bu aktarım yurt dışına
                 yapıldığından <Link href="/acik-riza-metni">açık rıza metni</Link> kapsamındadır.
               </p>
+              <p>
+                Aynı izinle, kendi sunucularımızda da bir istatistik kaydı tutarız: hangi sayfaların açıldığı, hangi ürünlerin
+                incelendiği ve sepete eklendiği, ödeme adımlarına gelinip gelinmediği ve siteye hangi reklam veya bağlantıdan
+                gelindiği, aşağıdaki rastgele ziyaretçi numarasıyla birlikte veritabanımıza yazılır. Bu kayıt ad, e-posta, adres
+                veya ödeme bilgisi içermez, sayfa adresinin soru işaretinden sonraki kısmı saklanmaz ve 14 ay sonra silinir.
+              </p>
+              <CookieTable rows={OWN_STATS_STORAGE} />
             </>
           ),
         },
@@ -121,8 +136,9 @@ export default function CookiePolicyPage() {
                 Bir sipariş verdiğinizde, siparişin reklamdan geldiğini doğrulamak için sipariş bilgisi sunucumuzdan da Meta’ya
                 gönderilir (Meta Conversions API). Bu aktarımda e-posta, telefon, ad ve şehir bilgisi geri çevrilemeyen bir
                 şifreleme (hash) ile, IP adresi ve tarayıcı bilgisi ise olduğu gibi iletilir. Kart bilgisi hiçbir zaman
-                gönderilmez. Bu aktarım yurt dışına yapıldığından <Link href="/acik-riza-metni">açık rıza metni</Link>{' '}
-                kapsamındadır.
+                gönderilmez. Siparişin reklamdan geldiğini doğrulamak için sipariş sırasında tarayıcı bilginiz, IP adresiniz ve
+                yukarıdaki reklam çerezlerinin değerleri siparişle birlikte geçici olarak saklanır ve 30 gün sonra silinir. Bu aktarım
+                yurt dışına yapıldığından <Link href="/acik-riza-metni">açık rıza metni</Link> kapsamındadır.
               </p>
               <p>
                 &quot;Yalnızca gerekli&quot; seçeneğini işaretlerseniz Meta Pixel yüklenmez ve Meta’ya hiçbir bilgi gönderilmez.

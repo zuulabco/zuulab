@@ -7,7 +7,7 @@ import { SITE_URL } from '@/lib/config/urls'
 import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import { logAuditEvent } from './admin.service'
-import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { CHECKOUT_MARKETING_CONSENT_TEXT, NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
 
 /**
  * Newsletter with double opt-in.
@@ -63,7 +63,7 @@ function replyTo(): string | undefined {
 }
 
 const footer = (token: string, messageId?: string) => `
-  <div>Bu e-postayı zuulab bültenine kayıt olduğunuz için aldınız.</div>
+  <div>Bu e-postayı zuulab kampanya e-postalarına onay verdiğiniz için aldınız.</div>
   <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token, messageId)}">Bültenden ayrıl</a></div>`
 
 /**
@@ -302,6 +302,54 @@ export async function unsubscribeNewsletter(token: string, messageId?: string): 
     ).catch((err: unknown) => console.warn('[newsletter] could not record the unsubscribe on the campaign mail:', err))
   }
   return { ok: true, email: sub.email }
+}
+
+export type CheckoutConsentOutcome = 'subscribed' | 'already_active' | 'skipped'
+
+/**
+ * The buyer ticked the optional "campaign e-mails" box on the payment page. That is explicit consent
+ * to commercial e-mail for the address they typed, so the address becomes an ACTIVE subscriber at once
+ * (no confirmation mail, no welcome coupon) with the consent text, time, IP and browser saved as proof.
+ * Every mail still carries the unsubscribe link. Someone who unsubscribed earlier and ticks the box
+ * again has given fresh consent. Never throws: a problem here must not touch the order.
+ */
+export async function recordCheckoutEmailConsent(input: {
+  email: unknown
+  ip?: string | null
+  userAgent?: string | null
+}): Promise<CheckoutConsentOutcome> {
+  try {
+    const email = normalizeEmail(input.email)
+    const consent = {
+      text: CHECKOUT_MARKETING_CONSENT_TEXT,
+      ip: input.ip?.slice(0, 64) ?? '',
+      agent: input.userAgent?.slice(0, 300) ?? '',
+    }
+    const existing = await db.orm.public.NewsletterSubscriber.where({ email }).first()
+    if (existing?.status === 'ACTIVE') return 'already_active'
+
+    if (existing) {
+      await db.runtime().execute(
+        db.raw.sql`UPDATE newsletter_subscribers
+                   SET status = 'ACTIVE', confirmed_at = now(), unsubscribed_at = NULL, source = 'checkout',
+                       consent_text = ${consent.text}, consent_ip = NULLIF(${consent.ip}, ''), consent_agent = NULLIF(${consent.agent}, ''),
+                       updated_at = now()
+                   WHERE id = ${existing.id}`.affectedCount().build()
+      )
+      return 'subscribed'
+    }
+
+    await db.runtime().execute(
+      db.raw.sql`INSERT INTO newsletter_subscribers (id, email, status, token, source, consent_text, consent_ip, consent_agent, confirmed_at, created_at, updated_at)
+                 VALUES (${randomBytes(12).toString('hex')}, ${email}, 'ACTIVE', ${newToken()}, 'checkout', ${consent.text},
+                         NULLIF(${consent.ip}, ''), NULLIF(${consent.agent}, ''), now(), now(), now())
+                 ON CONFLICT (email) DO NOTHING`.affectedCount().build()
+    )
+    return 'subscribed'
+  } catch (err) {
+    console.warn('[newsletter] could not record the checkout consent:', err)
+    return 'skipped'
+  }
 }
 
 // ── Admin ────────────────────────────────────────────────────

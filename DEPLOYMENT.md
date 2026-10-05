@@ -114,6 +114,7 @@ Prisma ORM 8 with on-disk migration packages in `migrations/app/`.
 |---|---|---|
 | `/api/cron/payment-expiration` | daily 03:00 UTC | Backstop: expire unpaid orders and release their stock |
 | `/api/cron/marketplace-orders-sync` | daily 04:30 UTC | Backstop: import marketplace orders, then push stock/prices to stores whose switches are on |
+| `/api/cron/privacy-cleanup` | daily 02:30 UTC | Removes marketing data past its retention period: browser identifiers (IP, browser, _fbp/_fbc) stored with an order after 30 days, visit records (`marketing_events`) after 14 months. Keep these numbers equal to the cookie policy and the KVKK notice |
 | `/api/cron/email-automations` | daily 06:00 UTC (09:00 Türkiye) | Runs the e-mail automations that are switched on in the admin (unpaid-order reminder, review request). For the reminder to arrive about 3 hours after the order, also call it every 30 minutes from cron-job.org |
 
 Vercel Hobby runs crons once a day, but marketplace orders should arrive within minutes.

@@ -104,5 +104,5 @@ export const DATA_PROCESSORS = [
   { name: 'Meta Platforms', purpose: 'izninizle, Meta reklamlarının sonuçlarının ölçülmesi (Meta Pixel, Conversions API)', abroad: true },
   { name: 'Vercel Inc.', purpose: 'web sitesinin barındırılması', abroad: true },
   { name: 'Neon (Databricks), Frankfurt – Almanya sunucuları', purpose: 'sipariş ve hesap veritabanının barındırılması', abroad: true },
-  { name: 'Resend', purpose: 'sipariş ve bilgilendirme e-postalarının gönderilmesi', abroad: true },
+  { name: 'Resend', purpose: 'sipariş ve bilgilendirme e-postalarının, izninizle bülten ve kampanya e-postalarının gönderilmesi', abroad: true },
 ] as const

@@ -19,7 +19,7 @@ export interface AutomationDef {
   rule: string
   /** Who receives it, and why that is allowed */
   audience: string
-  /** Marketing mails need the person's consent: they go only to confirmed newsletter subscribers */
+  /** Marketing mails need the person's consent: they go only to active subscribers (newsletter form or the payment-page box) */
   marketing: boolean
 }
 
@@ -28,7 +28,8 @@ export const AUTOMATIONS: AutomationDef[] = [
     key: 'abandoned_payment',
     name: 'Terk edilen ödeme',
     rule: 'Ödeme sayfasına gelip siparişi tamamlamayan müşteriye, siparişten 3 saat sonra (en geç 24 saat içinde) bir hatırlatma gider.',
-    audience: 'Yalnızca bültene onay vermiş (aktif abone) müşteriler: pazarlama e-postası için izin gerekir.',
+    audience:
+      'Yalnızca kampanya e-postası onayı vermiş müşteriler (bültene abone olanlar veya ödeme sayfasındaki kutuyu işaretleyenler): pazarlama e-postası için izin gerekir.',
     marketing: true,
   },
   {

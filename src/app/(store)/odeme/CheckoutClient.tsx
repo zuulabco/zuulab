@@ -19,6 +19,7 @@ import styles from './Checkout.module.css'
 import { useTrackCartEvent } from '@/hooks/useTrackCartEvent'
 import { trackEvent, getCheckoutMarketingContext } from '@/lib/marketing/client'
 import { cartLineToItem } from '@/lib/marketing/cart'
+import { CHECKOUT_MARKETING_CONSENT_TEXT } from '@/lib/newsletter/consent'
 import PreInformationSummary from '@/components/legal/PreInformationSummary'
 import { BANK_ACCOUNT } from '@/config/company'
 import { BANK_TRANSFER_DISCOUNT_RATE } from '@/lib/pricing/money'
@@ -98,6 +99,9 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
   // Legal Consent Checkbox
   // The buyer must tick this themselves: a pre-ticked box is not valid consent
   const [agreementAccepted, setAgreementAccepted] = useState(false)
+
+  // Optional consent to campaign e-mails (ticari elektronik ileti). Unticked by default, never required to order.
+  const [emailMarketingConsent, setEmailMarketingConsent] = useState(false)
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('')
@@ -481,6 +485,7 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
           checkoutKey: checkoutKeyRef.current,
           paymentMethod,
           marketing: getCheckoutMarketingContext(),
+          marketingEmailConsent: emailMarketingConsent,
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -1155,6 +1160,20 @@ export default function CheckoutClient({ initialFreeShippingThreshold = 750, cas
                   {fieldErrors.agreement}
                 </span>
               )}
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={emailMarketingConsent}
+                  onChange={(e) => setEmailMarketingConsent(e.target.checked)}
+                  className={styles.checkboxInput}
+                />
+                <span className={styles.agreementText}>
+                  {CHECKOUT_MARKETING_CONSENT_TEXT} (isteğe bağlı){' '}
+                  <Link href="/ticari-elektronik-ileti-onayi" target="_blank" rel="noopener noreferrer" className={styles.legalLink}>
+                    Ayrıntılar
+                  </Link>
+                </span>
+              </label>
             </div>
 
             {/* Desktop Primary Submit CTA */}

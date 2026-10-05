@@ -4,7 +4,7 @@ import { pageMetadata } from '@/lib/seo/metadata'
 import LegalDocument from '@/components/legal/LegalDocument'
 import { legalDoc } from '@/lib/legal/documents'
 import { COMPANY } from '@/config/company'
-import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { CHECKOUT_MARKETING_CONSENT_TEXT, NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
 
 const doc = legalDoc('ticari-elektronik-ileti-onayi')
 
@@ -26,7 +26,7 @@ export default function CommercialMessageConsentPage() {
           title: 'Onay metni',
           body: (
             <>
-              <p>Bülten formundaki kutuyu işaretlediğinizde aşağıdaki metni onaylamış olursunuz:</p>
+              <p>Ana sayfadaki bülten formundaki kutuyu işaretlediğinizde aşağıdaki metni onaylamış olursunuz:</p>
               <blockquote>
                 <p>
                   <strong>“{NEWSLETTER_CONSENT_TEXT}”</strong>
@@ -34,7 +34,18 @@ export default function CommercialMessageConsentPage() {
               </blockquote>
               <p>
                 Onay; {COMPANY.tradeName} ({COMPANY.email}) adına, belirttiğiniz e-posta adresine gönderilecek ticari elektronik
-                iletileri kapsar. Kaydınızı tamamlamak için e-postanıza gönderilen doğrulama bağlantısına tıklamanız gerekir.
+                iletileri kapsar. Bülten formundan kaydolurken kaydınızı tamamlamak için e-postanıza gönderilen doğrulama
+                bağlantısına tıklamanız gerekir.
+              </p>
+              <p>Ödeme sayfasındaki isteğe bağlı kutuyu işaretlediğinizde ise aşağıdaki metni onaylamış olursunuz (kutu varsayılan olarak boştur ve sipariş vermek için işaretlemeniz gerekmez):</p>
+              <blockquote>
+                <p>
+                  <strong>“{CHECKOUT_MARKETING_CONSENT_TEXT}”</strong>
+                </p>
+              </blockquote>
+              <p>
+                Bu durumda onayınız, siparişte yazdığınız e-posta adresi için ayrıca doğrulama beklenmeden kaydedilir; onay metni,
+                zamanı, IP adresiniz ve tarayıcı bilginiz onayın kanıtı olarak saklanır.
               </p>
             </>
           ),
@@ -46,6 +57,7 @@ export default function CommercialMessageConsentPage() {
             <ul>
               <li>Yeni ürün ve koleksiyon duyuruları,</li>
               <li>Kampanya, indirim ve size özel kupon kodları,</li>
+              <li>Ödemesini tamamlamadığınız sepetiniz hakkında hatırlatma (yalnızca onay verenlere, en fazla haftada bir kez),</li>
               <li>Atölyemizden haberler.</li>
             </ul>
           ),

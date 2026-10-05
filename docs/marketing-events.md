@@ -140,8 +140,9 @@ Admin page `/marketing/email`, API `/api/admin/email`, Resend webhook `/api/webh
 Two automatic mails, managed under Pazarlama > E-posta > Otomatik e-postalar. Code: `lib/email/automations.ts` (rules,
 texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-automations`.
 
-- **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses that confirmed the
-  newsletter (marketing mail needs consent). Left out: bank-transfer orders, payments under way or paid, addresses that bought
+- **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses with an ACTIVE
+  subscription (marketing mail needs consent): the newsletter form (double opt-in) or the optional, unticked box on the payment
+  page (`recordCheckoutEmailConsent`: single opt-in, no welcome coupon, consent text / time / IP / browser kept as proof). Left out: bank-transfer orders, payments under way or paid, addresses that bought
   since, a second reminder within 7 days. Only the latest such order per address. No discount, no fake deadline.
 - **Review request** (`review_request`): an order delivered 7 to 30 days ago (delivery date from `order_status_history`). Customers
   who are not subscribers receive it too, because it is a request about their own order with no promotion in it; every mail has a
@@ -155,6 +156,12 @@ texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-aut
 - **Scheduling:** Vercel runs the job daily at 06:00 UTC (09:00 Türkiye). For the 3-hour reminder to arrive on time also call
   `/api/cron/email-automations` every 30 minutes from cron-job.org (`Authorization: Bearer <CRON_SECRET>`).
 - Automations reuse the campaign tables (`kind = AUTOMATION`), so Resend's webhook and the statistics work the same way.
+
+## Retention (privacy)
+
+`/api/cron/privacy-cleanup` (daily 02:30 UTC, `lib/services/privacy-retention.service.ts`): the browser identifiers kept with an order for
+Meta (IP, browser, _fbp, _fbc; `orders.attribution.meta`) are removed after 30 days, `marketing_events` rows after 425 days. The cookie
+policy, the open-consent text and the KVKK notice state the same periods; change them together.
 
 ## Adding a destination
 

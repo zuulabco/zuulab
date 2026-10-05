@@ -88,6 +88,8 @@ export const checkoutInitiateSchema = z.object({
    */
   paymentMethod: z.enum(['CARD', 'BANK_TRANSFER', 'CASH_ON_DELIVERY']).default('CARD'),
   marketing: marketingContextSchema,
+  /** The optional, unticked box for campaign e-mails (ticari elektronik ileti onayı) */
+  marketingEmailConsent: z.boolean().optional(),
 })
 
 export type AddressInput = z.infer<typeof addressSchema>

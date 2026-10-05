@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { readClientContext } from '@/lib/marketing/request-context'
+import { recordCheckoutEmailConsent } from '@/lib/services/newsletter.service'
 import { getPublicOrigin } from '@/lib/config/app-url'
 import { getGeliverConfig } from '@/lib/services/shipping/geliver/geliver.client'
 import {
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       checkoutKey,
       paymentMethod,
       marketing,
+      marketingEmailConsent,
     } = parsed.data
 
     if (paymentMethod === 'CASH_ON_DELIVERY' && !getGeliverConfig()) {
@@ -135,6 +137,11 @@ export async function POST(request: Request) {
           ? { ...marketing, attribution: { ...marketing.attribution, meta: readClientContext(request) } }
           : marketing,
     })
+
+    // The optional "campaign e-mails" box: recorded as consent for this address (best effort, never fails the order)
+    if (marketingEmailConsent === true) {
+      await recordCheckoutEmailConsent({ email, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') })
+    }
 
     // Lets this browser (including guests) see and pay the order it created.
     const orderAccessCookie = {
