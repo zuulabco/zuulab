@@ -11,14 +11,21 @@
  * afterAll. Run with: npm run test:integration
  */
 import 'dotenv/config'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+// Confirming a newsletter sign-up sends a welcome mail and mints a coupon: no real mail goes out
+vi.mock('@/lib/services/admin.service', () => ({ logAuditEvent: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/services/notification/email-provider.factory', () => ({
+  getEmailProvider: () => ({ providerName: 'FAKE', normalizeError: String, sendEmail: async () => ({ success: true, providerMessageId: 'fake' }) }),
+}))
 
 const { db } = await import('@/prisma/db')
+const news = await import('@/lib/services/newsletter.service')
 const { toDbTimestamp } = await import('@/lib/db/time')
 const consent = await import('@/lib/services/email-consent.service')
 const { purgeExpiredPersonalData } = await import('@/lib/services/privacy-retention.service')
 const { storeEvent } = await import('@/lib/services/analytics/internal-analytics.service')
-const { EMAIL_PERMISSION_TEXT } = await import('@/lib/newsletter/consent')
+const { EMAIL_PERMISSION_TEXT, NEWSLETTER_CONSENT_TEXT } = await import('@/lib/newsletter/consent')
 
 const RUN = `zk${Date.now().toString(36)}`
 const run = (plan: Parameters<ReturnType<typeof db.runtime>['execute']>[0]) => db.runtime().execute(plan)
@@ -109,6 +116,53 @@ describe('e-mail permission', () => {
   })
 })
 
+describe('one permission, two ways in, one way out', () => {
+  const pending = (key: string, consentText: string) =>
+    db.orm.public.NewsletterSubscriber.create({ email: addr(key), token: `${RUN}-t-${key}`, status: 'PENDING', consentText, source: 'homepage' } as never)
+  const newsletterStatus = async (key: string) => (await db.orm.public.NewsletterSubscriber.where({ email: addr(key) }).first())?.status
+
+  it('confirming the newsletter form also gives the e-mail permission, because its wording covers reminders and offers', async () => {
+    await pending('form', NEWSLETTER_CONSENT_TEXT)
+    expect(await consent.getConsentStatus(addr('form'))).toBe('NONE') // not before it is confirmed
+    expect((await news.confirmNewsletter(`${RUN}-t-form`)).ok).toBe(true)
+    expect(await newsletterStatus('form')).toBe('ACTIVE')
+    expect(await row('form')).toMatchObject({ status: 'ACTIVE', source: 'newsletter', consent_text: NEWSLETTER_CONSENT_TEXT })
+  })
+
+  it('a sign-up that saw the older wording (no reminders in it) becomes a subscriber but gets no e-mail permission', async () => {
+    await pending('old', 'zuulab yeniliklerinden, kampanyalarından ve indirimlerinden e-posta ile haberdar olmak için onay veriyorum.')
+    await news.confirmNewsletter(`${RUN}-t-old`)
+    expect(await newsletterStatus('old')).toBe('ACTIVE')
+    expect(await consent.getConsentStatus(addr('old'))).toBe('NONE')
+  })
+
+  it('leaving the newsletter by its own link stops all commercial e-mail', async () => {
+    expect((await news.unsubscribeNewsletter(`${RUN}-t-form`)).ok).toBe(true)
+    expect(await newsletterStatus('form')).toBe('UNSUBSCRIBED')
+    expect(await consent.getConsentStatus(addr('form'))).toBe('WITHDRAWN')
+  })
+
+  it('the link in an automatic mail takes back the permission and also ends the newsletter', async () => {
+    await consent.grantEmailConsent({ email: addr('both'), source: 'checkout' })
+    await db.orm.public.NewsletterSubscriber.create({ email: addr('both'), token: `${RUN}-t-both`, status: 'ACTIVE', consentText: 'x', source: 'homepage' } as never)
+    expect(await consent.withdrawEmailConsent(addr('both'))).toBe(true)
+    expect(await consent.getConsentStatus(addr('both'))).toBe('WITHDRAWN')
+    expect(await newsletterStatus('both')).toBe('UNSUBSCRIBED')
+  })
+
+  it('an address that is only on the newsletter list (an older subscriber) is also stopped by that link', async () => {
+    await db.orm.public.NewsletterSubscriber.create({ email: addr('legacy'), token: `${RUN}-t-legacy`, status: 'ACTIVE', consentText: 'old', source: 'homepage' } as never)
+    expect(await consent.withdrawEmailConsent(addr('legacy'))).toBe(true)
+    expect(await newsletterStatus('legacy')).toBe('UNSUBSCRIBED')
+  })
+
+  it('a member can switch it on again afterwards', async () => {
+    expect(await consent.grantEmailConsent({ email: addr('form'), source: 'account', userId: 'u1' })).toBe(true)
+    expect(await row('form')).toMatchObject({ status: 'ACTIVE', source: 'account' })
+    expect(await newsletterStatus('form')).toBe('UNSUBSCRIBED') // the newsletter is a separate choice: it stays off
+  })
+})
+
 describe('retention periods', () => {
   const NOW = new Date('2019-06-01T00:00:00Z')
   const at = (iso: string) => new Date(iso)
@@ -167,6 +221,7 @@ afterAll(async () => {
   await run(db.raw.sql`DELETE FROM orders WHERE order_number LIKE ${`ZK-${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM users WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM newsletter_subscribers WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
+  await run(db.raw.sql`DELETE FROM coupons WHERE assigned_email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await run(db.raw.sql`DELETE FROM email_consents WHERE email LIKE ${`${RUN}-%`}`.affectedCount().build())
   await db.close()
 }, 60_000)

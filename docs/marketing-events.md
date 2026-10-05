@@ -140,14 +140,17 @@ Admin page `/marketing/email`, API `/api/admin/email`, Resend webhook `/api/webh
 Two automatic mails, managed under Pazarlama > E-posta > Otomatik e-postalar. Code: `lib/email/automations.ts` (rules,
 texts), `lib/services/email-automation.service.ts`, job `GET /api/cron/email-automations`.
 
-- **Two separate permissions.** The newsletter (`newsletter_subscribers`, double opt-in) and the e-mail permission
-  (`email_consents`, `lib/services/email-consent.service.ts`). Newsletter campaigns go only to newsletter subscribers; the
-  automations go only to addresses with an ACTIVE e-mail permission. Neither gives the other. The permission is given by a signed-in
-  member in the modal after sign-in (`EmailConsentModal`, `/api/account/email-consent`; only for a verified address; "yes" gives it,
-  "no" is saved as DECLINED, closing the modal gives nothing and asks again after 14 days in that browser) or by anyone in the
-  optional, unticked box on the payment page (hidden for a member who already gave it). Text / time / IP / browser are kept as proof;
-  every automatic mail carries a signed link (`/eposta/ayril`) that withdraws it. A guest who never ticked the box gets no
-  commercial e-mail (only order and shipping mail).
+- **One permission, the newsletter is a topic on top of it.** The permission is the single commercial-e-mail consent
+  (`email_consents`, `lib/services/email-consent.service.ts`): campaigns, offers, reminders, review requests. The newsletter
+  (`newsletter_subscribers`, double opt-in) is an extra topic: newsletter-only content goes only to subscribers, the automations go
+  to everyone with the permission. Three ways in, each an unticked box or an explicit "yes": (1) the newsletter form, once confirmed
+  (gives both; only when the sign-up saw the current wording, which mentions reminders); (2) a signed-in member, in the modal after
+  sign-in (`EmailConsentModal`, `/api/account/email-consent`; only for a verified address; "no" is saved as DECLINED, closing it gives
+  nothing and asks again after 14 days in that browser) or under Hesabım > Profilim > e-posta tercihleri (`EmailPreferences`); (3)
+  anyone, in the optional box on the payment page (hidden for a member who already gave it). Text / time / IP / browser are kept as
+  proof. **One way out:** the link in any commercial mail (newsletter or automatic) withdraws the permission and unsubscribes the
+  newsletter too (`withdrawEmailConsent` / `unsubscribeNewsletter`); the member can switch it on again in the account. A guest who
+  never ticked a box gets no commercial e-mail (only order and shipping mail).
 - **Unpaid-order reminder** (`abandoned_payment`): an unpaid card order 3 to 24 hours old, only for addresses with the e-mail
   permission. Left out: bank-transfer orders, payments under way or paid, addresses that bought
   since, a second reminder within 7 days. Only the latest such order per address. No discount, no fake deadline.

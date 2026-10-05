@@ -22,29 +22,38 @@ export default function CommercialMessageConsentPage() {
       }
       sections={[
         {
-          id: 'iki-izin',
-          title: 'İki ayrı izin',
+          id: 'izin',
+          title: 'Tek izin, istediğiniz kadar konu',
           body: (
             <>
-              <p>zuulab&apos;dan e-posta almak için birbirinden bağımsız iki ayrı izin vardır. Birini vermek diğerini vermiş olmanız anlamına gelmez:</p>
+              <p>
+                zuulab&apos;dan e-posta ile kampanya, indirim, sepetinizle ya da siparişinizle ilgili hatırlatma ve bülten almak için tek bir
+                ticari elektronik ileti izni vermeniz yeterlidir. İzni üç yerden verebilirsiniz; hepsinde kutu varsayılan olarak boştur ve sipariş
+                vermek ya da üye olmak için işaretlemeniz gerekmez:
+              </p>
               <ul>
                 <li>
-                  <strong>Bülten aboneliği:</strong> bültene özel içerikleri (yeni ürün ve koleksiyon duyuruları, atölyeden haberler, bültene
-                  özel kuponlar) almak içindir. Yalnızca bültene abone olanlara gönderilir.
+                  <strong>Bülten formu (ana sayfa):</strong> hem bültene abone olmanızı hem bu izni vermenizi sağlar. Kaydınızı tamamlamak için
+                  e-postanıza gönderilen doğrulama bağlantısına tıklamanız gerekir.
                 </li>
                 <li>
-                  <strong>E-posta izni:</strong> kampanya ve indirim bilgilendirmeleri ile sepetiniz ve siparişlerinizle ilgili hatırlatmaları
-                  (ödemesini tamamlamadığınız sipariş için hatırlatma, ürün değerlendirme isteği gibi) almak içindir. Yalnızca bu izni verenlere
-                  gönderilir.
+                  <strong>Üyelikte giriş sonrası çıkan pencere:</strong> yalnızca bu izni verir, bültene abone etmez. Pencereyi onaylamadan
+                  kapatırsanız izin vermemiş olursunuz. Pencere yalnızca e-posta adresi doğrulanmış hesaplara gösterilir.
+                </li>
+                <li>
+                  <strong>Ödeme sayfasındaki isteğe bağlı kutu:</strong> yalnızca bu izni verir, siparişte yazdığınız e-posta adresi için
+                  kaydedilir, bültene abone etmez.
                 </li>
               </ul>
-              <p>İsterseniz ikisini birden, isterseniz yalnızca birini verebilirsiniz.</p>
+              <p>
+                Bülten, bu iznin üzerine eklenen isteğe bağlı bir konudur: bültene özel içerikler yalnızca bültene abone olanlara gönderilir.
+              </p>
             </>
           ),
         },
         {
-          id: 'bulten',
-          title: 'Bülten aboneliği onay metni',
+          id: 'onay-metinleri',
+          title: 'Onay metinleri',
           body: (
             <>
               <p>Ana sayfadaki bülten formundaki kutuyu işaretlediğinizde aşağıdaki metni onaylamış olursunuz:</p>
@@ -53,32 +62,15 @@ export default function CommercialMessageConsentPage() {
                   <strong>“{NEWSLETTER_CONSENT_TEXT}”</strong>
                 </p>
               </blockquote>
-              <p>
-                Onay; {COMPANY.tradeName} ({COMPANY.email}) adına, belirttiğiniz e-posta adresine gönderilecek ticari elektronik
-                iletileri kapsar. Kaydınızı tamamlamak için e-postanıza gönderilen doğrulama bağlantısına tıklamanız gerekir.
-              </p>
-            </>
-          ),
-        },
-        {
-          id: 'eposta-izni',
-          title: 'E-posta izni onay metni',
-          body: (
-            <>
-              <p>
-                Üye olarak giriş yaptıktan sonra karşınıza çıkan pencerede &quot;evet, izin veriyorum&quot; dediğinizde ya da ödeme
-                sayfasındaki isteğe bağlı kutuyu işaretlediğinizde aşağıdaki metni onaylamış olursunuz (kutu varsayılan olarak boştur ve
-                sipariş vermek için işaretlemeniz gerekmez; pencereyi onaylamadan kapatırsanız izin vermemiş olursunuz):
-              </p>
+              <p>Üyelikteki pencerede &quot;evet, izin veriyorum&quot; dediğinizde, hesabınızdaki e-posta tercihlerinden izni açtığınızda ya da ödeme sayfasındaki kutuyu işaretlediğinizde aşağıdaki metni onaylamış olursunuz:</p>
               <blockquote>
                 <p>
                   <strong>“{EMAIL_PERMISSION_TEXT}”</strong>
                 </p>
               </blockquote>
               <p>
-                Üyelikte bu pencere yalnızca e-posta adresi doğrulanmış hesaplara gösterilir. Ödeme sayfasında verdiğiniz izin, siparişte
-                yazdığınız e-posta adresi için kaydedilir. Bu izin bültene abone olmanız anlamına gelmez. Onayınızın metni, zamanı, IP
-                adresiniz ve tarayıcı bilginiz kanıt olarak saklanır.
+                Onay; {COMPANY.tradeName} ({COMPANY.email}) adına, belirttiğiniz e-posta adresine gönderilecek ticari elektronik
+                iletileri kapsar. Onayınızın metni, zamanı, IP adresiniz ve tarayıcı bilginiz kanıt olarak saklanır.
               </p>
             </>
           ),
@@ -88,17 +80,17 @@ export default function CommercialMessageConsentPage() {
           title: 'Ne göndereceğiz?',
           body: (
             <>
-              <p>Bülten aboneliği ile:</p>
-              <ul>
-                <li>Yeni ürün ve koleksiyon duyuruları,</li>
-                <li>Bültene özel içerikler ve kupon kodları,</li>
-                <li>Atölyemizden haberler.</li>
-              </ul>
-              <p>E-posta izni ile:</p>
+              <p>İzin verdiyseniz:</p>
               <ul>
                 <li>Ödemesini tamamlamadığınız siparişiniz hakkında bir hatırlatma (en fazla haftada bir kez),</li>
                 <li>Siparişinizin teslimatından bir hafta sonra ürünü değerlendirmenizi isteyen bir e-posta,</li>
                 <li>Kampanya ve indirim bilgilendirmeleri.</li>
+              </ul>
+              <p>Ayrıca bültene abone olduysanız:</p>
+              <ul>
+                <li>Yeni ürün ve koleksiyon duyuruları,</li>
+                <li>Bültene özel içerikler ve kupon kodları,</li>
+                <li>Atölyemizden haberler.</li>
               </ul>
               <p>Otomatik e-postalar bir adrese en fazla 3 günde bir gönderilir ve gece 21:00 ile 09:00 arasında gönderilmez.</p>
             </>
@@ -110,10 +102,11 @@ export default function CommercialMessageConsentPage() {
           body: (
             <>
               <p>
-                İzinlerinizi istediğiniz zaman, gerekçe göstermeden ve ücretsiz olarak geri alabilirsiniz. Bülten e-postalarının altındaki
-                &quot;bültenden ayrıl&quot; bağlantısı yalnızca bülten aboneliğinizi, otomatik e-postaların altındaki &quot;iznimi geri
-                alıyorum&quot; bağlantısı yalnızca e-posta izninizi sonlandırır. {COMPANY.email} adresine yazarak da ikisini ya da birini
-                geri alabilirsiniz. Talebiniz en geç 3 iş günü içinde işleme alınır.
+                İzninizi istediğiniz zaman, gerekçe göstermeden ve ücretsiz olarak geri alabilirsiniz. Herhangi bir ticari e-postanın altındaki
+                çıkış bağlantısı (&quot;bültenden ve tüm kampanya e-postalarından ayrıl&quot; ya da &quot;iznimi geri alıyorum&quot;) tüm
+                ticari e-postaları, bülten dahil, durdurur. Üyeyseniz Hesabım &gt; Profilim sayfasındaki e-posta tercihlerinden de
+                kapatıp yeniden açabilirsiniz; {COMPANY.email} adresine yazarak da talepte bulunabilirsiniz. Talebiniz en geç 3 iş günü
+                içinde işleme alınır.
               </p>
               <p>
                 Sipariş onayı, kargo bildirimi ve iade süreci gibi siparişinizle ilgili bilgilendirme e-postaları ticari ileti

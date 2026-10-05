@@ -11,4 +11,4 @@ export const EMAIL_PERMISSION_TEXT =
   'zuulab tarafından, kampanya ve indirim bilgilendirmeleri ile sepetim ve siparişlerimle ilgili hatırlatma niteliğinde ticari elektronik ileti gönderilmesine onay veriyorum.'
 
 export const NEWSLETTER_CONSENT_TEXT =
-  'zuulab yeniliklerinden, kampanyalarından ve indirimlerinden e-posta ile haberdar olmak için ticari elektronik ileti gönderilmesine onay veriyorum.'
+  'zuulab bülteni, kampanya ve indirimlerinden, ayrıca sepetim ve siparişlerimle ilgili hatırlatmalardan e-posta ile haberdar olmak için ticari elektronik ileti gönderilmesine onay veriyorum.'

@@ -8,6 +8,7 @@ import { getEmailProvider } from './notification/email-provider.factory'
 import { renderEmailBase } from './notification/templates/email-base.template'
 import { logAuditEvent } from './admin.service'
 import { NEWSLETTER_CONSENT_TEXT } from '@/lib/newsletter/consent'
+import { grantEmailConsent, withdrawEmailConsent } from './email-consent.service'
 
 /**
  * Newsletter with double opt-in.
@@ -64,7 +65,7 @@ function replyTo(): string | undefined {
 
 const footer = (token: string, messageId?: string) => `
   <div>Bu e-postayı zuulab kampanya e-postalarına onay verdiğiniz için aldınız.</div>
-  <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token, messageId)}">Bültenden ayrıl</a></div>`
+  <div style="margin-top: 6px;"><a href="${unsubscribeUrl(token, messageId)}">Bültenden ve tüm kampanya e-postalarından ayrıl</a></div>`
 
 /**
  * What every newsletter mail needs besides its content: the footer with the unsubscribe link, the
@@ -263,6 +264,13 @@ export async function confirmNewsletter(token: string): Promise<ConfirmResult> {
     )
     if (affectedRows === 1) {
       couponId = nextCouponId
+      // The form's wording also covers reminders and offers, so confirming it gives the e-mail permission too, but only for
+      // someone who saw that wording (an older, still unconfirmed sign-up saw the previous text)
+      if (sub.consentText === NEWSLETTER_CONSENT_TEXT) {
+        await grantEmailConsent({ email: sub.email, source: 'newsletter', text: NEWSLETTER_CONSENT_TEXT, ip: sub.consentIp, userAgent: sub.consentAgent }).catch((err: unknown) =>
+          console.warn('[newsletter] could not record the e-mail permission of a confirmed subscriber:', err)
+        )
+      }
       if (minted) {
         await sendWelcome(sub.email, sub.token, minted.code)
         await logAuditEvent({ action: 'NEWSLETTER_CONFIRMED', entity: 'NewsletterSubscriber', entityId: sub.id, metadata: { couponId } })
@@ -295,6 +303,8 @@ export async function unsubscribeNewsletter(token: string, messageId?: string): 
       unsubscribedAt: toDbTimestamp(),
     } as never)
   }
+  // Leaving the newsletter stops all commercial e-mail: the e-mail permission is taken back too
+  await withdrawEmailConsent(sub.email).catch((err: unknown) => console.warn('[newsletter] could not withdraw the e-mail permission:', err))
   // Counted against the campaign mail it was clicked from (first time only; only that subscriber's own mail)
   if (messageId && messageId.length <= 64) {
     await db.runtime().execute(

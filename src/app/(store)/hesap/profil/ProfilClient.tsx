@@ -8,6 +8,7 @@ import { authErrorMessage } from '@/lib/auth/error-messages'
 import RecaptchaNotice from '@/components/auth/RecaptchaNotice'
 import AccountNav from '@/components/account/AccountNav'
 import AccountHeader from '@/components/account/AccountHeader'
+import EmailPreferences from '@/components/account/EmailPreferences'
 import ZuuMascotIcon from '@/components/common/ZuuMascotIcon'
 import styles from './Profil.module.css'
 import { SkeletonList } from '@/components/common/Skeleton'
@@ -232,6 +233,7 @@ export default function ProfilClient() {
               </form>
             </div>
           )}
+          <EmailPreferences />
         </main>
       </div>
     </div>

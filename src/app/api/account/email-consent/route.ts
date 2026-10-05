@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { requireAuth } from '@/lib/services/auth.service'
 import { getClientIp } from '@/lib/config/maintenance'
 import { db } from '@/prisma/db'
-import { declineEmailConsent, getConsentStatus, grantEmailConsent } from '@/lib/services/email-consent.service'
+import { declineEmailConsent, getConsentStatus, grantEmailConsent, withdrawEmailConsent } from '@/lib/services/email-consent.service'
+import { newsletterStatusFor } from '@/lib/services/newsletter.service'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,22 +17,33 @@ async function isVerified(userId: string): Promise<boolean> {
 }
 
 /**
- * GET → the signed-in member's e-mail permission: { status, eligible }. `eligible` is false for an
+ * GET → the signed-in member's e-mail permission and newsletter status: { status, newsletter, eligible }. `eligible` is false for an
  * address that is not verified yet, so nobody can give a permission in someone else's name.
  */
 export async function GET(request: Request) {
   try {
     const user = await requireAuth(request)
-    const [status, eligible] = await Promise.all([getConsentStatus(user.email), isVerified(user.id)])
-    return NextResponse.json({ success: true, email: user.email, status, eligible }, { headers: { 'Cache-Control': 'no-store' } })
+    const [status, eligible, newsletter] = await Promise.all([
+      getConsentStatus(user.email),
+      isVerified(user.id),
+      newsletterStatusFor(user.email).catch(() => null),
+    ])
+    return NextResponse.json({ success: true, email: user.email, status, newsletter, eligible }, { headers: { 'Cache-Control': 'no-store' } })
   } catch {
     return NextResponse.json({ success: false }, { status: 401 })
   }
 }
 
-const bodySchema = z.object({ answer: z.enum(['accept', 'decline']) })
+const bodySchema = z.object({
+  answer: z.enum(['accept', 'decline', 'withdraw']),
+  /** Where it was answered: the modal after sign-in (default) or the e-mail preferences in the account */
+  from: z.enum(['modal', 'account']).optional(),
+})
 
-/** POST { answer: "accept" | "decline" } → the member's answer to the modal */
+/**
+ * POST { answer } → the member's answer: "accept" / "decline" from the modal, "accept" / "withdraw" from the e-mail
+ * preferences in their account (withdrawing stops all commercial e-mail, the newsletter included)
+ */
 export async function POST(request: Request) {
   let user
   try {
@@ -42,13 +54,15 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ success: false, error: 'Geçersiz istek.' }, { status: 400 })
 
-  const proof = { email: user.email, source: 'member_modal' as const, userId: user.id, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') }
+  const proof = { email: user.email, source: (parsed.data.from === 'account' ? 'account' : 'member_modal') as 'account' | 'member_modal', userId: user.id, ip: getClientIp(new Headers(request.headers)), userAgent: request.headers.get('user-agent') }
   try {
     if (parsed.data.answer === 'accept') {
       if (!(await isVerified(user.id))) {
         return NextResponse.json({ success: false, error: 'Önce e-posta adresini doğrulamalısın.' }, { status: 400 })
       }
       await grantEmailConsent(proof)
+    } else if (parsed.data.answer === 'withdraw') {
+      await withdrawEmailConsent(user.email)
     } else {
       await declineEmailConsent(proof)
     }

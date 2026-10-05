@@ -4,19 +4,19 @@ import { db } from '@/prisma/db'
 import { EMAIL_PERMISSION_TEXT } from '@/lib/newsletter/consent'
 
 /**
- * Permission to send a person commercial e-mail that is not the newsletter (reminders about an
- * unpaid order, the review request, offers to members).
+ * The one permission to send a person commercial e-mail (ticari elektronik ileti): campaigns, offers,
+ * reminders about an unpaid order, the review request.
  *
- * It is a different thing from the newsletter on purpose: subscribing to the newsletter does not
- * give this permission, and giving this permission does not subscribe anyone. Newsletter
- * campaigns go only to newsletter subscribers; the automatic mails go only to people with an
- * ACTIVE permission here.
+ * It is given in four places, always by an unticked box or an explicit "yes":
+ * - the newsletter form, once the address is confirmed (source newsletter): this also puts the person on the
+ *   newsletter, which is a topic on top of the permission (newsletter-only content goes only to subscribers);
+ * - a signed-in member, in the modal shown after signing in (source member_modal) or in their account (source account);
+ * - anyone, in the optional box on the payment page (source checkout).
+ * The text shown, the time, the IP address and the browser are kept as proof.
  *
- * Where it is given:
- * - a signed-in member, in the modal shown after signing in (source member_modal);
- * - anyone, in the optional, unticked box on the payment page (source checkout).
- * The text shown, the time, the IP address and the browser are kept as proof. Every mail carries a
- * signed link that withdraws it (/eposta/ayril).
+ * Taking it back stops ALL commercial e-mail: the link in any commercial mail (newsletter or automatic)
+ * withdraws the permission and unsubscribes the newsletter too; the member can switch it on again under
+ * Hesabım > Profilim > e-posta tercihleri.
  */
 
 type Rec = Record<string, unknown>
@@ -24,7 +24,7 @@ const run = <T = Rec>(query: unknown) => db.runtime().query(query as never) as u
 const exec = (query: unknown) => db.runtime().execute(query as never) as unknown as Promise<{ affectedRows: number }>
 
 export type ConsentStatus = 'NONE' | 'ACTIVE' | 'WITHDRAWN' | 'DECLINED'
-export type ConsentSource = 'member_modal' | 'checkout'
+export type ConsentSource = 'member_modal' | 'account' | 'checkout' | 'newsletter'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -48,6 +48,8 @@ export async function getConsentStatus(email: string): Promise<ConsentStatus> {
 interface Proof {
   email: string
   source: ConsentSource
+  /** The wording the person saw; defaults to EMAIL_PERMISSION_TEXT */
+  text?: string
   userId?: string | null
   ip?: string | null
   userAgent?: string | null
@@ -64,9 +66,10 @@ const proofValues = (p: Proof) => ({
 /** The person said yes. Returns false when they already had an active permission (nothing changes). */
 export async function grantEmailConsent(p: Proof): Promise<boolean> {
   const v = proofValues(p)
+  const text = p.text ?? EMAIL_PERMISSION_TEXT
   const { affectedRows } = await exec(
     db.raw.sql`INSERT INTO email_consents (id, email, status, source, consent_text, consent_ip, consent_agent, user_id, granted_at, created_at, updated_at)
-               VALUES (${v.id}, ${v.email}, 'ACTIVE', ${p.source}, ${EMAIL_PERMISSION_TEXT}, NULLIF(${v.ip}, ''), NULLIF(${v.agent}, ''), NULLIF(${v.userId}, ''), now(), now(), now())
+               VALUES (${v.id}, ${v.email}, 'ACTIVE', ${p.source}, ${text}, NULLIF(${v.ip}, ''), NULLIF(${v.agent}, ''), NULLIF(${v.userId}, ''), now(), now(), now())
                ON CONFLICT (email) DO UPDATE SET
                  status = 'ACTIVE', source = EXCLUDED.source, consent_text = EXCLUDED.consent_text, consent_ip = EXCLUDED.consent_ip,
                  consent_agent = EXCLUDED.consent_agent, user_id = COALESCE(EXCLUDED.user_id, email_consents.user_id),
@@ -92,13 +95,21 @@ export async function declineEmailConsent(p: Proof): Promise<void> {
   )
 }
 
-/** The person took the permission back (the link in every mail). True when there was one to take back. */
+/**
+ * The person took the permission back (the link in any commercial mail, or the switch in their account).
+ * This stops ALL commercial e-mail: the newsletter subscription ends too. True when anything was changed.
+ */
 export async function withdrawEmailConsent(email: string): Promise<boolean> {
-  const { affectedRows } = await exec(
+  const address = normalizeConsentEmail(email)
+  const consent = await exec(
     db.raw.sql`UPDATE email_consents SET status = 'WITHDRAWN', withdrawn_at = now(), updated_at = now()
-               WHERE email = ${normalizeConsentEmail(email)} AND status = 'ACTIVE'`.affectedCount().build()
+               WHERE email = ${address} AND status = 'ACTIVE'`.affectedCount().build()
   )
-  return affectedRows > 0
+  const newsletter = await exec(
+    db.raw.sql`UPDATE newsletter_subscribers SET status = 'UNSUBSCRIBED', unsubscribed_at = now(), updated_at = now()
+               WHERE email = ${address} AND status IN ('ACTIVE', 'PENDING')`.affectedCount().build()
+  )
+  return consent.affectedRows + newsletter.affectedRows > 0
 }
 
 /**

@@ -27,7 +27,7 @@ export default function UnsubscribeClient({ token, message }: { token: string; m
         {state === 'done' ? (
           <>
             <h1 className={styles.title}>bültenden ayrıldın.</h1>
-            <p className={styles.text}>Artık bülten e-postası almayacaksın. Sipariş ve kargo bildirimlerin gelmeye devam eder.</p>
+            <p className={styles.text}>Artık bülten, kampanya ve sepet hatırlatması e-postaları almayacaksın. Sipariş ve kargo bildirimlerin gelmeye devam eder.</p>
             <Link href="/" className="btn btn-primary btn-lg">
               ana sayfaya dön
             </Link>
@@ -46,7 +46,7 @@ export default function UnsubscribeClient({ token, message }: { token: string; m
         ) : (
           <>
             <h1 className={styles.title}>bültenden ayrılmak istiyor musun?</h1>
-            <p className={styles.text}>Yeni tasarım ve kampanya e-postalarını artık almayacaksın. Dilediğin zaman tekrar katılabilirsin.</p>
+            <p className={styles.text}>Yeni tasarım, kampanya ve sepet hatırlatması e-postalarını artık almayacaksın. Dilediğin zaman tekrar katılabilirsin.</p>
             <div className={styles.actions}>
               <button type="button" className="btn btn-primary btn-lg" onClick={unsubscribe} disabled={state === 'working'}>
                 {state === 'working' ? 'işleniyor…' : 'bültenden ayrıl'}

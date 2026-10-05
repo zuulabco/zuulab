@@ -27,7 +27,7 @@ export const AUTOMATIONS: AutomationDef[] = [
     name: 'Terk edilen ödeme',
     rule: 'Ödeme sayfasına gelip siparişi tamamlamayan müşteriye, siparişten 3 saat sonra (en geç 24 saat içinde) bir hatırlatma gider.',
     audience:
-      'Yalnızca e-posta izni vermiş müşteriler (üyelikte giriş sonrası çıkan pencerede veya ödeme sayfasındaki kutuda). Bülten aboneliği bu izin yerine geçmez.',
+      'Yalnızca e-posta izni vermiş müşteriler (bülten formu, üyelikte giriş sonrası çıkan pencere, ödeme sayfasındaki kutu ya da hesap tercihleri). Yalnızca bültene yazılmak ya da eski bir aboneliğe sahip olmak bu izin yerine geçmez.',
   },
   {
     key: 'review_request',

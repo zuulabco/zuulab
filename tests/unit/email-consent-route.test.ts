@@ -25,7 +25,9 @@ vi.mock('@/lib/services/email-consent.service', () => ({
   getConsentStatus: async () => status,
   grantEmailConsent: async (p: Record<string, unknown>) => (calls.push(['grant', p]), (status = 'ACTIVE'), true),
   declineEmailConsent: async (p: Record<string, unknown>) => (calls.push(['decline', p]), (status = status === 'ACTIVE' ? 'WITHDRAWN' : 'DECLINED')),
+  withdrawEmailConsent: async (email: string) => (calls.push(['withdraw', { email }]), (status = 'WITHDRAWN'), true),
 }))
+vi.mock('@/lib/services/newsletter.service', () => ({ newsletterStatusFor: async () => 'ACTIVE' }))
 
 const route = () => import('@/app/api/account/email-consent/route')
 const post = async (body: unknown) => {
@@ -57,6 +59,13 @@ describe('GET: what the modal needs to know', () => {
   })
 })
 
+describe('GET: newsletter status', () => {
+  it('also reports the newsletter status, for the e-mail preferences in the account', async () => {
+    const { GET } = await route()
+    expect(await (await GET(new Request('https://zuulab.com/x'))).json()).toMatchObject({ newsletter: 'ACTIVE' })
+  })
+})
+
 describe('POST: the answer', () => {
   it('"yes" gives the permission for the account address, with the proof, and answers with the new status', async () => {
     const res = await post({ answer: 'accept' })
@@ -80,6 +89,16 @@ describe('POST: the answer', () => {
     status = 'ACTIVE'
     expect(await (await post({ answer: 'decline' })).json()).toMatchObject({ success: true, status: 'WITHDRAWN' })
     expect(calls.map((c) => c[0])).toEqual(['decline', 'decline'])
+  })
+
+  it('the switch in the account takes it back (even for an unverified address) and records where it was given', async () => {
+    verified = false
+    status = 'ACTIVE'
+    expect(await (await post({ answer: 'withdraw', from: 'account' })).json()).toMatchObject({ success: true, status: 'WITHDRAWN' })
+    verified = true
+    expect(await (await post({ answer: 'accept', from: 'account' })).json()).toMatchObject({ success: true, status: 'ACTIVE' })
+    expect(calls.map((c) => c[0])).toEqual(['withdraw', 'grant'])
+    expect(calls[1][1]).toMatchObject({ source: 'account' })
   })
 
   it('refuses anything else, and anyone not signed in', async () => {
