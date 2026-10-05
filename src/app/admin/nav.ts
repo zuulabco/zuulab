@@ -25,7 +25,14 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Kontrol paneli', href: '/', icon: 'home', keywords: 'ana panel dashboard özet genel bakış' },
       { label: 'Bugün', href: '/today', icon: 'today', keywords: 'günlük yapılacaklar bekleyen işler today' },
-      { label: 'Analizler', href: '/analytics', icon: 'analytics', keywords: 'rapor istatistik ciro gelir satış grafik analytics' },
+    ],
+  },
+  {
+    id: 'marketing',
+    title: 'Pazarlama',
+    items: [
+      { label: 'Genel bakış', href: '/marketing', icon: 'megaphone', keywords: 'pazarlama özet ciro dönüşüm huni sepet terk ziyaretçi reklam roas marketing' },
+      { label: 'Analitik', href: '/analytics', icon: 'analytics', keywords: 'analizler google analytics rapor istatistik grafik analytics ziyaretçi tıklama' },
       { label: 'SEO', href: '/seo', icon: 'analytics', keywords: 'google arama search console sorgu tıklama gösterim sıralama seo' },
     ],
   },
