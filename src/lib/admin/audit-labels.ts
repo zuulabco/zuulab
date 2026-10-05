@@ -114,6 +114,11 @@ const SENTENCES: Record<string, string> = {
   CAMPAIGN_DELETED: 'Kampanya silindi',
   EMAIL_CAMPAIGN_SENT: 'E-posta kampanyası gönderildi',
   EMAIL_AUTOMATION_TOGGLED: 'Otomatik e-posta açıldı/kapatıldı',
+  META_CAMPAIGN_CREATED: 'Meta reklam kampanyası oluşturuldu (duraklatılmış)',
+  META_ADSET_CREATED: 'Meta reklam seti oluşturuldu (duraklatılmış)',
+  META_AD_CREATED: 'Meta reklamı oluşturuldu (duraklatılmış)',
+  META_ENTITY_ACTIVATED: 'Meta reklamı yayına alındı',
+  META_ENTITY_PAUSED: 'Meta reklamı duraklatıldı',
   NEWSLETTER_CONFIRMED: 'Bülten aboneliği onaylandı',
   NEWSLETTER_SUBSCRIBER_DELETED: 'Bülten abonesi silindi',
   // Kullanıcı / destek
