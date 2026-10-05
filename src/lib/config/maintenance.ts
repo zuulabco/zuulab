@@ -51,7 +51,7 @@ export function getCachedMaintenanceState(): { enabled: boolean | null; source: 
 export function isMaintenanceModeEnabled(): boolean {
   // If recently set in runtime cache (from DB or admin action), respect it
   if (cacheIsFresh()) {
-    return _cachedMaintenanceEnabled
+    return _cachedMaintenanceEnabled === true
   }
 
   // Fallback to process.env.MAINTENANCE_MODE
