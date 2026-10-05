@@ -168,7 +168,11 @@ describe('purchase from a confirmed card payment', () => {
     expect(event.userId).toBe(userId)
     expect(event.items).toHaveLength(1)
     expect(event.items![0]).toMatchObject({ productId, quantity: 2, price: 100 })
-    expect(event).toEqual({ ...buildPurchaseEvent(stored!)!, timestamp: event.timestamp, source: 'server', consent: null })
+    // The buyer's contact data (for Meta CAPI hashing) comes from the order's own snapshot
+    const { user, ...withoutUser } = event
+    expect(user?.email).toBe(stored!.customerEmail)
+    expect(user?.phone).toBe(stored!.shippingAddressSnapshot.phone)
+    expect(withoutUser).toEqual({ ...buildPurchaseEvent(stored!)!, timestamp: event.timestamp, source: 'server', consent: null })
   }, 60_000)
 
   it('is not produced for a failed payment', async () => {

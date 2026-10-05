@@ -10,6 +10,7 @@ import { logAuditEvent } from './admin.service'
 import { createNotification } from './notification/notification.service'
 import type { NotificationEventType } from './notification/notification.interface'
 import { quoteCart, type CartIssue, type CartQuote } from './checkout/pricing.service'
+import type { OrderAttribution } from '@/lib/marketing/events'
 import {
   InsufficientStockError,
   currentStockFor,
@@ -86,14 +87,16 @@ export interface CreateOrderPayload {
 export interface OrderMarketingInput {
   consent?: 'all' | 'necessary' | null
   anonymousId?: string
-  attribution?: { last?: Record<string, string | undefined>; first?: Record<string, string | undefined> }
+  attribution?: OrderAttribution
 }
 
 function marketingColumns(m: OrderMarketingInput | undefined) {
   const consent = m?.consent === 'all' || m?.consent === 'necessary' ? m.consent : null
   const allowed = consent === 'all'
   const hasAttribution =
-    allowed && m?.attribution && (Object.keys(m.attribution.last ?? {}).length > 0 || Object.keys(m.attribution.first ?? {}).length > 0)
+    allowed && m?.attribution && (Object.keys(m.attribution.last ?? {}).length > 0 ||
+      Object.keys(m.attribution.first ?? {}).length > 0 ||
+      Object.keys(m.attribution.meta ?? {}).length > 0)
   return {
     marketingConsent: consent,
     anonymousId: allowed ? m?.anonymousId ?? null : null,
@@ -137,7 +140,7 @@ export interface StoredOrder {
   /** Cookie-banner choice when the order was placed; null = unknown (older or marketplace order) */
   marketingConsent: 'all' | 'necessary' | null
   anonymousId: string | null
-  attribution: { last?: Record<string, string | undefined>; first?: Record<string, string | undefined> } | null
+  attribution: OrderAttribution | null
   createdAt: string
   updatedAt: string
   statusHistory: OrderStatusHistoryItem[]

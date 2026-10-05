@@ -10,6 +10,7 @@ import {
   initiatePayment,
 } from '@/lib/services/payment/payment.service'
 import { getClientIp } from '@/lib/config/maintenance'
+import { readClientContext } from '@/lib/marketing/request-context'
 import { getPublicOrigin } from '@/lib/config/app-url'
 import { getGeliverConfig } from '@/lib/services/shipping/geliver/geliver.client'
 import {
@@ -127,7 +128,12 @@ export async function POST(request: Request) {
       checkoutKey,
       expectedTotal,
       paymentMethod,
-      marketing,
+      // With consent, the Meta identifiers of this browser are kept too, so the server can
+      // send the purchase to Meta later without a browser
+      marketing:
+        marketing?.consent === 'all'
+          ? { ...marketing, attribution: { ...marketing.attribution, meta: readClientContext(request) } }
+          : marketing,
     })
 
     // Lets this browser (including guests) see and pay the order it created.

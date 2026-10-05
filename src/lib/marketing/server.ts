@@ -1,13 +1,14 @@
 import 'server-only'
 import { createDispatcher, type Destination, type Dispatcher } from './dispatcher'
-import { buildEvent, type MarketingEvent, type MarketingEventData, type CanonicalEventName } from './events'
+import { buildEvent, type EventUser, type MarketingEvent, type MarketingEventData, type CanonicalEventName } from './events'
 import { buildPurchaseEvent } from './purchase'
-import { findOrderByNumber } from '@/lib/services/orders.service'
+import { metaCapiDestination } from './destinations/meta-capi'
+import { findOrderByNumber, type StoredOrder } from '@/lib/services/orders.service'
 
 /**
- * Server entry point for canonical events. Server-side destinations (Meta CAPI, GA4
- * Measurement Protocol, internal analytics, Resend automations) are registered on
- * `serverDispatcher` in later phases; this phase ships none that call an outside API.
+ * Server entry point for canonical events. Server-side destinations are registered on
+ * `serverDispatcher`: Meta CAPI today; GA4 Measurement Protocol, internal analytics and
+ * Resend automations in later phases.
  *
  * Every call here is best effort: it never throws and is time-bounded, so a slow or
  * failing destination cannot hold up or break an order, a payment or a webhook reply.
@@ -23,11 +24,15 @@ const debugDestination: Destination = {
   consent: 'none',
   accepts: () => process.env.MARKETING_EVENT_DEBUG === '1',
   send(event) {
-    console.info(`[marketing] ${event.eventName} ${event.eventId}`, JSON.stringify(event))
+    // the person's data (user, client) is never logged
+    const loggable: Partial<MarketingEvent> = { ...event }
+    delete loggable.user
+    delete loggable.client
+    console.info(`[marketing] ${event.eventName} ${event.eventId}`, JSON.stringify(loggable))
   },
 }
 
-export const serverDispatcher: Dispatcher = createDispatcher({ destinations: [debugDestination] })
+export const serverDispatcher: Dispatcher = createDispatcher({ destinations: [debugDestination, metaCapiDestination] })
 
 export function buildServerEvent(name: CanonicalEventName, data: MarketingEventData): MarketingEvent {
   return buildEvent(name, data, { source: 'server' })
@@ -57,8 +62,29 @@ export async function emitPurchaseForOrder(orderNumber: string): Promise<void> {
     const purchase = buildPurchaseEvent(order)
     if (!purchase) return
     // Consent is the visitor's choice recorded with the order (null for older orders = not granted)
-    await serverDispatcher.dispatch({ ...purchase, source: 'server', consent: order.marketingConsent })
+    await serverDispatcher.dispatch({
+      ...purchase,
+      source: 'server',
+      consent: order.marketingConsent,
+      user: userOfOrder(order),
+      ...(order.attribution?.meta ? { client: order.attribution.meta } : {}),
+    })
   } catch (error) {
     console.warn(`[marketing] purchase event for ${orderNumber} failed:`, error instanceof Error ? error.message : error)
+  }
+}
+
+/** The buyer's contact data from the order's own snapshot; Meta CAPI hashes it before sending */
+function userOfOrder(order: StoredOrder): EventUser {
+  const address = order.shippingAddressSnapshot
+  const [firstName, ...rest] = (address.fullName || '').trim().split(/\s+/)
+  return {
+    email: order.customerEmail || address.email,
+    phone: address.phone,
+    firstName,
+    lastName: rest.join(' ') || undefined,
+    city: address.city,
+    postalCode: address.postalCode,
+    country: 'tr',
   }
 }

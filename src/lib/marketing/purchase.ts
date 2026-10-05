@@ -3,8 +3,8 @@ import {
   roundMoney,
   type MarketingEvent,
   type MarketingItem,
+  type OrderAttribution,
   type PaymentMethodName,
-  type UtmParams,
 } from './events'
 
 /**
@@ -28,7 +28,7 @@ export interface PurchaseOrderSource {
   createdAt: string
   /** Captured at checkout (kept only with consent) */
   anonymousId?: string | null
-  attribution?: { last?: UtmParams; first?: UtmParams } | null
+  attribution?: OrderAttribution | null
   items: Array<{
     productId: string
     variantId: string | null

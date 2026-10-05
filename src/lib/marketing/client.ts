@@ -4,6 +4,7 @@ import { getConsent } from '@/lib/consent'
 import { getAttribution, getFirstTouchAttribution } from './attribution'
 import { createDispatcher } from './dispatcher'
 import { ga4BrowserDestination } from './destinations/ga4-browser'
+import { metaCapiRelayDestination, metaPixelDestination } from './destinations/meta-pixel'
 import {
   buildEvent,
   DEFAULT_CURRENCY,
@@ -21,10 +22,12 @@ import {
  * and hands the event to the dispatcher. It never throws and never waits, so calling it
  * from a click handler or a store action cannot slow down or break the shop.
  *
- * Meta Pixel (and other browser destinations) are added by registering them on
- * `browserDispatcher` in a later phase; callers do not change.
+ * Destinations: GA4, Meta Pixel and the relay that hands browser events to the server for
+ * Meta CAPI. Another one is added by registering it here; callers do not change.
  */
-export const browserDispatcher = createDispatcher({ destinations: [ga4BrowserDestination] })
+export const browserDispatcher = createDispatcher({
+  destinations: [ga4BrowserDestination, metaPixelDestination, metaCapiRelayDestination],
+})
 
 const ANON_KEY = 'zuulab_aid'
 const SESSION_KEY = 'zuulab_sid'

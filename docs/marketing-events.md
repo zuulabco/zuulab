@@ -1,12 +1,12 @@
-# Marketing events (Phase 1)
+# Marketing events (Phase 1–2)
 
 One shared model for every user action that analytics, ads and email tools care about.
 Code lives in `src/lib/marketing/`.
 
 ```
  browser action ──trackEvent()──┐                       ┌─ GA4 (gtag)            live
- (cart, product, search, …)     ├─ build + identity ──► dispatcher ──► consent ──┼─ Meta Pixel            later
- server sale (payment confirmed)┘   (MarketingEvent)     best effort   per dest. ├─ Meta CAPI (server)    later
+ (cart, product, search, …)     ├─ build + identity ──► dispatcher ──► consent ──┼─ Meta Pixel            live
+ server sale (payment confirmed)┘   (MarketingEvent)     best effort   per dest. ├─ Meta CAPI (server)    live
  emitPurchaseForOrder()                                                         ├─ internal analytics    later
                                                                                 └─ Resend automations    later
 ```
@@ -54,6 +54,26 @@ Not added: `lead` (the contact form is a GA4-only `generate_lead`, kept as is), 
 - Server copy: emitted from the two confirmation points above, which are compare-and-set guarded
   (once per order). Browser copy: `/api/marketing/purchase?order=` returns the event built from the DB
   (same access check as the payment status poll), the success page sends it once (localStorage guard).
+
+## Meta (Phase 2)
+
+Env (server only, see `lib/marketing/meta-config.ts`): `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN`, optional
+`META_CAPI_TEST_EVENT_CODE`. **Remove the test code in production once testing is done**: while it is set, server
+events only appear under Events Manager → Test Events and do not count for ads.
+
+- **Pixel** (`destinations/meta-pixel.ts`, loaded by `components/analytics/MetaPixel.tsx`): only after the cookie
+  banner's "tümünü kabul et". Auto PageView on history change and auto-config are off; every event comes from the
+  canonical layer with `eventID` = the canonical eventId.
+- **CAPI** (`destinations/meta-capi.ts`, payload in `meta-capi-payload.ts`): server only. Email, phone, name, city,
+  postal code, country and external id are normalised and SHA-256 hashed; IP, user agent, `_fbp`, `_fbc` go as is.
+- **Purchase**: sent once from the stored order (`emitPurchaseForOrder`), same `purchase_<orderNumber>` id as the
+  Pixel copy. Buyer data comes from the order snapshot; `_fbp`, `_fbc`, IP and user agent were stored with the order
+  at checkout (`orders.attribution.meta`, only with consent).
+- **Other events**: ViewContent, AddToCart, InitiateCheckout, AddPaymentInfo, CompleteRegistration are relayed by the
+  browser to `POST /api/marketing/event` (consent read from the cookie, fixed field list, rate limited), which sends
+  them with the same eventId. PageView and Search are browser-only. Not sent to Meta: newsletter_signup (open
+  decision: Lead or Subscribe), login, remove_from_cart.
+- No retry queue: a failed CAPI call is logged and dropped.
 
 ## Adding a destination
 

@@ -56,6 +56,39 @@ export interface UtmParams {
 }
 
 /**
+ * Who the shopper is, for destinations that match events to a person (Meta CAPI hashes
+ * these before sending). Only ever set on the server from a stored order; never logged.
+ */
+export interface EventUser {
+  email?: string
+  phone?: string
+  firstName?: string
+  lastName?: string
+  city?: string
+  postalCode?: string
+  country?: string
+}
+
+/** Browser identifiers a server-side destination needs to match an event to an ad click */
+export interface EventClient {
+  ip?: string
+  userAgent?: string
+  /** Meta's _fbp / _fbc first-party cookies */
+  fbp?: string
+  fbc?: string
+}
+
+/**
+ * The marketing context stored on an order at checkout (orders.attribution). `meta` holds
+ * the Meta identifiers of that visit, kept so the server can send the purchase later.
+ */
+export interface OrderAttribution {
+  last?: UtmParams
+  first?: UtmParams
+  meta?: EventClient
+}
+
+/**
  * The event as every destination receives it. Only the envelope (eventId, eventName,
  * timestamp, source) is always set; the rest depends on the event, see REQUIRED_FIELDS.
  */
@@ -104,6 +137,10 @@ export interface MarketingEvent extends UtmParams {
   coupon?: string
   /** Shipping fee included in `value` (purchase) */
   shipping?: number
+
+  /** Server-side only, see EventUser / EventClient */
+  user?: EventUser
+  client?: EventClient
 }
 
 /** Fields the caller supplies; envelope and identity fields are filled by the builder */
@@ -147,6 +184,26 @@ export function newEventId(): string {
  */
 export function purchaseEventId(orderNumber: string): string {
   return `purchase_${orderNumber}`
+}
+
+/** The items of an event: its `items`, or the single product described by the flat fields */
+export function itemsOf(event: MarketingEvent): MarketingItem[] {
+  if (event.items && event.items.length > 0) return event.items
+  if (event.productId && event.productName && event.price !== undefined) {
+    return [
+      {
+        productId: event.productId,
+        variantId: event.variantId,
+        productName: event.productName,
+        sku: event.sku,
+        category: event.category,
+        variantLabel: event.variantLabel,
+        quantity: event.quantity ?? 1,
+        price: event.price,
+      },
+    ]
+  }
+  return []
 }
 
 /** Money is kept to two decimals so values summed on either side agree */

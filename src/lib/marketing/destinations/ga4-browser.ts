@@ -1,7 +1,7 @@
 import { track, toGaItem, type AnalyticsItem } from '@/lib/analytics/gtag'
 import type { Destination } from '../dispatcher'
 import type { MarketingEvent, MarketingItem } from '../events'
-import { sumItems } from '../events'
+import { itemsOf, sumItems } from '../events'
 import { ga4EventName } from '../mapping'
 
 /**
@@ -23,25 +23,7 @@ function asAnalyticsItem(i: MarketingItem): AnalyticsItem {
   }
 }
 
-/** The items of an event: its `items`, or the single product described by the flat fields */
-export function itemsOf(event: MarketingEvent): MarketingItem[] {
-  if (event.items && event.items.length > 0) return event.items
-  if (event.productId && event.productName && event.price !== undefined) {
-    return [
-      {
-        productId: event.productId,
-        variantId: event.variantId,
-        productName: event.productName,
-        sku: event.sku,
-        category: event.category,
-        variantLabel: event.variantLabel,
-        quantity: event.quantity ?? 1,
-        price: event.price,
-      },
-    ]
-  }
-  return []
-}
+export { itemsOf }
 
 /** GA4 parameters for an event, or null when GA4 has nothing to say about it */
 export function toGa4Params(event: MarketingEvent): Record<string, unknown> | null {

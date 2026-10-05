@@ -7,6 +7,8 @@ import CookieBanner from '@/components/layout/CookieBanner'
 import { Suspense } from 'react'
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics'
 import MarketingTracker from '@/components/analytics/MarketingTracker'
+import MetaPixel from '@/components/analytics/MetaPixel'
+import { getMetaPixelId } from '@/lib/marketing/meta-config'
 import WhatsAppButton from '@/components/common/WhatsAppButton'
 import { getStoreNavigation } from '@/lib/services/catalog/navigation.service'
 
@@ -29,6 +31,7 @@ export default async function StoreLayout({
       <WhatsAppButton />
       <CookieBanner />
       <GoogleAnalytics />
+      <MetaPixel pixelId={getMetaPixelId()} />
       <Suspense fallback={null}>
         <MarketingTracker />
       </Suspense>
