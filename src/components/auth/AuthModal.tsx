@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/common/Modal'
 import RecaptchaNotice from './RecaptchaNotice'
 import { useAuthStore } from '@/store/authStore'
+import { preloadGoogleSignIn } from '@/lib/firebase'
 import styles from './AuthModal.module.css'
 
 export default function AuthModal() {
@@ -29,6 +30,7 @@ export default function AuthModal() {
   // Focus first interactive element when modal opens
   useEffect(() => {
     if (isAuthModalOpen) {
+      void preloadGoogleSignIn()
       setTimeout(() => firstFocusRef.current?.focus(), 50)
     }
   }, [isAuthModalOpen])

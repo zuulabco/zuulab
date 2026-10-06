@@ -195,7 +195,11 @@ export const useAuthStore = create<AuthState>()(
           set({
             error: err.code === 'auth/popup-closed-by-user'
               ? 'Giriş penceresi kapatıldı.'
-              : err.message || 'Google ile giriş başarısız oldu.',
+              : err.code === 'auth/popup-blocked'
+                ? 'Tarayıcı Google giriş penceresini engelledi. Butona bir kez daha dokunun; olmazsa pop-up iznini açın.'
+                : err.code === 'auth/cancelled-popup-request'
+                  ? null
+                  : err.message || 'Google ile giriş başarısız oldu.',
             isLoading: false,
           })
         }

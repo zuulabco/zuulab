@@ -72,6 +72,30 @@ function getClientAuth(): Auth {
 export const auth: Auth = getClientAuth()
 export const googleProvider = new GoogleAuthProvider()
 
+let googlePreload: Promise<void> | null = null
+
+/**
+ * Loads Google sign-in's iframe ahead of the click. signInWithPopup opens its window
+ * only after the resolver has initialised, and on a first click that wait is long
+ * enough for mobile browsers to drop the "user gesture" and block the popup
+ * (auth/popup-blocked); the second click works because everything is cached by then.
+ * Called when the sign-in dialog opens. Best effort: a failure changes nothing.
+ */
+export function preloadGoogleSignIn(): Promise<void> {
+  if (typeof window === 'undefined' || !isFirebaseClientConfigured) return Promise.resolve()
+  googlePreload ??= import('@firebase/auth/internal')
+    .then(({ _getInstance }) => {
+      const resolver = _getInstance(browserPopupRedirectResolver as never) as { _initialize(a: Auth): Promise<unknown> }
+      return resolver._initialize(auth)
+    })
+    .then(() => undefined)
+    .catch((err) => {
+      googlePreload = null
+      console.warn('[firebase] Google sign-in could not be preloaded:', err)
+    })
+  return googlePreload
+}
+
 let authProtection: Promise<boolean> | null = null
 
 /**

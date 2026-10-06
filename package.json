@@ -15,6 +15,7 @@
     "geliver:setup": "npx -y tsx --env-file=.env scripts/geliver-setup.ts"
   },
   "dependencies": {
+    "@firebase/auth": "^1.13.6",
     "@js-temporal/polyfill": "^0.5.1",
     "@prisma/client": "^7.10.0",
     "@prisma/orm-postgres": "^8.0.0-rc.13",
