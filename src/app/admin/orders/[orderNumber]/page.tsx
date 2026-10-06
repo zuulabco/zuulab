@@ -579,15 +579,10 @@ export default function AdminOrderDetailPage() {
             Durumu Güncelle
           </button>
 
-          {isCod && !activeShipment && canShip && (
-            <button
-              type="button"
-              disabled={creatingShipment}
-              onClick={handleCreateShipment}
-              className={`${styles.btn} ${styles.btnSecondary}`}
-            >
-              {creatingShipment ? 'Etiket oluşturuluyor...' : 'Kargoya Hazırla (PTT etiketi)'}
-            </button>
+          {isCod && (
+            <Link href={`/admin/cod/${order.orderNumber}`} className={`${styles.btn} ${styles.btnSecondary}`}>
+              Kapıda ödeme kargo adımları
+            </Link>
           )}
 
           {activeShipment?.provider === 'GELIVER' && (
@@ -805,23 +800,13 @@ export default function AdminOrderDetailPage() {
             ) : isCod ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                  Kapıda ödemeli sipariş PTT Kargo ile gider. &quot;Kargoya Hazırla&quot; Geliver&apos;de kapıda ödemeli ({formatPrice(order.totalAmount)}) PTT gönderisini açar
-                  ve etiketi oluşturur; gönderi ancak bundan sonra Geliver panelinde görünür.
+                  Kapıda ödemeli sipariş PTT Kargo ile gider ({formatPrice(order.totalAmount)} teslimatta tahsil edilir). Geliver&apos;e ekleme, adres ve koli ölçüsü kontrolü ve etiket
+                  oluşturma &quot;Kapıda ödeme&quot; sekmesinde yapılır.
                 </p>
                 <div>
-                  <button
-                    type="button"
-                    disabled={creatingShipment || !canShip}
-                    onClick={handleCreateShipment}
-                    className={`${styles.btn} ${styles.btnPrimary}`}
-                  >
-                    {creatingShipment ? 'Etiket oluşturuluyor...' : 'Kargoya Hazırla – PTT Etiketi Oluştur'}
-                  </button>
-                  {!canShip && (
-                    <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-                      Bu durumdaki sipariş için etiket oluşturulamaz.
-                    </span>
-                  )}
+                  <Link href={`/admin/cod/${order.orderNumber}`} className={`${styles.btn} ${styles.btnPrimary}`}>
+                    Kapıda ödeme sekmesinde yönet
+                  </Link>
                 </div>
               </div>
             ) : (

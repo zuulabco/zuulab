@@ -161,9 +161,33 @@ export interface GeliverShipment {
   statusCode?: string | null
   productPaymentOnDelivery?: boolean
   trackingStatus?: GeliverTrackingStatus | null
+  offers?: GeliverOfferList | null
   hasError?: boolean
   lastErrorMessage?: string | null
   test?: boolean
+}
+
+export interface GeliverOffer {
+  id: string
+  providerCode?: string
+  providerServiceCode?: string
+  totalAmount?: string
+}
+
+export interface GeliverOfferList {
+  cheapest?: GeliverOffer | null
+  list?: GeliverOffer[] | null
+  percentageCompleted?: string | number
+}
+
+export interface GeliverParcelTemplate {
+  id: string
+  name?: string
+  length?: string
+  width?: string
+  height?: string
+  weight?: string
+  isActive?: boolean
 }
 
 export interface GeliverTransaction {
@@ -191,4 +215,50 @@ export async function downloadGeliverLabel(token: string, labelUrl: string): Pro
   const res = await fetch(labelUrl, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) })
   if (!res.ok) throw new GeliverError(`Kargo etiketi indirilemedi (HTTP ${res.status}).`, res.status)
   return Buffer.from(await res.arrayBuffer())
+}
+
+/** Draft shipment (POST /shipments): nothing is bought yet, Geliver only collects offers */
+export function createGeliverShipment(token: string, body: unknown): Promise<GeliverShipment> {
+  return geliverRequest<GeliverShipment>(token, 'POST', '/shipments', body)
+}
+
+/** Buys the label of an offered shipment: charges the Geliver balance */
+export function acceptGeliverOffer(token: string, offerID: string): Promise<GeliverTransaction> {
+  return geliverRequest<GeliverTransaction>(token, 'POST', '/transactions', { offerID })
+}
+
+/** Offers arrive a moment after the shipment is created: polls until they are in */
+export async function waitForGeliverOffers(token: string, shipment: GeliverShipment, timeoutMs = 25_000): Promise<GeliverShipment> {
+  const done = (s: GeliverShipment) => !!s.offers && (!!s.offers.cheapest || Number(s.offers.percentageCompleted) >= 100)
+  let current = shipment
+  const start = Date.now()
+  while (!done(current)) {
+    if (Date.now() - start > timeoutMs) break
+    await new Promise((r) => setTimeout(r, 1500))
+    current = await getGeliverShipment(token, shipment.id)
+  }
+  return current
+}
+
+export async function listGeliverParcelTemplates(token: string): Promise<GeliverParcelTemplate[]> {
+  const list = await geliverRequest<GeliverParcelTemplate[]>(token, 'GET', '/parceltemplates')
+  return (list ?? []).filter((t) => t.isActive !== false)
+}
+
+export interface GeliverBalance {
+  balance: number
+  debt: number
+}
+
+/** The account balance; null when GELIVER_ORGANIZATION_ID is not set (the API needs it) */
+export async function getGeliverBalance(token: string): Promise<GeliverBalance | null> {
+  const orgId = process.env.GELIVER_ORGANIZATION_ID?.trim()
+  if (!orgId) return null
+  const res = await fetch(`${BASE_URL}/organizations/${encodeURIComponent(orgId)}/balance`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15_000),
+  })
+  const json = (await res.json().catch(() => null)) as { result?: boolean; data?: string; debt?: string } | null
+  if (!res.ok || !json || json.result === false) throw new GeliverError('Geliver bakiyesi okunamadı (organizasyon kimliğini kontrol edin).', res.status)
+  return { balance: Number(json.data ?? 0) || 0, debt: Number(json.debt ?? 0) || 0 }
 }

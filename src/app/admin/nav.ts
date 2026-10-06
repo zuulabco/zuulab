@@ -36,6 +36,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Siparişler', href: '/orders', icon: 'orders', keywords: 'order sipariş listesi' },
       { label: 'İadeler', href: '/returns', icon: 'returns', keywords: 'iade değişim rma return geri gönderim' },
       { label: 'Ödemeler', href: '/payments', icon: 'payments', keywords: 'ödeme tahsilat paytr havale eft kapıda payment' },
+      { label: 'Kapıda ödeme', href: '/cod', icon: 'shipping', keywords: 'kapıda ödeme ptt geliver cod etiket kargo bakiye' },
       { label: 'Kuponlar', href: '/coupons', icon: 'coupons', keywords: 'kupon indirim kodu coupon' },
       { label: 'Kampanyalar', href: '/campaigns', icon: 'megaphone', keywords: 'kampanya indirim promosyon fırsat' },
     ],
