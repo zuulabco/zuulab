@@ -156,7 +156,16 @@ interface ShippingInput {
   estimatedDelivery: string
 }
 
-export function productJsonLd(product: CatalogProduct, shipping: ShippingInput) {
+/** An approved customer review, as the product page shows it */
+export interface ReviewInput {
+  rating: number
+  title: string | null
+  body: string | null
+  userName: string
+  createdAt: string
+}
+
+export function productJsonLd(product: CatalogProduct, shipping: ShippingInput, reviews: ReviewInput[] = []) {
   const url = absoluteUrl(`/urun/${product.slug}`)
   const images = product.images.map((img) => absoluteUrl(img.url)).filter((u) => !u.endsWith('/placeholder.png'))
   const transit = dayRange(shipping.estimatedDelivery, { min: 2, max: 3 })
@@ -244,6 +253,19 @@ export function productJsonLd(product: CatalogProduct, shipping: ShippingInput) 
             bestRating: 5,
             worstRating: 1,
           },
+        }
+      : {}),
+    // Only real, approved reviews (the five newest): Google asks for review next to aggregateRating
+    ...(reviews.length > 0
+      ? {
+          review: reviews.slice(0, 5).map((r) => ({
+            '@type': 'Review',
+            reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+            author: { '@type': 'Person', name: r.userName },
+            ...(r.createdAt ? { datePublished: r.createdAt.slice(0, 10) } : {}),
+            ...(r.title ? { name: r.title } : {}),
+            ...(r.body ? { reviewBody: r.body } : {}),
+          })),
         }
       : {}),
   }

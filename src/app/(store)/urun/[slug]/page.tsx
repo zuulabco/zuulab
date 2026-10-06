@@ -9,6 +9,7 @@ import ProductDetailsClient from '@/components/product/ProductDetailsClient'
 import ProductReviews from '@/components/product/ProductReviews'
 import FeaturedProducts from '@/components/home/FeaturedProducts'
 import ProductCollectionDiscovery from '@/components/product/ProductCollectionDiscovery'
+import { getProductReviews } from '@/lib/services/reviews.service'
 import {
   getProductBySlug,
   getProducts,
@@ -48,13 +49,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
     (product.collectionWorld && product.collectionWorld !== 'general' ? product.collectionWorld : undefined)
 
   // Related products from same collection / category (4-item grid) from DB
-  const [{ items: allCandidates }, settings] = await Promise.all([
+  const [{ items: allCandidates }, settings, { reviews }] = await Promise.all([
     getProducts({
       collectionSlug: primaryCollectionSlug,
       categorySlug: product.categorySlug,
       limit: 8,
     }),
     getStoreSettings(),
+    // Approved reviews go into the product's structured data (the visible list loads on the client)
+    product.reviewCount > 0 ? getProductReviews(product.id) : Promise.resolve({ reviews: [] }),
   ])
 
   const relatedProducts: ProductListItem[] = allCandidates
@@ -73,7 +76,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     <>
       <JsonLd
         data={[
-          productJsonLd(product, shipping),
+          productJsonLd(product, shipping, reviews),
           breadcrumbJsonLd([
             { name: 'Ürünler', path: '/urunler' },
             { name: product.categoryName, path: `/kategori/${product.categorySlug}` },
