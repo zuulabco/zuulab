@@ -103,15 +103,17 @@ export default function AdminCodPage() {
               </div>
             </>
           )}
-          <a
-            href={balance?.topUpUrl || 'https://app.geliver.io'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
-            style={{ marginTop: 10, display: 'inline-block' }}
-          >
-            ↗ Geliver’de bakiye yükle
-          </a>
+          <div style={{ marginTop: 10 }}>
+            <a
+              href={balance?.topUpUrl || 'https://app.geliver.io'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${styles.btn} ${styles.btnSm} ${styles.btnSecondary}`}
+              style={{ textDecoration: 'none' }}
+            >
+              ↗ Geliver’de bakiye yükle
+            </a>
+          </div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statTitle}>İşlem bekleyen</div>
